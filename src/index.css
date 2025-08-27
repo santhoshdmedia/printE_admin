@@ -1,0 +1,156 @@
+@import url('https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,100..900;1,100..900&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  padding: 0;
+  margin: 0;
+  font-family: Jost !important;
+  /* scrollbar-width: thin !important; */
+}
+
+:root {
+  --primary--color: #376fad;
+  --secondary--colo: #1e293b;
+  --tri--colo: #f8fafc;
+}
+
+@layer components {
+  .center_div {
+    @apply flex items-center justify-center;
+  }
+  .title {
+    @apply font-bold text-3xl;
+  }
+  .sub_title {
+    @apply font-semibold text-lg;
+  }
+  .para {
+    @apply font-normal text-base;
+  }
+  .button {
+    @apply border py-3 px-4 bg-primary text-white rounded-md transition-all duration-200 ease-in-out hover:bg-green-700;
+  }
+  .input_box {
+    @apply !w-[300px] !h-[50px] !shadow-inner;
+  }
+}
+
+.ant-btn:hover {
+  background: #1e293b !important;
+  color: white !important;
+  border: var(--primary--color) !important;
+}
+
+.welcome_font {
+  font-family: "Fugaz One", sans-serif !important;
+  font-weight: 400 !important;
+  font-style: normal !important;
+}
+
+.ant-table-thead > tr > th {
+  background-color: white !important;
+  color: black !important;
+  border-radius: 0px !important;
+}
+
+.dashboard .ant-table-thead > tr > th {
+  background-color: white !important;
+}
+
+.ant-timeline .ant-timeline-item-head-blue {
+  border-color: var(--secondary--colo) !important;
+  color: var(--primary--color) !important;
+}
+
+.ant-layout-sider,
+.ant-layout-sider {
+  background-color: var(--tri--colo) !important;
+}
+
+.ant-layout-sider-trigger {
+  background-color: var(--primary--color) !important;
+}
+
+.ant-menu-light .ant-menu-submenu-selected > .ant-menu-submenu-title,
+.ant-menu-light > .ant-menu .ant-menu-submenu-selected > .ant-menu-submenu-title {
+  color: inherit !important ;
+}
+.ant-menu-inline > .ant-menu-item,
+.ant-menu-vertical > .ant-menu-item,
+.ant-menu-inline > .ant-menu-submenu > .ant-menu-submenu-title,
+.ant-menu-vertical > .ant-menu-submenu > .ant-menu-submenu-title {
+  height: 50px !important;
+}
+
+.ant-menu .ant-menu-submenu,
+.ant-menu .ant-menu-submenu-inline {
+  margin: 0px 3px !important;
+}
+
+.ant-menu-inline > .ant-menu-item,
+.ant-menu-vertical > .ant-menu-item,
+.ant-menu-inline > .ant-menu-submenu > .ant-menu-submenu-title,
+.ant-menu-vertical > .ant-menu-submenu > .ant-menu-submenu-title {
+  display: flex !important;
+  align-items: center !important;
+}
+
+.ant-table-wrapper .ant-table-container table > thead > tr:first-child > *:first-child {
+  height: 50px !important;
+}
+
+/* pagination & spin loading*/
+
+.ant-pagination .ant-pagination-prev,
+.ant-pagination .ant-pagination-next {
+  background-color: var(--primary--color) !important;
+  margin: 0px 10px !important;
+}
+
+.ant-pagination .ant-pagination-prev span,
+.ant-pagination .ant-pagination-next span,
+.ant-pagination .ant-pagination-item-active a {
+  color: white !important;
+}
+
+.ant-pagination .ant-pagination-item-active,
+.ant-spin .ant-spin-dot-item {
+  background-color: var(--primary--color) !important;
+  border: transparent !important;
+}
+
+.ant-pagination .ant-pagination-jump-prev .ant-pagination-item-container .ant-pagination-item-link-icon,
+.ant-pagination .ant-pagination-jump-next .ant-pagination-item-container .ant-pagination-item-link-icon {
+  color: var(--primary--color) !important;
+}
+
+.ant-checkbox-checked .ant-checkbox-inner {
+  background-color: var(--primary--color) !important;
+  border-color: var(--primary--color) !important;
+}
+
+/* .ant-tabs .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  background-color: var(--primary--color) !important;
+  color: white !important;
+  padding: 8px !important;
+  border-radius: 8px !important;
+} */
+
+.ant-tabs .ant-tabs-ink-bar {
+  display: none !important;
+}
+
+:where(.css-dev-only-do-not-override-1x0dypw).ant-input-group > .ant-input {
+  height: 50px !important;
+}
+
+.ant-layout-sider .ant-layout-sider-children {
+  background-color: white !important;
+}
+
+.ant-collapse > .ant-collapse-item > .ant-collapse-header .ant-collapse-header-text {
+  color: rgb(207, 8, 8) !important;
+  font-weight: 500 !important;
+}
