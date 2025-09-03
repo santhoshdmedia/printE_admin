@@ -19,7 +19,7 @@ import color14 from "../assets/images/color/P5.png";
 import color15 from "../assets/images/color/P7.png";
 import color16 from "../assets/images/color/P8.png";
 import color17 from "../assets/images/color/P9.png";
-import FULLLOGO from "../assets/images/logos/printelogo.jpg";
+// import FULLLOGO from "../assets/images/logos/printelogo.jpg";
 
 export const IMAGE_HELPER = {
   LOGIN_IMAGE: LOGINIMAGE,
@@ -41,6 +41,6 @@ export const IMAGE_HELPER = {
   color16: color16,
   color17: color17,
   logo: logo,
-  FULLLOGO: FULLLOGO,
+  // FULLLOGO: FULLLOGO,
   fav: fav
 };
