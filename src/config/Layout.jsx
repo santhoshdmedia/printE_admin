@@ -116,14 +116,7 @@ const App = () => {
 
   const [currentColorIndex, setCurrentColorIndex] = useState(0);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentColorIndex((prevIndex) => (prevIndex + 1) % logocolors.length);
-    }, 60000);
-
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  
 
   return (
     <Layout
@@ -142,7 +135,7 @@ const App = () => {
           <div className="flex flex-row items-center ">
             {collapsed ? (
               <img
-                src={logocolors[currentColorIndex]}
+                src={IMAGE_HELPER.fav}
                 alt=""
                 className="w-auto h-[35px] bg-center bg-contain"
               />
@@ -152,13 +145,9 @@ const App = () => {
                 <img
                   src={IMAGE_HELPER.logo}
                   alt=""
-                  className="w-auto h-[35px] bg-center bg-contain"
+                  className="w-auto h-[55px] bg-center bg-contain"
                 />
-                <img
-                  src={logocolors[currentColorIndex]}
-                  alt=""
-                  className="w-auto h-[35px] bg-center bg-contain"
-                />
+               
               </>
             )}
           </div>

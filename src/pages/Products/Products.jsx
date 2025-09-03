@@ -1,17 +1,25 @@
 import { useEffect, useState } from "react";
 import DefaultTile from "../../components/DefaultTile";
 import AddForms from "./AddForms";
-import { MdDelete } from "react-icons/md";
-import { Button, Checkbox, Collapse, Descriptions, Form, Image, Input, Modal, Popconfirm, Select, Spin, Switch, Table, Tabs, Tag, Tooltip } from "antd";
-import { FaEdit } from "react-icons/fa";
+import { MdDelete, MdContentCopy } from "react-icons/md";
+import { 
+  Button, Checkbox, Collapse, Descriptions, Form, Image, Input, Modal, 
+  Popconfirm, Select, Spin, Switch, Table, Tabs, Tag, Tooltip, Card, 
+  Row, Col, Divider, Space, Typography 
+} from "antd";
+import { FaEdit, FaEye, FaFilter } from "react-icons/fa";
 import _ from "lodash";
-import { addproduct, CLIENT_URL, deleteProduct, editProduct, getAllCategoryProducts, getAllVendor, getMainCategory, getProduct, getSubCategory, getSubProductCategory } from "../../api";
+import { 
+  addproduct, CLIENT_URL, deleteProduct, editProduct, getAllCategoryProducts, 
+  getAllVendor, getMainCategory, getProduct, getSubCategory, getSubProductCategory 
+} from "../../api";
 import { ERROR_NOTIFICATION, SUCCESS_NOTIFICATION } from "../../helper/notification_helper";
 import CustomTable from "../../components/CustomTable";
 import { ICON_HELPER } from "../../helper/iconhelper";
 import { Link } from "react-router-dom";
-import { render } from "react-dom";
 import { useForm } from "antd/es/form/Form";
+
+const { Title, Text } = Typography;
 
 const Products = () => {
   const [formStatus, setFormStatus] = useState(false);
@@ -33,6 +41,7 @@ const Products = () => {
   const [filter_subcategory_data, setFilterSubcategory_data] = useState([]);
   const [selectedProductData, setSelectedProductData] = useState(null);
   const [productid, setProductId] = useState();
+  const [showFilters, setShowFilters] = useState(false);
 
   const [cloneProductDetails, setCloneProductDetails] = useState([]);
 
@@ -55,7 +64,6 @@ const Products = () => {
 
   const handleCloseModal = () => {
     form.resetFields();
-
     setCloneProductDetails([]);
     setSelectedProductData(null);
   };
@@ -136,7 +144,6 @@ const Products = () => {
       setLoading(false);
     }
   };
-  console.log({ tableData });
 
   const handleUpdate = (data) => {
     setId(data);
@@ -192,15 +199,15 @@ const Products = () => {
       dataIndex: "_id",
       align: "center",
       render: (s, a, index) => {
-        return <span>{index + 1}</span>;
+        return <span className="text-gray-600">{index + 1}</span>;
       },
     },
     {
       title: "Clone",
       render: (data) => {
         return (
-          <div onClick={() => setCloneProductDetails(data)} className="text-lg text-primary center_div cursor-pointer">
-            <ICON_HELPER.PLUS_ICON />
+          <div onClick={() => setCloneProductDetails(data)} className="text-lg text-blue-500 center_div cursor-pointer hover:text-blue-700 transition-colors">
+            <MdContentCopy />
           </div>
         );
       },
@@ -209,16 +216,33 @@ const Products = () => {
       title: "Image",
       dataIndex: "images",
       render: (image) => {
-        return <div>{image ? <Image src={_.get(image, "[0].path", "")} alt="Sub Category" className="!w-[50px] !h-[50px] !object-cover" /> : <span>No Image</span>}</div>;
+        return (
+          <div className="flex justify-center">
+            {image ? (
+              <div className="rounded-md overflow-hidden border border-gray-200 p-1 bg-white shadow-sm">
+                <Image 
+                  src={_.get(image, "[0].path", "")} 
+                  alt="Product" 
+                  className="!w-[50px] !h-[50px] !object-cover"
+                  preview={false}
+                />
+              </div>
+            ) : (
+              <div className="w-[50px] h-[50px] bg-gray-100 rounded-md flex items-center justify-center border border-dashed border-gray-300">
+                <span className="text-xs text-gray-400">No Image</span>
+              </div>
+            )}
+          </div>
+        );
       },
     },
     {
-      title: " Name",
+      title: "Name",
       dataIndex: "name",
       render: (data) => {
         return (
           <Tooltip title={data}>
-            <span className="!line-clamp-1 w-[100px]">{data}</span>
+            <span className="font-medium text-gray-800 line-clamp-1 max-w-[120px]">{data}</span>
           </Tooltip>
         );
       },
@@ -229,37 +253,43 @@ const Products = () => {
       render: (data) => {
         return (
           <Tooltip title={_.get(data, "main_category_name", "")}>
-            <span className="!line-clamp-1 w-[100px]">{_.get(data, "main_category_name", "")}</span>
+            <Tag color="blue" className="max-w-[120px] truncate">
+              {_.get(data, "main_category_name", "")}
+            </Tag>
           </Tooltip>
         );
       },
     },
-
     {
       title: "Sub Category",
       dataIndex: "sub_category_details",
       render: (data) => {
         return (
           <Tooltip title={_.get(data, "sub_category_name", "")}>
-            <span className="!line-clamp-1 w-[100px]">{_.get(data, "sub_category_name", "")}</span>
+            <Tag color="geekblue" className="max-w-[120px] truncate">
+              {_.get(data, "sub_category_name", "")}
+            </Tag>
           </Tooltip>
         );
       },
     },
-
     {
-      title: " Type",
+      title: "Type",
       dataIndex: "type",
+      render: (type) => (
+        <Tag color={type === "Single Product" ? "green" : "orange"}>
+          {type}
+        </Tag>
+      )
     },
     {
-      title: " Price",
+      title: "Price",
       render: (data) => {
         const price = data.single_product_price || _.get(data, "variants_price[0].price", "N/A");
-        return <span>Rs. {price}</span>;
+        return <span className="font-semibold text-gray-800">Rs. {price}</span>;
       },
       align: "center",
     },
-
     {
       title: "Vendor",
       align: "center",
@@ -269,94 +299,113 @@ const Products = () => {
           <div className="center_div gap-x-2">
             {data?.length > 0 ? (
               <Tag
+                color="purple"
                 onClick={() => {
                   setVendorClose(data);
                 }}
-                className="cursor-pointer"
+                className="cursor-pointer hover:bg-purple-100 transition-colors"
               >
-                View
+                View ({data.length})
               </Tag>
             ) : (
-              ""
+              <Tag color="default">None</Tag>
             )}
           </div>
         );
       },
     },
-
     {
       title: "Actions",
       render: (data) => {
         return (
-          <div className="center_div gap-x-2">
+          <Space size="small">
             {!_.get(data, "is_cloned", false) && (
-              <>
-                {" "}
-                <Button
-                  onClick={() => {
-                    handleUpdate(data);
-                  }}
-                  className="text-green-600"
-                >
-                  Edit
-                </Button>
-              </>
+              <Button
+                size="small"
+                icon={<FaEdit />}
+                onClick={() => {
+                  handleUpdate(data);
+                }}
+                className="text-blue-500 border-blue-100 hover:bg-blue-50"
+              >
+                Edit
+              </Button>
             )}
-            <Popconfirm description="Are you sure want to delete This Product" onConfirm={() => handleDelete(data)}>
-              <Button className="text-red-600">Delete</Button>
+            <Popconfirm 
+              title="Delete Product" 
+              description="Are you sure you want to delete this product?" 
+              onConfirm={() => handleDelete(data)}
+              okText="Yes"
+              cancelText="No"
+            >
+              <Button 
+                size="small" 
+                icon={<MdDelete />}
+                className="text-red-500 border-red-100 hover:bg-red-50"
+              >
+                Delete
+              </Button>
             </Popconfirm>
-            <Button className="text-blue-500" onClick={() => handleView(data)}>
+            <Button 
+              size="small" 
+              icon={<FaEye />}
+              onClick={() => handleView(data)}
+              className="text-green-500 border-green-100 hover:bg-green-50"
+            >
               View
             </Button>
-          </div>
+          </Space>
         );
       },
     },
     {
-      title: "New ",
+      title: "New",
       align: "center",
       dataIndex: "new_product",
       render: (data, record) => {
         return (
           <Switch
             size="small"
-            value={data}
+            checked={data}
             onChange={(e) => {
               handleOnChangeLabel({ new_product: e }, record);
             }}
-          ></Switch>
+            className="bg-gray-300"
+          />
         );
       },
     },
     {
-      title: "Popular ",
+      title: "Popular",
       align: "center",
       dataIndex: "popular_product",
       render: (data, record) => {
         return (
           <Switch
             size="small"
-            value={data}
+            checked={data}
             onChange={(e) => {
               handleOnChangeLabel({ popular_product: e }, record);
             }}
-          ></Switch>
+            className="bg-gray-300"
+          />
         );
       },
     },
     {
-      title: "Recommended ",
+      title: "Recommended",
       align: "center",
       dataIndex: "recommended_product",
       render: (data, record) => {
         return (
           <Switch
             size="small"
-            value={data}
+            checked={data}
             onChange={(e) => {
               handleOnChangeLabel({ recommended_product: e }, record);
             }}
-          ></Switch>
+            className="bg-gray-300"
+          />
         );
       },
     },
@@ -386,77 +435,169 @@ const Products = () => {
   }, []);
 
   return (
-    <div>
-      <DefaultTile title={"Products"} add={true} addText={"Product"} formStatus={formStatus} setFormStatus={setFormStatus} search={true} setSearch={setSearch} />
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <DefaultTile 
+        title={"Products Management"} 
+        add={true} 
+        addText={"Add Product"} 
+        formStatus={formStatus} 
+        setFormStatus={setFormStatus} 
+        search={true} 
+        setSearch={setSearch} 
+      />
 
       {formStatus ? (
         <AddForms fetchData={fetchData} setFormStatus={setFormStatus} id={id} setId={setId} />
       ) : (
         <>
-          <div className="flex gap-x-2 py-2">
-            <Select placeholder="Filter By Product Category" size="large" className="!w-[20rem] !h-[50px]" allowClear onChange={(val) => setFilterByProduct_category(val)}>
-              {mainCategory.map((item) => (
-                <Select.Option key={item._id} value={item._id}>
-                  {item.main_category_name}
-                </Select.Option>
-              ))}
-            </Select>
+          <Card 
+            className="mb-6 shadow-sm border-0 rounded-xl"
+            bodyStyle={{ padding: '16px 24px' }}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <Title level={5} className="m-0 flex items-center">
+                <FaFilter className="mr-2 text-blue-500" />
+                Filters
+              </Title>
+              <Button 
+                type="text" 
+                icon={showFilters ? <span>▲</span> : <span>▼</span>}
+                onClick={() => setShowFilters(!showFilters)}
+                className="text-gray-500"
+              >
+                {showFilters ? 'Hide' : 'Show'} Filters
+              </Button>
+            </div>
+            
+            <Collapse in={showFilters}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <Text className="text-sm font-medium text-gray-600">Product Category</Text>
+                  <Select 
+                    placeholder="Select Category" 
+                    size="middle" 
+                    className="w-full mt-1"
+                    allowClear 
+                    onChange={(val) => setFilterByProduct_category(val)}
+                    suffixIcon={<span className="text-gray-400">▼</span>}
+                  >
+                    {mainCategory.map((item) => (
+                      <Select.Option key={item._id} value={item._id}>
+                        {item.main_category_name}
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </div>
 
-            {!_.isEmpty(subcategoryData) && (
-              <>
-                <Select placeholder="Filter By Sub Category" size="large" className="!w-[20rem] !h-[50px]" allowClear onChange={(val) => setFilterByProduct_subcategory(val)}>
-                  {subcategoryData.map((item) => (
-                    <Select.Option key={item._id} value={item._id}>
-                      {item.sub_category_name}
-                    </Select.Option>
-                  ))}
-                </Select>
-              </>
-            )}
+                {!_.isEmpty(subcategoryData) && (
+                  <div>
+                    <Text className="text-sm font-medium text-gray-600">Sub Category</Text>
+                    <Select 
+                      placeholder="Select Sub Category" 
+                      size="middle" 
+                      className="w-full mt-1"
+                      allowClear 
+                      onChange={(val) => setFilterByProduct_subcategory(val)}
+                      suffixIcon={<span className="text-gray-400">▼</span>}
+                    >
+                      {subcategoryData.map((item) => (
+                        <Select.Option key={item._id} value={item._id}>
+                          {item.sub_category_name}
+                        </Select.Option>
+                      ))}
+                    </Select>
+                  </div>
+                )}
 
-            <Select placeholder="Filter By Product Vendor" size="large" className="!w-[20rem] !h-[50px]" allowClear onChange={(val) => setVendor_filter(val)}>
-              {allVendors.map((item) => (
-                <Select.Option key={item._id} value={item._id}>
-                  {item.vendor_name}
-                </Select.Option>
-              ))}
-            </Select>
+                <div>
+                  <Text className="text-sm font-medium text-gray-600">Vendor</Text>
+                  <Select 
+                    placeholder="Select Vendor" 
+                    size="middle" 
+                    className="w-full mt-1"
+                    allowClear 
+                    onChange={(val) => setVendor_filter(val)}
+                    suffixIcon={<span className="text-gray-400">▼</span>}
+                  >
+                    {allVendors.map((item) => (
+                      <Select.Option key={item._id} value={item._id}>
+                        {item.vendor_name}
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </div>
 
-            <Select placeholder="Filter By Product Type" size="large" className="!w-[13rem] !h-[50px]" options={productType} allowClear onChange={(val) => setFilterByType(val)} />
-          </div>
-          <Tabs
-            destroyInactiveTabPane
-            type="card"
-            size="small"
-            items={[
-              {
-                key: "1",
-                label: "Products",
-                children: (
-                  <CustomTable
-                    loading={loading}
-                    dataSource={tableData.filter((res) => {
-                      return !res.is_cloned;
-                    })}
-                    columns={columns}
+                <div>
+                  <Text className="text-sm font-medium text-gray-600">Product Type</Text>
+                  <Select 
+                    placeholder="Select Type" 
+                    size="middle" 
+                    className="w-full mt-1"
+                    options={productType} 
+                    allowClear 
+                    onChange={(val) => setFilterByType(val)}
+                    suffixIcon={<span className="text-gray-400">▼</span>}
                   />
-                ),
-              },
-              {
-                key: "2",
-                label: "Cloned Products",
-                children: (
-                  <CustomTable
-                    loading={loading}
-                    dataSource={tableData.filter((res) => {
-                      return res.is_cloned;
-                    })}
-                    columns={columns.filter((col) => col.title !== "Clone")}
-                  />
-                ),
-              },
-            ]}
-          />
+                </div>
+              </div>
+            </Collapse>
+          </Card>
+
+          <Card 
+            className="shadow-sm border-0 rounded-xl overflow-hidden"
+            bodyStyle={{ padding: 0 }}
+          >
+            <Tabs
+              destroyInactiveTabPane
+              type="card"
+              size="middle"
+              className="px-4 pt-4"
+              items={[
+                {
+                  key: "1",
+                  label: (
+                    <span className="flex items-center">
+                      <span className="mr-1">📦</span> Products
+                      <Tag className="ml-2" color="blue">
+                        {tableData.filter(res => !res.is_cloned).length}
+                      </Tag>
+                    </span>
+                  ),
+                  children: (
+                    <CustomTable
+                      loading={loading}
+                      dataSource={tableData.filter((res) => {
+                        return !res.is_cloned;
+                      })}
+                      columns={columns}
+                      scroll={{ x: 1500 }}
+                    />
+                  ),
+                },
+                {
+                  key: "2",
+                  label: (
+                    <span className="flex items-center">
+                      <MdContentCopy className="mr-1" /> Cloned Products
+                      <Tag className="ml-2" color="green">
+                        {tableData.filter(res => res.is_cloned).length}
+                      </Tag>
+                    </span>
+                  ),
+                  children: (
+                    <CustomTable
+                      loading={loading}
+                      dataSource={tableData.filter((res) => {
+                        return res.is_cloned;
+                      })}
+                      columns={columns.filter((col) => col.title !== "Clone")}
+                      scroll={{ x: 1400 }}
+                    />
+                  ),
+                },
+              ]}
+            />
+          </Card>
 
           <Modal
             title="Vendor Details"
@@ -465,15 +606,17 @@ const Products = () => {
             onCancel={() => {
               setVendorClose([]);
             }}
+            className="rounded-lg"
+            bodyStyle={{ padding: '16px 24px' }}
           >
-            <Descriptions layout="vertical" bordered>
+            <Descriptions layout="vertical" bordered column={1}>
               {vendorClose.map((res, index) => {
                 return (
-                  <Descriptions.Item key={index} label={<p>Vendor {index + 1}</p>}>
-                    <div className="center_div justify-between !text-sm">
-                      {res.vendor_name}
-                      <Link to={`/vendor_details/${res._id}`} target="_blank" className="!text-sm !text-sky-500">
-                        View More
+                  <Descriptions.Item key={index} label={<p className="font-medium">Vendor {index + 1}</p>}>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="font-medium">{res.vendor_name}</span>
+                      <Link to={`/vendor_details/${res._id}`} target="_blank" className="text-blue-500 hover:text-blue-700 transition-colors">
+                        View Details →
                       </Link>
                     </div>
                   </Descriptions.Item>
@@ -484,15 +627,25 @@ const Products = () => {
         </>
       )}
 
-      <Modal title="Clone Product" open={!_.isEmpty(cloneProductDetails)} onCancel={handleCloseModal} footer={null}>
+      <Modal 
+        title="Clone Product" 
+        open={!_.isEmpty(cloneProductDetails)} 
+        onCancel={handleCloseModal} 
+        footer={null}
+        className="rounded-lg"
+        bodyStyle={{ padding: '24px' }}
+      >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          <Form.Item label="Category" name="category_details" rules={[{ required: true, message: "Please select a product category!" }]}>
+          <Form.Item 
+            label="Category" 
+            name="category_details" 
+            rules={[{ required: true, message: "Please select a product category!" }]}
+          >
             <Select
               placeholder="Select Product Category"
-              className="input_box"
-              onChange={(e) => {
-                onCategoryChnage(e);
-              }}
+              className="w-full"
+              onChange={onCategoryChnage}
+              suffixIcon={<span className="text-gray-400">▼</span>}
             >
               {categoryData
                 .filter((res) => {
@@ -506,8 +659,16 @@ const Products = () => {
             </Select>
           </Form.Item>
 
-          <Form.Item label="Sub Category" name="sub_category_details" rules={[{ required: true, message: "Please select a product sub-category!" }]}>
-            <Select placeholder="Select Product Sub Category" className="input_box">
+          <Form.Item 
+            label="Sub Category" 
+            name="sub_category_details" 
+            rules={[{ required: true, message: "Please select a product sub-category!" }]}
+          >
+            <Select 
+              placeholder="Select Product Sub Category" 
+              className="w-full"
+              suffixIcon={<span className="text-gray-400">▼</span>}
+            >
               {filter_subcategory_data.map((item) => (
                 <Select.Option key={item._id} value={item._id}>
                   {item.sub_category_name}
@@ -516,10 +677,20 @@ const Products = () => {
             </Select>
           </Form.Item>
 
-          <Form.Item>
-            <Button className="bg-primary text-white" type="primary" htmlType="submit">
-              Submit
-            </Button>
+          <Form.Item className="mb-0">
+            <div className="flex justify-end space-x-3">
+              <Button onClick={handleCloseModal}>
+                Cancel
+              </Button>
+              <Button 
+                type="primary" 
+                htmlType="submit"
+                className="bg-blue-500 hover:bg-blue-600 border-blue-500"
+                loading={loading}
+              >
+                Clone Product
+              </Button>
+            </div>
           </Form.Item>
         </Form>
       </Modal>
