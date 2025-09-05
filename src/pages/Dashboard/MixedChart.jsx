@@ -2,7 +2,7 @@
 import { BarChart, Bar, LineChart, Line, AreaChart, Area, PieChart, Pie, RadialBarChart, RadialBar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { motion } from "framer-motion";
 import { useEffect, useState } from 'react';
-
+  const defaultColors = ['#6366F1', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#F97316'];
 const MixedChart = ({ chart, dataSource, color = false, title, Icon }) => {
   const [activeTab, setActiveTab] = useState('bar');
   
@@ -29,7 +29,7 @@ const MixedChart = ({ chart, dataSource, color = false, title, Icon }) => {
   };
 
   const chartData = transformData();
-  const defaultColors = ['#6366F1', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#F97316'];
+
 
   // For area/line charts
   const timeSeriesData = [

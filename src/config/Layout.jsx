@@ -152,7 +152,7 @@ const App = () => {
             )}
           </div>
         </div>
-        <Menu mode="vertical" className="!bg-white pb-20">
+        <Menu mode="vertical" className=" pb-20">
           {new_menu_data.map((res, index) => {
             return !_.isEmpty(_.get(res, "children", [])) ? (
               <Menu.SubMenu
@@ -205,7 +205,7 @@ const App = () => {
       </Sider>
       <Layout className="!h-screen overflow-hidden">
         <TopNavbar />
-        <div className="!h-screen overflow-scroll p-5 bg-[#f5f4a9]">
+        <div className="!h-screen overflow-scroll ">
           <Outlet />
         </div>
       </Layout>

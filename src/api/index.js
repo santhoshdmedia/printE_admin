@@ -233,4 +233,12 @@ export const deleteProductDescription = async (id) =>
     `${BASE_URL}/product/delete_product_descriptions/${id}`
   );
 
-//clone
+//order update
+export const updateDesign = async () =>
+  await custom_request.put(
+    `${BASE_URL}/order/update-design`
+  );
+export const assignVendorToOrder = async () =>
+  await custom_request.put(
+    `${BASE_URL}/order/update-design`
+  );

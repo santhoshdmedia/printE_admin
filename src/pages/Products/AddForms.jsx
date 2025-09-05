@@ -1249,323 +1249,169 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                 </div>
               </Panel>
 
-              <Panel
-                header={
-                  <span className="text-lg font-semibold">
-                    Tab Descriptions
-                  </span>
-                }
-                key="5"
-              >
-                <Form.List name="description_tabs">
-                  {(fields, { add, remove }) => (
-                    <>
-                      <Button
-                        onClick={() => add()}
-                        icon={<PlusOutlined />}
-                        className="mb-4"
+                <Collapse.Panel header={<span className="text-lg font-semibold">Product Tab Description Info</span>} key={"9"}>
+            <Form.List name="description_tabs">
+              {(fields, { add, remove }) => (
+                <>
+                  <Tag type="dashed" onClick={() => add()} block className=" cursor-pointer !bg-green-500 hover:!bg-orange-500 !mb-5 !text-white">
+                    + Add New Tab
+                  </Tag>
+                  <div className="grid grid-cols-1 gap-x-2 gap-y-3">
+                    {fields.map((field) => (
+                      <Card
+                        size="small"
+                        title={`Tab ${field.name + 1}`}
+                        key={field.key}
+                        extra={
+                          <DeleteFilled
+                            onClick={() => {
+                              remove(field.name);
+                            }}
+                            className="!text-red-500"
+                          />
+                        }
                       >
-                        Add New Tab
-                      </Button>
-
-                      <div className="grid grid-cols-1 gap-4">
-                        {fields.map((field) => (
-                          <Card
-                            size="default"
-                            title={`Tab ${field.name + 1}`}
-                            key={field.key}
-                            extra={
-                              <Button
-                                type="text"
-                                danger
-                                icon={<DeleteFilled />}
-                                onClick={() => {
-                                  remove(field.name);
-                                }}
-                              />
-                            }
-                            className="mb-4"
-                          >
-                            <div className="flex flex-col md:flex-row gap-4 mb-4">
-                              <Form.Item
-                                label="Tab Name"
-                                name={[field.name, "name"]}
-                                rules={[formValidation("Enter tab name")]}
-                                className="flex-1 mb-0"
-                              >
-                                <Input className="h-10" />
-                              </Form.Item>
-
-                              <Form.Item
-                                hidden
-                                name={[field.name, "key"]}
-                                initialValue={field.key}
-                                rules={[formValidation("Enter tab name")]}
-                                className="mb-0"
-                              >
-                                <Input />
-                              </Form.Item>
-
-                              <Form.Item
-                                label="Tab Type"
-                                name={[field.name, "tab_type"]}
-                                rules={[formValidation("Select tab Type")]}
-                                className="flex-1 mb-0"
-                              >
-                                <Select
-                                  className="h-10"
-                                  onChange={() => {
-                                    setDummy(!dummy);
-                                  }}
-                                >
-                                  <Select.Option value={"Editor"}>
-                                    Editor
-                                  </Select.Option>
-                                  <Select.Option value={"Table"}>
-                                    Table View
-                                  </Select.Option>
-                                  <Select.Option value={"Content-With-Image"}>
-                                    Content With Image
-                                  </Select.Option>
-                                </Select>
-                              </Form.Item>
-                            </div>
-
-                            {GET_TABLE_TYPE(field.key) === "Editor" && (
-                              <Form.Item
-                                label="Description"
-                                name={[field.name, "description"]}
-                                rules={[formValidation("Enter Description")]}
-                                className="mb-0"
-                              >
-                                <div className="border rounded-md p-2">
-                                  <JoditEditor />
-                                </div>
-                              </Form.Item>
-                            )}
-
-                            {GET_TABLE_TYPE(field.key) === "Table" && (
-                              <Form.Item label="Table View" className="mb-0">
-                                <Form.List name={[field.name, "table_view"]}>
-                                  {(subFields, subOpt) => (
-                                    <>
-                                      <div className="flex justify-end mb-4">
-                                        <Button
-                                          onClick={() => subOpt.add()}
-                                          icon={<PlusOutlined />}
-                                          size="small"
-                                        >
-                                          Add Table Item
-                                        </Button>
-                                      </div>
-
-                                      <div className="grid grid-cols-1 gap-3">
-                                        {subFields.map((subField) => (
-                                          <Card
-                                            size="small"
-                                            key={subField.key}
-                                            className="relative"
+                        <div className="center_div justify-start gap-x-2">
+                          <Form.Item label="Tab Name" name={[field.name, "name"]} rules={[formValidation("Enter tab name")]}>
+                            <Input className="!h-[50px] !w-[300px]" />
+                          </Form.Item>
+                          <Form.Item label="Tab Name" hidden name={[field.name, "key"]} initialValue={field.key} rules={[formValidation("Enter tab name")]}>
+                            <Input className="!h-[50px] !w-[300px]" />
+                          </Form.Item>
+                          <Form.Item label="Tab Type" name={[field.name, "tab_type"]} rules={[formValidation("Select tab Type")]}>
+                            <Select
+                              className="!h-[50px] !w-[300px]"
+                              onChange={() => {
+                                setDummy(!dummy);
+                              }}
+                            >
+                              <Select.Option value={"Editor"}>Editor</Select.Option>
+                              <Select.Option value={"Table"}>Table View</Select.Option>
+                              <Select.Option value={"Content-With-Image"}>Content With Image</Select.Option>
+                            </Select>
+                          </Form.Item>
+                        </div>
+                        {GET_TABLE_TYPE(field.key) === "Editor" && (
+                          <>
+                            <Form.Item label="Description" name={[field.name, "description"]} rules={[formValidation("Enter Description")]}>
+                              <JoditEditor />
+                            </Form.Item>
+                          </>
+                        )}
+                        {GET_TABLE_TYPE(field.key) === "Table" && (
+                          <>
+                            <Form.Item label="Table View">
+                              <Form.List name={[field.name, "table_view"]}>
+                                {(subFields, subOpt) => (
+                                  <>
+                                    <div className="w-full center_div justify-end px-10">
+                                      <Tag type="dashed" onClick={() => subOpt.add()} className="!cursor-pointer hover:!bg-orange-500 !bg-green-500 !mb-4 !text-white">
+                                        + Add Table Item
+                                      </Tag>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-3">
+                                      {subFields.map((subField) => (
+                                        <Space key={subField.key}>
+                                          <Form.Item label="Left" name={[subField.name, "left"]} rules={[formValidation("Enter left value")]}>
+                                            <Input placeholder="Left" className="!h-[50px]" />
+                                          </Form.Item>
+                                          <Form.Item label="Right" name={[subField.name, "right"]} rules={[formValidation("Enter right value")]}>
+                                            <Input placeholder="right" className="!h-[50px]" />
+                                          </Form.Item>
+                                          <DeleteFilled
+                                            onClick={() => {
+                                              subOpt.remove(subField.name);
+                                            }}
+                                            className="!text-red-500"
+                                          />
+                                        </Space>
+                                      ))}
+                                    </div>
+                                  </>
+                                )}
+                              </Form.List>
+                            </Form.Item>
+                          </>
+                        )}
+                        {GET_TABLE_TYPE(field.key) === "Content-With-Image" && (
+                          <>
+                            <Form.Item label="Content With Image">
+                              <Form.List name={[field.name, "content_image_view"]}>
+                                {(subFields, subOpt) => (
+                                  <>
+                                    <div className="w-full center_div justify-end px-10">
+                                      <Tag type="dashed" onClick={() => subOpt.add({ images: [] })} className="!cursor-pointer hover:!bg-orange-500 !bg-green-500 !mb-4 !text-white">
+                                        + Add new image with content
+                                      </Tag>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-3">
+                                      {subFields.map((subField) => (
+                                        <div key={subField.key} className="flex flex-col">
+                                          <Form.Item label="Content" name={[subField.name, "content"]} rules={[formValidation("Enter content")]}>
+                                            <Input.TextArea placeholder="Content" className=" !w-full" />
+                                          </Form.Item>
+                                          <Form.Item label="Content" hidden name={[subField.name, "image_id"]} initialValue={subField.key} rules={[formValidation("Enter content")]}>
+                                            <Input.TextArea placeholder="Content" className=" !w-full" />
+                                          </Form.Item>
+                                          <Form.Item
+                                            hidden
+                                            rules={[
+                                              {
+                                                required: true,
+                                                message: `Please upload images`,
+                                              },
+                                            ]}
+                                            name={[subField.name, "images"]}
+                                            initialValue={[]}
+                                            label="images"
                                           >
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                              <Form.Item
-                                                label="Left"
-                                                name={[subField.name, "left"]}
-                                                rules={[
-                                                  formValidation(
-                                                    "Enter left value"
-                                                  ),
-                                                ]}
-                                                className="mb-0"
-                                              >
-                                                <Input
-                                                  placeholder="Left"
-                                                  className="h-9"
-                                                />
-                                              </Form.Item>
-
-                                              <Form.Item
-                                                label="Right"
-                                                name={[subField.name, "right"]}
-                                                rules={[
-                                                  formValidation(
-                                                    "Enter right value"
-                                                  ),
-                                                ]}
-                                                className="mb-0"
-                                              >
-                                                <Input
-                                                  placeholder="right"
-                                                  className="h-9"
-                                                />
-                                              </Form.Item>
-
-                                              <Button
-                                                type="text"
-                                                danger
-                                                icon={<DeleteFilled />}
-                                                onClick={() => {
-                                                  subOpt.remove(subField.name);
-                                                }}
-                                                className="absolute top-2 right-2"
-                                              />
-                                            </div>
-                                          </Card>
-                                        ))}
-                                      </div>
-                                    </>
-                                  )}
-                                </Form.List>
-                              </Form.Item>
-                            )}
-
-                            {GET_TABLE_TYPE(field.key) ===
-                              "Content-With-Image" && (
-                              <Form.Item
-                                label="Content With Image"
-                                className="mb-0"
-                              >
-                                <Form.List
-                                  name={[field.name, "content_image_view"]}
-                                >
-                                  {(subFields, subOpt) => (
-                                    <>
-                                      <div className="flex justify-end mb-4">
-                                        <Button
-                                          onClick={() =>
-                                            subOpt.add({ images: [] })
-                                          }
-                                          icon={<PlusOutlined />}
-                                          size="small"
-                                        >
-                                          Add new image with content
-                                        </Button>
-                                      </div>
-
-                                      <div className="grid grid-cols-1 gap-4">
-                                        {subFields.map((subField) => (
-                                          <Card
-                                            key={subField.key}
-                                            size="small"
-                                            className="relative"
-                                          >
-                                            <Form.Item
-                                              label="Content"
-                                              name={[subField.name, "content"]}
-                                              rules={[
-                                                formValidation("Enter content"),
-                                              ]}
-                                              className="mb-3"
-                                            >
-                                              <Input.TextArea
-                                                placeholder="Content"
-                                                rows={3}
-                                              />
+                                            <Input.TextArea disabled rows={5} placeholder="Images" className="!w-[90%] !h-[50px]" />
+                                          </Form.Item>
+                                          <div className="flex items-center gap-x-2">
+                                            <Form.Item label="Image" name={[subField.name, "image"]}>
+                                              <UploadHelper blog={true} current_key={`${subField.key}-${field.key}`} handleChange={handleChange} />
                                             </Form.Item>
-
-                                            <Form.Item
-                                              hidden
-                                              name={[subField.name, "image_id"]}
-                                              initialValue={subField.key}
-                                              rules={[
-                                                formValidation("Enter content"),
-                                              ]}
-                                              className="mb-0"
-                                            >
-                                              <Input.TextArea />
-                                            </Form.Item>
-
-                                            <Form.Item
-                                              hidden
-                                              rules={[
-                                                {
-                                                  required: true,
-                                                  message: `Please upload images`,
-                                                },
-                                              ]}
-                                              name={[subField.name, "images"]}
-                                              initialValue={[]}
-                                              label="images"
-                                              className="mb-0"
-                                            >
-                                              <Input.TextArea
-                                                disabled
-                                                rows={5}
-                                                placeholder="Images"
-                                              />
-                                            </Form.Item>
-
-                                            <div className="flex flex-col md:flex-row gap-4 items-start">
-                                              <Form.Item
-                                                label="Image"
-                                                name={[subField.name, "image"]}
-                                                className="mb-0"
-                                              >
-                                                <UploadHelper
-                                                  blog={true}
-                                                  current_key={`${subField.key}-${field.key}`}
-                                                  handleChange={handleChange}
-                                                />
-                                              </Form.Item>
-
-                                              <div className="flex flex-wrap gap-2">
-                                                {GETCURRENT_SETOF_IMAGES(
-                                                  `${subField.key}-${field.key}`
-                                                )?.map((res, index) => {
-                                                  return (
+                                            <div className="flex gap-x-2 flex-wrap">
+                                              {GETCURRENT_SETOF_IMAGES(`${subField.key}-${field.key}`)?.map((res, index) => {
+                                                return (
+                                                  <div key={index} className="relative">
+                                                    <Image height={50} key={index} className="!h-[50px] !w-[50px] !rounded-lg !border" src={res} />
                                                     <div
-                                                      key={index}
-                                                      className="relative"
+                                                      onClick={() => {
+                                                        REMOVE_IMAGES(`${subField.key}-${field.key}`, res);
+                                                      }}
+                                                      className="cursor-pointer text-center text-red-500 gap-x-2 center_div"
                                                     >
-                                                      <Image
-                                                        height={60}
-                                                        width={60}
-                                                        className="h-15 w-15 rounded-lg border object-cover"
-                                                        src={res}
-                                                        preview={false}
-                                                      />
-                                                      <Button
-                                                        type="text"
-                                                        danger
-                                                        icon={<DeleteFilled />}
-                                                        onClick={() => {
-                                                          REMOVE_IMAGES(
-                                                            `${subField.key}-${field.key}`,
-                                                            res
-                                                          );
-                                                        }}
-                                                        className="absolute -top-2 -right-2"
-                                                        size="small"
-                                                      />
+                                                      {<ICON_HELPER.DELETE_ICON2 />}
                                                     </div>
-                                                  );
-                                                })}
-                                              </div>
+                                                  </div>
+                                                );
+                                              })}
                                             </div>
-
-                                            <Button
-                                              type="text"
-                                              danger
-                                              icon={<DeleteFilled />}
-                                              onClick={() => {
-                                                subOpt.remove(subField.name);
-                                              }}
-                                              className="absolute top-2 right-2"
-                                            />
-                                          </Card>
-                                        ))}
-                                      </div>
-                                    </>
-                                  )}
-                                </Form.List>
-                              </Form.Item>
-                            )}
-                          </Card>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </Form.List>
-              </Panel>
+                                          </div>
+                                          <DeleteFilled
+                                            onClick={() => {
+                                              subOpt.remove(subField.name);
+                                            }}
+                                            className="!text-red-500"
+                                          />
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </>
+                                )}
+                              </Form.List>
+                            </Form.Item>
+                          </>
+                        )}
+                        {/* Nest Form.List */}
+                      </Card>
+                    ))}
+                  </div>
+                </>
+              )}
+            </Form.List>
+          </Collapse.Panel>
 
               <Panel
                 header={

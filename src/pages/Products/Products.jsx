@@ -248,7 +248,7 @@ const Products = () => {
       },
     },
     {
-      title: "Category",
+      title: "Main Category",
       dataIndex: "category_details",
       render: (data) => {
         return (
