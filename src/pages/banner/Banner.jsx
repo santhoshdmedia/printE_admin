@@ -139,7 +139,7 @@ const Banner = () => {
           </div>
         ) : (
           <>
-            <div className="w-full min-h-[600px] bg-white rounded-lg grid grid-cols-4 p-5 gap-x-4 gap-y-4">
+            <div className="w-full max-h-[600px] bg-white rounded-lg grid grid-cols-4 p-5 gap-x-4 gap-y-4">
               {banners.map((res, index) => {
                 return (
                   <Card
@@ -169,8 +169,8 @@ const Banner = () => {
                         />
                       </div>,
                     ]}
-                    className="!w-full !h-[350px]"
-                    cover={<Image className="!h-[200px] !rounded-t-lg" src={res.banner_image} />}
+                    className="!w-full !h-[450px]"
+                    cover={<Image className="!h-[300px] !rounded-t-lg" src={res.banner_image} />}
                   >
                     <Card.Meta 
                       title={<h1 className="!font-medium !text-sm">{res?.banner_name}</h1>}

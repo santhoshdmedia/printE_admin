@@ -79,6 +79,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
 
   let initial_seo_data = {
     title: "",
+    keywords:"",
     description: "",
     url: "",
   };
@@ -1428,6 +1429,18 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     <Input
                       onChange={(e) => {
                         handleChnage(e, "title");
+                      }}
+                      className="h-12"
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    name="seo_keywords"
+                    rules={[formValidation("Enter SEO keywords")]}
+                    label="SEO keywords"
+                  >
+                    <Input
+                      onChange={(e) => {
+                        handleChnage(e, "keywords");
                       }}
                       className="h-12"
                     />

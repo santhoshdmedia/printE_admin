@@ -25,6 +25,7 @@ import {
   Statistic,
   List,
   Descriptions,
+  Typography,
 } from "antd";
 import {
   FiArrowRight,
@@ -49,7 +50,12 @@ import {
   FiMail,
   FiPhone,
   FiMapPin,
+  FiPlay,
+  FiPause,
+  FiStopCircle,
 } from "react-icons/fi";
+import { FaRupeeSign } from "react-icons/fa";
+import { CiShoppingBasket } from "react-icons/ci";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import {
@@ -64,14 +70,18 @@ import {
 import _ from "lodash";
 import moment from "moment";
 import * as XLSX from "xlsx";
+import CustomLabel from "../../components/CustomLabel";
+import UploadHelper from "../../helper/UploadHelper";
+import ShowImages from "../../helper/ShowImages";
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 const { Step } = Steps;
 const { TextArea } = Input;
+const { Title, Text } = Typography;
 
 const Orders = () => {
-   // State management
+  // State management
   const { user } = useSelector((state) => state.authSlice);
   const [orderData, setOrderData] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
@@ -82,6 +92,7 @@ const Orders = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isDesignModalVisible, setIsDesignModalVisible] = useState(false);
   const [isQualityModalVisible, setIsQualityModalVisible] = useState(false);
+  const [isDetailsModalVisible, setIsDetailsModalVisible] = useState(false);
   const [currentOrder, setCurrentOrder] = useState(null);
   const [vendors, setVendors] = useState([]);
   const [selectedVendor, setSelectedVendor] = useState(null);
@@ -89,7 +100,13 @@ const Orders = () => {
   const [designForm] = Form.useForm();
   const [qualityForm] = Form.useForm();
   const navigation = useNavigate();
+  const [image_path, setImagePath] = useState(null);
   const userRole = JSON.parse(localStorage.getItem("userprofile")) || {};
+
+  // Design timer state
+  const [designStartTime, setDesignStartTime] = useState(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [timerInterval, setTimerInterval] = useState(null);
 
   // Status flow configuration
   const statusFlow = [
@@ -98,10 +115,11 @@ const Orders = () => {
       key: "2",
       label: "accounting team",
       color: "#1890ff",
-      icon: <FiDollarSign />,
+      icon: <FaRupeeSign />,
     },
     { key: "3", label: "designing team", color: "#722ed1", icon: <FiUsers /> },
     { key: "4", label: "production team", color: "#faad14", icon: <FiBox /> },
+    { key: "4", label: "vendor assigned", color: "#0088cc", icon: <CiShoppingBasket /> },
     {
       key: "5",
       label: "quality check",
@@ -184,7 +202,7 @@ const Orders = () => {
       setLoading(true);
       const searchData = {
         search,
-        date_filter: dateFilter,
+        // date_filter: dateFilter,
         order_status: orderStatus,
       };
       const result = await collectallorders(JSON.stringify(searchData));
@@ -256,37 +274,75 @@ const Orders = () => {
     }
   };
 
-  const calculateDesignTime = (startTime, endTime) => {
-    const start = moment(startTime);
-    const end = moment(endTime);
-    const durationMs = end.diff(start);
+  // Format time for display (hh:mm:ss)
+  const formatTime = (milliseconds) => {
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
 
-    const hours = Math.floor(durationMs / (1000 * 60 * 60));
-    const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+    return `${hours.toString().padStart(2, "0")}:${minutes
+      .toString()
+      .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  };
 
-    return `${hours}h ${minutes}m`;
+  // Format time for submission (hh.mm)
+  const formatTimeForSubmission = (milliseconds) => {
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+    return `${hours}.${minutes.toString().padStart(2, "0")}`;
+  };
+
+  // Start the design timer
+  const startDesignTimer = () => {
+    if (timerInterval) {
+      clearInterval(timerInterval);
+    }
+
+    setDesignStartTime(moment());
+    const interval = setInterval(() => {
+      setElapsedTime((prev) => prev + 1000);
+    }, 1000);
+
+    setTimerInterval(interval);
+  };
+
+  // Stop the design timer
+  const stopDesignTimer = () => {
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      setTimerInterval(null);
+    }
+  };
+
+  // Reset the design timer
+  const resetDesignTimer = () => {
+    stopDesignTimer();
+    setDesignStartTime(null);
+    setElapsedTime(0);
   };
 
   // Handle design submission
   const handleDesignSubmit = async (values) => {
-    console.log(values)
     try {
       setLoading(true);
 
-      // Upload design file if exists
-      let designFileUrl = null;
-      if (values.design_file && values.design_file.fileList.length > 0) {
-        const formData = new FormData();
-        formData.append("image", values.design_file.fileList[0].originFileObj);
-        const uploadResult = await uploadImage(formData);
-        designFileUrl = uploadResult.data.url;
-      }
+      // Format elapsed time as hh.mm
+      const designTime = formatTimeForSubmission(elapsedTime);
 
-      const success = await updateDesign(
-        currentOrder._id,
-        designFileUrl,
-        calculateDesignTime(values.design_start_time, values.design_end_time)
-      );
+      // Prepare data in required JSON format
+      const designData = {
+        order_id: currentOrder._id,
+        designFile: image_path, // This should be a base64 encoded string or URL
+        member_id: userRole._id,
+        design_time: designTime,
+      };
+
+      console.log("Submitting design data:", designData);
+
+      const success = await updateDesign(designData);
 
       if (success) {
         setOrderData((prev) =>
@@ -295,9 +351,8 @@ const Orders = () => {
               ? {
                   ...order,
                   order_status: "production team",
-                  design_start_time: values.design_start_time.format(),
-                  design_end_time: values.design_end_time.format(),
-                  design_file: designFileUrl,
+                  design_time: designTime,
+                  design_file: image_path,
                 }
               : order
           )
@@ -307,6 +362,7 @@ const Orders = () => {
         );
         setIsDesignModalVisible(false);
         designForm.resetFields();
+        resetDesignTimer();
       } else {
         message.error("Failed to submit design details");
       }
@@ -398,12 +454,18 @@ const Orders = () => {
       message.warning("Please select a vendor");
       return;
     }
+    console.log({
+      order_id: currentOrder._id,
+      vendor_id: selectedVendor,
+      member_id: userRole._id,
+    });
 
     try {
       setLoading(true);
       await assignVendorToOrder({
         order_id: currentOrder._id,
         vendor_id: selectedVendor,
+        member_id: userRole._id,
       });
 
       message.success("Vendor assigned successfully");
@@ -415,6 +477,12 @@ const Orders = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Show order details in modal
+  const showOrderDetails = (order) => {
+    setCurrentOrder(order);
+    setIsDetailsModalVisible(true);
   };
 
   // Get status color
@@ -487,38 +555,50 @@ const Orders = () => {
     try {
       // Create CSV content
       let csvContent = "data:text/csv;charset=utf-8,";
-      
+
       // Define columns
       const columns = [
-        "Order ID", "Invoice Number", "Order Date", "Order Status", 
-        "Payment Method", "Customer Name", "Customer Email", 
-        "Customer Phone", "GSTIN", "Customer Address", "Product Name", 
-        "Quantity", "Unit Price", "CGST", "SGST", "Total Price"
+        "Order ID",
+        "Invoice Number",
+        "Order Date",
+        "Order Status",
+        "Payment Method",
+        "Customer Name",
+        "Customer Email",
+        "Customer Phone",
+        "GSTIN",
+        "Customer Address",
+        "Product Name",
+        "Quantity",
+        "Unit Price",
+        "CGST",
+        "SGST",
+        "Total Price",
       ];
-      
+
       // Add header row
       csvContent += columns.join(",") + "\r\n";
-      
+
       // Add data rows
-      provideOrderContent().forEach(row => {
-        const values = columns.map(col => {
-          const key = col.toLowerCase().replace(/\s+/g, '_');
-          return `"${row[key] || ''}"`; // Wrap in quotes to handle commas
+      provideOrderContent().forEach((row) => {
+        const values = columns.map((col) => {
+          const key = col.toLowerCase().replace(/\s+/g, "_");
+          return `"${row[key] || ""}"`; // Wrap in quotes to handle commas
         });
         csvContent += values.join(",") + "\r\n";
       });
-      
+
       // Create download link
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
       link.setAttribute("download", "orders_export.csv");
       document.body.appendChild(link);
-      
+
       // Trigger download
       link.click();
       document.body.removeChild(link);
-      
+
       message.success("CSV file downloaded successfully");
     } catch (err) {
       console.error("Error exporting data:", err);
@@ -533,6 +613,7 @@ const Orders = () => {
       <div>Upload Design File</div>
     </div>
   );
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       <motion.div
@@ -571,20 +652,6 @@ const Orders = () => {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <Card className="shadow-md border-0 bg-gradient-to-r from-green-500 to-green-600 text-white">
-            <div className="flex items-center">
-              <div className="bg-white bg-opacity-20 p-3 rounded-full">
-                <FiCheck className="text-white text-xl" />
-              </div>
-              <div className="ml-4">
-                <h3 className="text-white text-opacity-80">Completed</h3>
-                <p className="text-2xl font-bold">{orderStats.completed}</p>
-              </div>
-            </div>
-          </Card>
-        </motion.div>
-
-        <motion.div variants={itemVariants}>
           <Card className="shadow-md border-0 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white">
             <div className="flex items-center">
               <div className="bg-white bg-opacity-20 p-3 rounded-full">
@@ -602,11 +669,24 @@ const Orders = () => {
           <Card className="shadow-md border-0 bg-gradient-to-r from-red-500 to-red-600 text-white">
             <div className="flex items-center">
               <div className="bg-white bg-opacity-20 p-3 rounded-full">
-                <FiDollarSign className="text-white text-xl" />
+                <FaRupeeSign className="text-white text-xl" />
               </div>
               <div className="ml-4">
                 <h3 className="text-white text-opacity-80">Pending Payment</h3>
                 <p className="text-2xl font-bold">{orderStats.placed}</p>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+        <motion.div variants={itemVariants}>
+          <Card className="shadow-md border-0 bg-gradient-to-r from-green-500 to-green-600 text-white">
+            <div className="flex items-center">
+              <div className="bg-white bg-opacity-20 p-3 rounded-full">
+                <FiCheck className="text-white text-xl" />
+              </div>
+              <div className="ml-4">
+                <h3 className="text-white text-opacity-80">Completed</h3>
+                <p className="text-2xl font-bold">{orderStats.completed}</p>
               </div>
             </div>
           </Card>
@@ -931,27 +1011,33 @@ const Orders = () => {
                         <Button
                           size="middle"
                           icon={<FiEye />}
-                          onClick={() =>
-                            navigation("/order_explore", { state: order._id })
-                          }
+                          onClick={() => showOrderDetails(order)}
                         >
                           Details
                         </Button>
                       </div>
 
-                      {order.assigned_vendor ? (
-                        <div className="text-sm bg-green-50 text-green-700 px-3 py-1 rounded-full flex items-center">
-                          <FiUser className="mr-1" />
-                          <span>Vendor: {order.assigned_vendor.name}</span>
-                          {order.quality_rating && (
-                            <Rate
-                              disabled
-                              defaultValue={order.quality_rating}
-                              className="ml-2"
-                              size="small"
-                            />
-                          )}
-                        </div>
+                      {order.vender_id ? (
+                        (() => {
+                          console.log(
+                            "Vendor assigned:",
+                            order.vender_id
+                          );
+                          return (
+                            <div className="text-sm bg-green-50 text-green-700 px-3 py-1 rounded-full flex items-center">
+                              <FiUser className="mr-1" />
+                              <span>Vendor: {order.vender_id}</span>
+                              {order.quality_rating && (
+                                <Rate
+                                  disabled
+                                  defaultValue={order.quality_rating}
+                                  className="ml-2"
+                                  size="small"
+                                />
+                              )}
+                            </div>
+                          );
+                        })()
                       ) : (
                         <div className="text-sm bg-yellow-50 text-yellow-700 px-3 py-1 rounded-full">
                           <FiUser className="inline mr-1" />
@@ -1078,8 +1164,10 @@ const Orders = () => {
                   >
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <h5 className="font-medium">{vendor.name}</h5>
-                        <p className="text-sm text-gray-600">{vendor.email}</p>
+                        <h5 className="font-medium">{vendor.vendor_name}</h5>
+                        <p className="text-sm text-gray-600">
+                          {vendor.vendor_email}
+                        </p>
                       </div>
                       {selectedVendor === vendor._id && (
                         <Tag color="blue">Selected</Tag>
@@ -1088,14 +1176,14 @@ const Orders = () => {
                     <div className="mt-2 text-sm space-y-1">
                       <p className="flex items-center">
                         <FiMapPin className="mr-2 text-gray-400" />
-                        {vendor.address || "Address not specified"}
+                        {vendor.business_address || "Address not specified"}
                       </p>
                       <p className="flex items-center">
                         <FiPhone className="mr-2 text-gray-400" />
-                        {vendor.phone || "Phone not specified"}
+                        {vendor.vendor_contact_number || "Phone not specified"}
                       </p>
-                      <p>Specialization: {vendor.specialization || "N/A"}</p>
-                      <p>Capacity: {vendor.capacity || "N/A"} orders/day</p>
+                      {/* <p>Specialization: {vendor.specialization || "N/A"}</p> */}
+                      {/* <p>Capacity: {vendor.capacity || "N/A"} orders/day</p> */}
                       {vendor.rating && (
                         <div className="flex items-center">
                           <span className="mr-2">Rating:</span>
@@ -1115,11 +1203,14 @@ const Orders = () => {
         )}
       </Modal>
 
-      {/* Design Team Modal */}
+      {/* Design Team Modal with Timer */}
       <Modal
         title="Design Team - Submit Design Details"
         open={isDesignModalVisible}
-        onCancel={() => setIsDesignModalVisible(false)}
+        onCancel={() => {
+          setIsDesignModalVisible(false);
+          resetDesignTimer();
+        }}
         footer={null}
         width={600}
       >
@@ -1143,47 +1234,89 @@ const Orders = () => {
               </Descriptions>
             </div>
 
-            <Form.Item
-              label="Design Start Time"
-              name="design_start_time"
-              rules={[{ required: true, message: "Please select start time" }]}
-            >
-              <DatePicker showTime className="w-full" />
-            </Form.Item>
+            {/* Timer Section */}
+            <div className="mb-6 p-4 border rounded-lg bg-blue-50">
+              <div className="flex items-center justify-between mb-4">
+                <Title level={4} className="mb-0">
+                  Design Timer
+                </Title>
+                <div className="text-2xl font-mono font-bold">
+                  {formatTime(elapsedTime)}
+                </div>
+              </div>
+
+              <div className="flex space-x-2">
+                {!designStartTime ? (
+                  <Button
+                    type="primary"
+                    icon={<FiPlay />}
+                    onClick={startDesignTimer}
+                    className="bg-green-500 hover:bg-green-600 border-0"
+                  >
+                    Start Design
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      icon={timerInterval ? <FiPause /> : <FiPlay />}
+                      onClick={() => {
+                        if (timerInterval) {
+                          stopDesignTimer();
+                        } else {
+                          startDesignTimer();
+                        }
+                      }}
+                    >
+                      {timerInterval ? "Pause" : "Resume"}
+                    </Button>
+                    <Button
+                      icon={<FiStopCircle />}
+                      onClick={stopDesignTimer}
+                      className="bg-red-500 hover:bg-red-600 text-white border-0"
+                    >
+                      Stop
+                    </Button>
+                    <Button onClick={resetDesignTimer} danger>
+                      Reset
+                    </Button>
+                  </>
+                )}
+              </div>
+
+              {designStartTime && (
+                <div className="mt-3 text-sm text-gray-600">
+                  Started at: {designStartTime.format("YYYY-MM-DD HH:mm:ss")}
+                </div>
+              )}
+            </div>
 
             <Form.Item
-              label="Design End Time"
-              name="design_end_time"
-              rules={[{ required: true, message: "Please select end time" }]}
+              className="w-full"
+              name="design"
+              label={<CustomLabel name="Design File" />}
             >
-              <DatePicker showTime className="w-full" />
-            </Form.Item>
-
-            <Form.Item
-              label="Design File"
-              name="design_file"
-              valuePropName="fileList"
-              getValueFromEvent={(e) => e.fileList}
-              rules={[{ required: true, message: "Please upload design file" }]}
-            >
-              <Upload
-                listType="picture-card"
-                beforeUpload={() => false} // Prevent automatic upload
-                maxCount={1}
-              >
-                {uploadButton}
-              </Upload>
+              {image_path ? (
+                <ShowImages path={image_path} setImage={setImagePath} />
+              ) : (
+                <UploadHelper setImagePath={setImagePath} />
+              )}
             </Form.Item>
 
             <Form.Item>
               <div className="flex justify-end space-x-3">
-                <Button onClick={() => setIsDesignModalVisible(false)}>
+                <Button
+                  onClick={() => {
+                    setIsDesignModalVisible(false);
+                    resetDesignTimer();
+                  }}
+                >
                   Cancel
                 </Button>
                 <Button
                   type="primary"
                   htmlType="submit"
                   loading={loading}
+                  disabled={elapsedTime === 0}
                   className="bg-blue-500 hover:bg-blue-600 border-0"
                 >
                   Submit Design & Forward to Production
@@ -1255,6 +1388,146 @@ const Orders = () => {
               </div>
             </Form.Item>
           </Form>
+        )}
+      </Modal>
+
+      {/* Order Details Modal */}
+      <Modal
+        title="Order Details"
+        open={isDetailsModalVisible}
+        onCancel={() => setIsDetailsModalVisible(false)}
+        footer={[
+          <Button key="close" onClick={() => setIsDetailsModalVisible(false)}>
+            Close
+          </Button>,
+        ]}
+        width={800}
+      >
+        {currentOrder && (
+          <div className="space-y-6">
+            <Descriptions title="Order Information" bordered column={2}>
+              <Descriptions.Item label="Order ID">
+                {currentOrder.invoice_no}
+              </Descriptions.Item>
+              <Descriptions.Item label="Order Date">
+                {moment(currentOrder.createdAt).format("YYYY-MM-DD HH:mm")}
+              </Descriptions.Item>
+              <Descriptions.Item label="Status">
+                <Tag color={getStatusColor(currentOrder.order_status)}>
+                  {_.startCase(currentOrder.order_status)}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Payment Method">
+                {_.get(currentOrder, "payment_type", "N/A")}
+              </Descriptions.Item>
+              <Descriptions.Item label="Total Amount" span={2}>
+                <Text strong>₹{_.get(currentOrder, "total_price", "0")}</Text>
+              </Descriptions.Item>
+            </Descriptions>
+
+            <Divider />
+
+            <Descriptions title="Customer Information" bordered column={2}>
+              <Descriptions.Item label="Name">
+                {_.get(currentOrder, "user_details[0].name", "N/A")}
+              </Descriptions.Item>
+              <Descriptions.Item label="Email">
+                {_.get(currentOrder, "user_details[0].email", "N/A")}
+              </Descriptions.Item>
+              <Descriptions.Item label="Phone">
+                {_.get(currentOrder, "delivery_address.mobile_number", "N/A")}
+              </Descriptions.Item>
+              <Descriptions.Item label="GSTIN">
+                {_.get(currentOrder, "delivery_address.gst_no", "N/A")}
+              </Descriptions.Item>
+              <Descriptions.Item label="Delivery Address" span={2}>
+                {_.get(currentOrder, "delivery_address.street", "N/A")},{" "}
+                {/* {_.get(currentOrder, "delivery_address.city", "N/A")},{" "} */}
+                {/* {_.get(currentOrder, "delivery_address.state", "N/A")} -{" "} */}
+                {_.get(currentOrder, "delivery_address.pincode", "N/A")}
+              </Descriptions.Item>
+            </Descriptions>
+
+            <Divider />
+
+            <Descriptions title="Product Information" bordered column={2}>
+              <Descriptions.Item label="Product Name">
+                {_.get(currentOrder, "cart_items.product_name", "N/A")}
+              </Descriptions.Item>
+              <Descriptions.Item label="Quantity">
+                {_.get(currentOrder, "cart_items.product_quantity", "N/A")}
+              </Descriptions.Item>
+              <Descriptions.Item label="Unit Price">
+                ₹{_.get(currentOrder, "cart_items.product_price", "N/A")}
+              </Descriptions.Item>
+              <Descriptions.Item label="CGST">
+                {_.get(currentOrder, "cart_items.cgst", "N/A")}%
+              </Descriptions.Item>
+              <Descriptions.Item label="SGST">
+                {_.get(currentOrder, "cart_items.sgst", "N/A")}%
+              </Descriptions.Item>
+            </Descriptions>
+
+            {currentOrder.design_time && (
+              <>
+                <Divider />
+                <Descriptions title="Design Information" bordered column={2}>
+                  <Descriptions.Item label="Design Time">
+                    {currentOrder.design_time}
+                  </Descriptions.Item>
+                  {currentOrder.designFile && (
+                    <Descriptions.Item label="Design File">
+                      <Button
+                        type="link"
+                        icon={<FiEye />}
+                        onClick={() =>
+                          window.open(currentOrder.designFile, "_blank")
+                        }
+                      >
+                        View Design
+                      </Button>
+                    </Descriptions.Item>
+                  )}
+                </Descriptions>
+              </>
+            )}
+
+            {currentOrder.assigned_vendor && (
+              <>
+                <Divider />
+                <Descriptions title="Vendor Information" bordered column={2}>
+                  <Descriptions.Item label="Vendor Name">
+                    {currentOrder.assigned_vendor.name}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Contact">
+                    {currentOrder.assigned_vendor.phone || "N/A"}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Email">
+                    {currentOrder.assigned_vendor.email || "N/A"}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Specialization">
+                    {currentOrder.assigned_vendor.specialization || "N/A"}
+                  </Descriptions.Item>
+                </Descriptions>
+              </>
+            )}
+
+            
+
+            {currentOrder.quality_rating && (
+              <>
+                <Divider />
+                <Descriptions title="Quality Check" bordered column={2}>
+                  <Descriptions.Item label="Rating">
+                    <Rate disabled defaultValue={currentOrder.quality_rating} />
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Notes">
+                    {currentOrder.quality_notes || "No notes provided"}
+                  </Descriptions.Item>
+                </Descriptions>
+              </>
+            )}
+          </div>
         )}
       </Modal>
     </div>

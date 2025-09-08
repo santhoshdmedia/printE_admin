@@ -107,6 +107,8 @@ const Dashboard = () => {
     console.log(url);
     window.open(`${CLIENT_URL}/product/${url}`);
   };
+  const userRole=JSON.parse(localStorage.getItem('userprofile'))
+  
 
   const orderColumns = [
     {
@@ -287,8 +289,9 @@ const Dashboard = () => {
       <DefaultTile title={"Dashboard"} />
       
       {/* Animated Stats Cards */}
-      <motion.div 
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
+      {userRole.role=="super admin"&&
+        <motion.div 
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
@@ -331,6 +334,7 @@ const Dashboard = () => {
           })}
       </motion.div>
 
+      }
       {/* Main Dashboard Grid */}
       <motion.div 
         className="grid grid-cols-1 lg:grid-cols-2 gap-6 dashboard"
@@ -371,20 +375,7 @@ const Dashboard = () => {
           />
         </motion.div>
 
-        {/* Recent Five Customers */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.6 }}
-        >
-          <TableView 
-            loading={loading} 
-            column={customerColumns} 
-            dataSource={customerData} 
-            title={"Recent Five Customers"} 
-            Icon={ICON_HELPER.USER_ICON} 
-          />
-        </motion.div>
+       
 
         {/* Admin Users */}
         <motion.div

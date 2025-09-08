@@ -19,13 +19,13 @@ const handleLogout=()=>{
 
   return (
     <div className="flex items-center justify-between size-full !h-[60px] px-4 bg-white">
-      <h1 className="text-xl font-medium text-secondary">{greetingTime(new Date())} Admin !</h1>
+      <h1 className="text-xl font-medium text-secondary">{greetingTime(new Date())} <span className="capitalize"> {user.name}</span> !</h1>
       <div className="flex items-center gap-x-2">
         <div className="center_div gap-x-2   font-medium text-secondary">
           <Avatar size="small" className="bg-secondary">
             {profilePicName}
           </Avatar>
-          <h1>{user.name}</h1>
+          <h1 className="capitalize">{user.name}</h1>
         </div>
         <Divider type="vertical" />
         <div className="center_div gap-x-2  cursor-pointer  font-medium text-secondary" onClick={handleLogout}>

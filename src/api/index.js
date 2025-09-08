@@ -86,7 +86,7 @@ export const updateAdmin = async (formdata) =>
     `${BASE_URL}/admin/update_admin/${formdata._id}`,
     formdata
   );
-export const deleteAdamin = async (id) =>
+export const deleteAdmin = async (id) =>
   await custom_request.delete(`${BASE_URL}/admin/delete_admin/${id}`);
 
 //client-user
@@ -234,11 +234,7 @@ export const deleteProductDescription = async (id) =>
   );
 
 //order update
-export const updateDesign = async () =>
-  await custom_request.put(
-    `${BASE_URL}/order/update-design`
-  );
-export const assignVendorToOrder = async () =>
-  await custom_request.put(
-    `${BASE_URL}/order/update-design`
-  );
+export const updateDesign = async (formdata) =>
+  await custom_request.put(`${BASE_URL}/order/update-design`, formdata); 
+export const assignVendorToOrder = async (formdata) =>
+  await custom_request.put(`${BASE_URL}/order/update-vendor`, formdata); 
