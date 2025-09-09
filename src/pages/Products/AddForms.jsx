@@ -16,13 +16,27 @@ import {
   Table,
   Tag,
   Typography,
+  Modal,
+  Switch,
 } from "antd";
-import Inputs from "../../components/Inputs";
+import {
+  EyeOutlined,
+  EyeInvisibleOutlined,
+  DeleteFilled,
+  MinusCircleOutlined,
+  PlusOutlined,
+} from "@ant-design/icons";
 import React, { useEffect, useState } from "react";
 import { MdDeleteOutline } from "react-icons/md";
+import { FaCirclePlus } from "react-icons/fa6";
+import { Link } from "react-router-dom";
+import { v4 as uuidv4 } from "uuid";
+import JoditEditor from "jodit-react";
+
+// Helper imports
+import Inputs from "../../components/Inputs";
 import ShowImages from "../../helper/ShowImages";
 import UploadHelper from "../../helper/UploadHelper";
-import { FaCirclePlus } from "react-icons/fa6";
 import {
   addproduct,
   editProduct,
@@ -40,29 +54,54 @@ import {
 } from "../../helper/notification_helper";
 import { formValidation } from "../../helper/formvalidation";
 import { ICON_HELPER } from "../../helper/iconhelper";
-import { Link } from "react-router-dom";
-import { v4 as uuidv4 } from "uuid";
-import {
-  DeleteFilled,
-  MinusCircleOutlined,
-  PlusOutlined,
-} from "@ant-design/icons";
-import JoditEditor from "jodit-react";
 
 const { Title, Text } = Typography;
 const { Panel } = Collapse;
 
+// Constants
 const initialVariantOptionValue = {
   value: "",
   _id: Date.now() + 1,
   variant_type: "text_box_variant",
   image_name: "",
 };
+
 const initialVariantValue = {
   variant_name: "",
   variant_type: "text_box_variant",
   options: [initialVariantOptionValue],
 };
+
+const productCardColor = [
+  { value: "Red", bg: "bg-red-300" },
+  { value: "Green", bg: "bg-green-300" },
+  { value: "Yellow", bg: "bg-yellow-300" },
+  { value: "Gray", bg: "bg-gray-300" },
+  { value: "Indigo", bg: "bg-indigo-300" },
+  { value: "Pink", bg: "bg-pink-300" },
+  { value: "Teal", bg: "bg-teal-300" },
+  { value: "Purple", bg: "bg-purple-300" },
+  { value: "Blue", bg: "bg-blue-300" },
+  { value: "Orange", bg: "bg-orange-300" },
+  { value: "Amber", bg: "bg-amber-300" },
+];
+
+const productType = [
+  { value: "Stand Alone Product" },
+  { value: "Variable Product" },
+];
+
+const TaxPreference = [
+  { value: "Taxable" },
+  { value: "Non-Taxable" },
+  { value: "Out of Scope" },
+  { value: "Non-GST Apply" },
+];
+
+const PRODCTSTOCK_TYPE = [
+  { value: "Limited" },
+  { value: "Unliimted" },
+];
 
 const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   const [form] = Form.useForm();
@@ -76,53 +115,64 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   const [loading, setLoading] = useState(false);
   const [quantityType, setQuantityType] = useState("");
   const [dummy, setDummy] = useState(false);
+  const [modalUnitVisible, setModalUnitVisible] = useState(false);
+  const [isProductVisible, setIsProductVisible] = useState(true);
+  const [productTypeSelectedValue, setProductTypeSelectedValue] = useState(
+    id?.type || productType[0].value
+  );
+  const [TaxPreferenceValue, setTaxPreferenceValue] = useState(
+    id?.type || TaxPreference[0].value
+  );
+  const [productStockSelectedValue, setProductStockSelectedValue] = useState(
+    id?.stocks_status || PRODCTSTOCK_TYPE[1].value
+  );
 
-  let initial_seo_data = {
+  const initial_seo_data = {
     title: "",
-    keywords:"",
+    keywords: "",
     description: "",
     url: "",
   };
 
   const [seo_datas, setSEO_Datas] = useState(initial_seo_data);
 
-  const handleFinsih = async (values) => {
-    try {
-      setLoading(true);
-      if (!image_path) {
-        return message.warning("Please provide a category image");
-      }
-      values.images = image_path;
-      values.variants = variants;
-      values.variants_price = tableData;
-      values.seo_url = String(values.seo_url).trim();
-      console.log({ values });
-      let result = "";
-      if (id) {
-        result = await editProduct(values, id?._id);
-        console.log(result);
-      } else {
-        result = await addproduct(values);
-        console.log(result);
-      }
+  // Effect for loading initial data
+  useEffect(() => {
+    productCategory();
+    collectVendors();
+  }, []);
 
-      setFormStatus(false);
-      SUCCESS_NOTIFICATION(result);
-      form.resetFields();
-      setId("");
-      setQuantityType("");
-      setImagePath("");
-      setFormStatus(false);
-      fetchData();
-      setSEO_Datas(initial_seo_data);
-    } catch (err) {
-      console.log(err);
-      ERROR_NOTIFICATION(err);
-    } finally {
+  // Effect for handling edit mode
+  useEffect(() => {
+    if (id) {
+      setLoading(true);
+      onCategoryChnage(_.get(id, "category_details._id", ""));
+      form.setFieldsValue(id);
+      
+      let vendors_ids = _.get(id, "vendor_details", []).map((res) => res._id);
+      setQuantityType(_.get(id, "quantity_type", ""));
+      
+      form.setFieldsValue({
+        vendor_details: vendors_ids,
+        category_details: _.get(id, "category_details._id", ""),
+        sub_category_details: _.get(id, "sub_category_details._id", ""),
+      });
+      
+      setSEO_Datas({
+        title: _.get(id, "seo_title", ""),
+        description: _.get(id, "seo_description", ""),
+        url: _.get(id, "seo_url", ""),
+      });
+
+      setTableValue(_.get(id, "variants_price", []));
+      setImagePath(_.get(id, "images", []));
+      setVariants(_.get(id, "variants", [initialVariantValue]));
+      setDummy(!dummy);
       setLoading(false);
     }
-  };
+  }, [id]);
 
+  // API functions
   const productCategory = async () => {
     try {
       const result = await getMainCategory();
@@ -147,91 +197,47 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     }
   };
 
-  useEffect(() => {
-    collectVendors();
-  }, []);
-
-  useEffect(() => {
-    onCategoryChnage(_.get(id, "category_details._id", ""));
-  }, [id, subcategory_data, categoryData]);
-
-  useEffect(() => {
-    if (id) {
+  const handleFinish = async (values) => {
+    console.log(values);
+    
+    try {
       setLoading(true);
-      onCategoryChnage(_.get(id, "category_details._id", ""));
-      form.setFieldsValue(id);
-      let vendors_ids = _.get(id, "vendor_details", []).map((res) => {
-        return res._id;
-      });
-      setQuantityType(_.get(id, "quantity_type", ""));
-      form.setFieldsValue({
-        vendor_details: vendors_ids,
-        category_details: _.get(id, "category_details._id", ""),
-        sub_category_details: _.get(id, "sub_category_details._id", ""),
-      });
-      setSEO_Datas({
-        title: _.get(id, "seo_title", ""),
-        description: _.get(id, "seo_description", ""),
-        url: _.get(id, "seo_url", ""),
-      });
-
-      setTableValue(_.get(id, "variants_price", []));
-      setImagePath(_.get(id, "images", []));
-      setVariants(_.get(id, "variants", [initialVariantValue]));
-      setDummy(!dummy);
+      if (!image_path) {
+        return message.warning("Please provide a category image");
+      }
+      
+      values.images = image_path;
+      values.variants = variants;
+      values.variants_price = tableData;
+      values.seo_url = String(values.seo_url).trim();
+      
+      let result = id ? await editProduct(values, id?._id) : await addproduct(values);
+      
+      setFormStatus(false);
+      SUCCESS_NOTIFICATION(result);
+      form.resetFields();
+      setId("");
+      setQuantityType("");
+      setImagePath("");
+      setFormStatus(false);
+      fetchData();
+      setSEO_Datas(initial_seo_data);
+    } catch (err) {
+      console.log(err);
+      ERROR_NOTIFICATION(err);
+    } finally {
       setLoading(false);
     }
-  }, [id]);
+  };
 
-  useEffect(() => {
-    productCategory();
-  }, []);
-
-  const productCardColor = [
-    { value: "Red", bg: "bg-red-300" },
-    { value: "Green", bg: "bg-green-300" },
-    { value: "Yellow", bg: "bg-yellow-300" },
-    { value: "Gray", bg: "bg-gray-300" },
-    { value: "Indigo", bg: "bg-indigo-300" },
-    { value: "Pink", bg: "bg-pink-300" },
-    { value: "Teal", bg: "bg-teal-300" },
-    { value: "Purple", bg: "bg-purple-300" },
-    { value: "Blue", bg: "bg-blue-300" },
-    { value: "Orange", bg: "bg-orange-300" },
-    { value: "Amber", bg: "bg-amber-300" },
-  ];
-
-  const productType = [
-    {
-      value: "Single Product",
-    },
-    {
-      value: "Variant Product",
-    },
-  ];
-
-  const PRODCTSTOCK_TYPE = [
-    {
-      value: "Track Stocks",
-    },
-    {
-      value: "Don't Track Stocks",
-    },
-  ];
-
-  const [productTypeSelectedValue, setProductTypeSelectedValue] = useState(
-    id?.type || productType[0].value
-  );
-  const [productStockSelectedValue, setProductStockSelectedValue] = useState(
-    id?.stocks_status || PRODCTSTOCK_TYPE[1].value
-  );
-
+  // Variant handlers
   const handleAddVariant = () => {
     setVariants([...variants, { ...initialVariantValue, _id: Date.now() }]);
   };
+
   const handleAddVariantOption = (id) => {
     const newVariant = variants.map((data) => {
-      if (data._id === id)
+      if (data._id === id) {
         return {
           ...data,
           options: [
@@ -243,7 +249,8 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
             },
           ],
         };
-      else return data;
+      }
+      return data;
     });
     setVariants(newVariant);
   };
@@ -256,6 +263,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       )
     );
   };
+
   const handleOnChangeVariantType = (event, id) => {
     setVariants((prevVariants) =>
       prevVariants.map((variant) =>
@@ -271,6 +279,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       )
     );
   };
+
   const handleOnDeleteVariantName = (varient_details) => {
     if (!_.isEmpty(_.get(varient_details, "options", []))) {
       return CUSTOM_ERROR_NOTIFICATION("Please Delete variant first");
@@ -292,14 +301,12 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       const result = await uploadImage(formData);
       let value = _.get(result, "data.data.url", "");
       setLoading(false);
+      
       const changeVariantOptionName = variants.map((data) => {
         if (data._id === VariantId) {
           const optionChange = data.options.map((option) => {
             return option._id === OptionId
-              ? {
-                  ...option,
-                  image_name: value,
-                }
+              ? { ...option, image_name: value }
               : option;
           });
           return { ...data, options: optionChange };
@@ -308,14 +315,15 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       });
 
       setVariants(changeVariantOptionName);
-    } catch (err) {}
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleOnChangeVariantOptionName = async (
     event,
     VariantId,
-    OptionId,
-    variant_type
+    OptionId
   ) => {
     try {
       let { value } = event.target;
@@ -329,7 +337,9 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
         return data;
       });
       setVariants(changeVariantOptionName);
-    } catch (err) {}
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleOnDeleteVariantOptionName = (VariantId, OptionId) => {
@@ -345,28 +355,21 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       });
 
       setVariants(deleteVariantOptionName);
-    } catch (err) {}
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const combinations = variants.reduce(
-    (acc, variant) =>
-      acc.flatMap((combination) =>
-        variant.options.map((option) => [...combination, option])
-      ),
-    [[]]
-  );
-
+  // Table handlers
   const handlePriceChange = (record, e) => {
     const { value } = e.target;
     const updatedTableValue = tableValue.map((data) => {
-      // Update the price for the correct row
       if (data.key === record.key) {
         return { ...data, price: value };
       }
-      return data; // Keep other rows unchanged
+      return data;
     });
 
-    // If no matching key is found, add a new entry
     if (!updatedTableValue.some((data) => data.key === record.key)) {
       updatedTableValue.push({ ...record, price: value });
     }
@@ -383,9 +386,8 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       return data;
     });
 
-    // If no matching key is found, add a new entry
     if (!updatedTableValue.some((data) => data.key === record.key)) {
-      updatedTableValue.push({ ...record, price: value });
+      updatedTableValue.push({ ...record, stock: value });
     }
 
     setTableValue(updatedTableValue);
@@ -394,7 +396,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   const handleProductCodeChange = (record, e) => {
     const { value } = e.target;
     const updatedTableValue = tableValue.map((data) => {
-      // Update the price for the correct row
       if (data.key === record.key) {
         return {
           ...data,
@@ -402,101 +403,17 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
           product_unique_code: uuidv4() + Date.now(),
         };
       }
-      return data; // Keep other rows unchanged
+      return data;
     });
 
-    // If no matching key is found, add a new entry
     if (!updatedTableValue.some((data) => data.key === record.key)) {
-      updatedTableValue.push({ ...record, price: value });
+      updatedTableValue.push({ ...record, product_code: value });
     }
 
     setTableValue(updatedTableValue);
   };
 
-  const tableData = combinations.map((combination) => {
-    const row = combination.reduce((acc, data, i) => {
-      return {
-        ...acc,
-        [variants[i].variant_name]: data.value,
-      };
-    }, {});
-
-    const keyId = combination.map((opt) => opt.value).join("-");
-
-    // Ensure the price persists if already in `tableValue`
-    const existingData = tableValue.find((data) => data.key === keyId);
-
-    return (
-      existingData || {
-        ...row,
-        key: keyId,
-        // price: "",
-        // stock: "",
-      }
-    );
-  });
-
-  const columns = [
-    ...variants.map((variant) => ({
-      title: variant.variant_name,
-      dataIndex: variant.variant_name,
-      key: variant.variant_name,
-      render: (text, record, index) => {
-        return text;
-      },
-    })),
-    {
-      title: "Price",
-      dataIndex: "price",
-      key: "price",
-      render: (text, record, index) => {
-        return (
-          <Input
-            type="number"
-            key={index}
-            required
-            placeholder="Price"
-            value={record.price}
-            onChange={(e) => handlePriceChange(record, e)}
-          />
-        );
-      },
-    },
-    {
-      title: "Stock",
-      dataIndex: "stock",
-      key: "stock",
-      render: (text, record, index) => {
-        return (
-          <Input
-            type="number"
-            placeholder="stock"
-            required
-            key={index}
-            value={record.stock}
-            onChange={(e) => handleStockChange(record, e)}
-          />
-        );
-      },
-    },
-    {
-      title: "Product Code",
-      dataIndex: "product_code",
-      key: "product_code",
-      render: (text, record, index) => {
-        return (
-          <Input
-            placeholder="Product Code"
-            required
-            key={index}
-            value={record.product_code}
-            onChange={(e) => handleProductCodeChange(record, e)}
-          />
-        );
-      },
-    },
-  ];
-
+  // Helper functions
   const onCategoryChnage = (value) => {
     if (value) {
       let responce = subcategory_data.filter((data) => {
@@ -517,12 +434,13 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
         `[${key}].tab_type`,
         ""
       );
-    } catch (err) {}
+    } catch (err) {
+      return "";
+    }
   };
 
   const handleChange = (id, url) => {
     setDummy(!dummy);
-
     let firstFieldKey = Number(id.split("-")[1]);
     let imageFieldKey = Number(id.split("-")[0]);
 
@@ -580,9 +498,107 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     }
   };
 
+  // Modal handlers
+  const showUnitModal = () => {
+    setModalUnitVisible(true);
+  };
+
+  const handleUnitOk = () => {
+    form.validateFields().then((values) => {
+      console.log("Form values:", values);
+      setModalUnitVisible(false);
+    });
+  };
+
+  const handleUnitCancel = () => {
+    setModalUnitVisible(false);
+  };
+
+  // Generate table data from variants
+  const combinations = variants.reduce(
+    (acc, variant) =>
+      acc.flatMap((combination) =>
+        variant.options.map((option) => [...combination, option])
+      ),
+    [[]]
+  );
+
+  const tableData = combinations.map((combination) => {
+    const row = combination.reduce((acc, data, i) => {
+      return {
+        ...acc,
+        [variants[i].variant_name]: data.value,
+      };
+    }, {});
+
+    const keyId = combination.map((opt) => opt.value).join("-");
+    const existingData = tableValue.find((data) => data.key === keyId);
+
+    return (
+      existingData || {
+        ...row,
+        key: keyId,
+      }
+    );
+  });
+
+  // Table columns
+  const columns = [
+    ...variants.map((variant) => ({
+      title: variant.variant_name,
+      dataIndex: variant.variant_name,
+      key: variant.variant_name,
+      render: (text) => text,
+    })),
+    {
+      title: "Price",
+      dataIndex: "price",
+      key: "price",
+      render: (text, record, index) => (
+        <Input
+          type="number"
+          key={index}
+          required
+          placeholder="Price"
+          value={record.price}
+          onChange={(e) => handlePriceChange(record, e)}
+        />
+      ),
+    },
+    {
+      title: "Stock",
+      dataIndex: "stock",
+      key: "stock",
+      render: (text, record, index) => (
+        <Input
+          type="number"
+          placeholder="stock"
+          required
+          key={index}
+          value={record.stock}
+          onChange={(e) => handleStockChange(record, e)}
+        />
+      ),
+    },
+    {
+      title: "Product Code",
+      dataIndex: "product_code",
+      key: "product_code",
+      render: (text, record, index) => (
+        <Input
+          placeholder="Product Code"
+          required
+          key={index}
+          value={record.product_code}
+          onChange={(e) => handleProductCodeChange(record, e)}
+        />
+      ),
+    },
+  ];
+
   return (
     <Spin spinning={loading}>
-      <div className=" bg-gray-50 min-h-screen">
+      <div className="bg-gray-50 min-h-screen">
         <Card
           bordered={false}
           style={{
@@ -591,23 +607,36 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
             background: "white",
           }}
         >
-          <div style={{ textAlign: "center", marginBottom: "32px" }}>
-            <Title level={2} style={{ color: "#2c3e50", marginBottom: "8px" }}>
-              {id ? "Edit Product" : "Add New Product"}
-            </Title>
-            <Text type="secondary">
-              {id
-                ? "Update the product details below"
-                : "Fill in the details below to add a new product to your catalog"}
-            </Text>
+          <div className="flex justify-between px-5 items-center mb-6">
+            <div>
+              <Title level={2} style={{ color: "#2c3e50", marginBottom: "8px" }}>
+                {id ? "Edit Product" : "Add New Product"}
+              </Title>
+              <Text type="secondary">
+                {id
+                  ? "Update the product details below"
+                  : "Fill in the details below to add a new product to your catalog"}
+              </Text>
+            </div>
+            <div className="flex items-center gap-4">
+              <span>Visibility</span>
+              <Switch
+                checkedChildren={<EyeOutlined />}
+                unCheckedChildren={<EyeInvisibleOutlined />}
+                checked={isProductVisible}
+                onChange={setIsProductVisible}
+              />
+              <Text>{isProductVisible ? "Visible" : "Hidden"}</Text>
+            </div>
           </div>
 
-          <Form form={form} layout="vertical" onFinish={handleFinsih}>
+          <Form form={form} layout="vertical" onFinish={handleFinish}>
             <Collapse
               defaultActiveKey={["1", "2", "3", "4", "5"]}
               expandIconPosition="end"
               className="custom-collapse"
             >
+              {/* Product Basic Information Panel */}
               <Panel
                 header={
                   <span className="text-lg font-semibold">
@@ -636,7 +665,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                   </Form.Item>
 
                   <Form.Item
-                    label="Category"
+                    label="Main Category"
                     name="category_details"
                     rules={[
                       {
@@ -648,9 +677,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     <Select
                       placeholder="Select Product Category"
                       className="h-12"
-                      onChange={(e) => {
-                        onCategoryChnage(e);
-                      }}
+                      onChange={(e) => onCategoryChnage(e)}
                     >
                       {categoryData.map((item) => (
                         <Select.Option key={item._id} value={item._id}>
@@ -692,53 +719,49 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     </Form.Item>
                   )}
 
-                  {productTypeSelectedValue === "Single Product" && (
-                    <>
-                      <Form.Item
-                        label="Product Stocks"
-                        name="stocks_status"
-                        rules={[
-                          {
-                            required: true,
-                            message: "Please select a product stock type!",
-                          },
-                        ]}
-                      >
-                        <Select
-                          placeholder="Select Stocks Type"
-                          className="h-12"
-                          options={PRODCTSTOCK_TYPE}
-                          onChange={(val) => setProductStockSelectedValue(val)}
-                        />
-                      </Form.Item>
+                  <Form.Item
+                    label="Product Stocks"
+                    name="stocks_status"
+                    rules={[
+                      {
+                        required: true,
+                        message: "Please select a product stock type!",
+                      },
+                    ]}
+                  >
+                    <Select
+                      placeholder="Select Stocks Type"
+                      className="h-12"
+                      options={PRODCTSTOCK_TYPE}
+                      onChange={(val) => setProductStockSelectedValue(val)}
+                    />
+                  </Form.Item>
 
-                      {productStockSelectedValue === "Track Stocks" && (
-                        <Form.Item
-                          rules={[formValidation("Enter In-Stock Count")]}
-                          name="stock_count"
-                          label="In-Stock Count"
-                        >
-                          <InputNumber
-                            placeholder="Enter Stock Count"
-                            type="text"
-                            className="w-full h-12"
-                          />
-                        </Form.Item>
-                      )}
-
-                      <Form.Item
-                        name="product_code"
-                        label="Product Code"
-                        rules={[formValidation("Enter Product Code")]}
-                      >
-                        <Input
-                          placeholder="Enter Product code"
-                          type="text"
-                          className="h-12"
-                        />
-                      </Form.Item>
-                    </>
+                  {productStockSelectedValue === "Track Stocks" && (
+                    <Form.Item
+                      rules={[formValidation("Enter In-Stock Count")]}
+                      name="stock_count"
+                      label="In-Stock Count"
+                    >
+                      <InputNumber
+                        placeholder="Enter Stock Count"
+                        type="text"
+                        className="w-full h-12"
+                      />
+                    </Form.Item>
                   )}
+
+                  <Form.Item
+                    name="product_code"
+                    label="Product Code"
+                    rules={[formValidation("Enter Product Code")]}
+                  >
+                    <Input
+                      placeholder="Enter Product code"
+                      type="text"
+                      className="h-12"
+                    />
+                  </Form.Item>
 
                   <Form.Item
                     name="name"
@@ -780,19 +803,71 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                   </Form.Item>
 
                   <Form.Item
-                    rules={[formValidation("Enter Processing Time")]}
-                    label="Processing Time"
-                    name="processing_time"
+                    rules={[formValidation("Enter HSM code")]}
+                    label="HSM code"
+                    name="HSMcode_time"
                   >
                     <Input
-                      placeholder="Enter Processing Time"
+                      placeholder="Enter HSM code"
+                      type="Text"
+                      className="h-12"
+                    />
+                  </Form.Item>
+                  
+                  <div className="flex flex-col justify-start">
+                    <h2 className="font-medium mb-1">Unit</h2>
+                    <Button
+                      type="primary"
+                      onClick={showUnitModal}
+                      className="h-12"
+                    >
+                      Configure Unit
+                    </Button>
+                  </div>
+
+                  <Form.Item
+                    rules={[formValidation("Enter Production Time")]}
+                    label="Production Time"
+                    name="Production_time"
+                  >
+                    <Input
+                      placeholder="Enter Production Time"
                       type="Number"
                       className="h-12"
                     />
                   </Form.Item>
+                  
+                  <Form.Item
+                    rules={[formValidation("Enter Stock Arrangement Time")]}
+                    label="Stock Arrangement Time"
+                    name="Stock_Arrangement_time"
+                  >
+                    <Input
+                      placeholder="Enter Stock Arrangement Time"
+                      type="Number"
+                      className="h-12"
+                    />
+                  </Form.Item>
+                  
+                  <Form.Item
+                    label="Tax prefernce"
+                    name="Tax_prefernce"
+                    rules={[
+                      {
+                        required: true,
+                        message: "Please select a Tax prefernce!",
+                      },
+                    ]}
+                  >
+                    <Select
+                      placeholder="Select type"
+                      className="h-12"
+                      options={TaxPreference}
+                      onChange={(val) => setTaxPreferenceValue(val)}
+                    />
+                  </Form.Item>
                 </div>
 
-               
                 <Form.Item
                   rules={[formValidation("enter tittle for description")]}
                   label="product description tittle"
@@ -804,6 +879,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     className="h-12"
                   />
                 </Form.Item>
+                
                 <div className="grid grid-cols-2 gap-2">
                   <Form.Item
                     rules={[formValidation("enter Point one")]}
@@ -849,12 +925,10 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                       className="h-12"
                     />
                   </Form.Item>
-              
-                  
                 </div>
-             
               </Panel>
 
+              {/* Product Images Panel */}
               <Panel
                 header={
                   <span className="text-lg font-semibold">Product Images</span>
@@ -880,6 +954,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                 </Form.Item>
               </Panel>
 
+              {/* Pricing Information Panel */}
               <Panel
                 header={
                   <span className="text-lg font-semibold">
@@ -888,7 +963,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                 }
                 key="3"
               >
-                {productTypeSelectedValue === "Single Product" ? (
+                {productTypeSelectedValue === "Stand Alone Product" ? (
                   <Form.Item
                     rules={[formValidation("Enter Product Price")]}
                     label="Product Price"
@@ -1099,6 +1174,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                 )}
               </Panel>
 
+              {/* Quantity Information Panel */}
               <Panel
                 header={
                   <span className="text-lg font-semibold">
@@ -1129,22 +1205,22 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                   </Form.Item>
 
                   {quantityType === "dropdown" && (
-                    <Form.Item
-                      name="dropdown_gap"
-                      rules={[formValidation("Enter dropdown gap")]}
-                      label="dropdown gap"
-                    >
-                      <Input type="number" className="h-12 w-full" />
-                    </Form.Item>
-                  )}
-                  {quantityType === "textbox" && (
-                    <Form.Item
-                      name="max_quantity"
-                      rules={[formValidation("Enter Maximum Quantity")]}
-                      label="Maximum Quantity"
-                    >
-                      <Input type="number" className="h-12 w-full" />
-                    </Form.Item>
+                    <>
+                      <Form.Item
+                        name="dropdown_gap"
+                        rules={[formValidation("Enter dropdown gap")]}
+                        label="dropdown gap"
+                      >
+                        <Input type="number" className="h-12 w-full" />
+                      </Form.Item>
+                      <Form.Item
+                        name="max_quantity"
+                        rules={[formValidation("Enter Maximum Quantity")]}
+                        label="Maximum Quantity"
+                      >
+                        <Input type="number" className="h-12 w-full" />
+                      </Form.Item>
+                    </>
                   )}
                 </div>
 
@@ -1250,170 +1326,305 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                 </div>
               </Panel>
 
-                <Collapse.Panel header={<span className="text-lg font-semibold">Product Tab Description Info</span>} key={"9"}>
-            <Form.List name="description_tabs">
-              {(fields, { add, remove }) => (
-                <>
-                  <Tag type="dashed" onClick={() => add()} block className=" cursor-pointer !bg-green-500 hover:!bg-orange-500 !mb-5 !text-white">
-                    + Add New Tab
-                  </Tag>
-                  <div className="grid grid-cols-1 gap-x-2 gap-y-3">
-                    {fields.map((field) => (
-                      <Card
-                        size="small"
-                        title={`Tab ${field.name + 1}`}
-                        key={field.key}
-                        extra={
-                          <DeleteFilled
-                            onClick={() => {
-                              remove(field.name);
-                            }}
-                            className="!text-red-500"
-                          />
-                        }
+              {/* Product Tab Description Info Panel */}
+              <Panel
+                header={
+                  <span className="text-lg font-semibold">
+                    Product Tab Description Info
+                  </span>
+                }
+                key="5"
+              >
+                <Form.List name="description_tabs">
+                  {(fields, { add, remove }) => (
+                    <>
+                      <Tag
+                        type="dashed"
+                        onClick={() => add()}
+                        block
+                        className="cursor-pointer !bg-green-500 hover:!bg-orange-500 !mb-5 !text-white"
                       >
-                        <div className="center_div justify-start gap-x-2">
-                          <Form.Item label="Tab Name" name={[field.name, "name"]} rules={[formValidation("Enter tab name")]}>
-                            <Input className="!h-[50px] !w-[300px]" />
-                          </Form.Item>
-                          <Form.Item label="Tab Name" hidden name={[field.name, "key"]} initialValue={field.key} rules={[formValidation("Enter tab name")]}>
-                            <Input className="!h-[50px] !w-[300px]" />
-                          </Form.Item>
-                          <Form.Item label="Tab Type" name={[field.name, "tab_type"]} rules={[formValidation("Select tab Type")]}>
-                            <Select
-                              className="!h-[50px] !w-[300px]"
-                              onChange={() => {
-                                setDummy(!dummy);
-                              }}
-                            >
-                              <Select.Option value={"Editor"}>Editor</Select.Option>
-                              <Select.Option value={"Table"}>Table View</Select.Option>
-                              <Select.Option value={"Content-With-Image"}>Content With Image</Select.Option>
-                            </Select>
-                          </Form.Item>
-                        </div>
-                        {GET_TABLE_TYPE(field.key) === "Editor" && (
-                          <>
-                            <Form.Item label="Description" name={[field.name, "description"]} rules={[formValidation("Enter Description")]}>
-                              <JoditEditor />
-                            </Form.Item>
-                          </>
-                        )}
-                        {GET_TABLE_TYPE(field.key) === "Table" && (
-                          <>
-                            <Form.Item label="Table View">
-                              <Form.List name={[field.name, "table_view"]}>
-                                {(subFields, subOpt) => (
-                                  <>
-                                    <div className="w-full center_div justify-end px-10">
-                                      <Tag type="dashed" onClick={() => subOpt.add()} className="!cursor-pointer hover:!bg-orange-500 !bg-green-500 !mb-4 !text-white">
-                                        + Add Table Item
-                                      </Tag>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-3">
-                                      {subFields.map((subField) => (
-                                        <Space key={subField.key}>
-                                          <Form.Item label="Left" name={[subField.name, "left"]} rules={[formValidation("Enter left value")]}>
-                                            <Input placeholder="Left" className="!h-[50px]" />
-                                          </Form.Item>
-                                          <Form.Item label="Right" name={[subField.name, "right"]} rules={[formValidation("Enter right value")]}>
-                                            <Input placeholder="right" className="!h-[50px]" />
-                                          </Form.Item>
-                                          <DeleteFilled
-                                            onClick={() => {
-                                              subOpt.remove(subField.name);
-                                            }}
-                                            className="!text-red-500"
-                                          />
-                                        </Space>
-                                      ))}
-                                    </div>
-                                  </>
-                                )}
-                              </Form.List>
-                            </Form.Item>
-                          </>
-                        )}
-                        {GET_TABLE_TYPE(field.key) === "Content-With-Image" && (
-                          <>
-                            <Form.Item label="Content With Image">
-                              <Form.List name={[field.name, "content_image_view"]}>
-                                {(subFields, subOpt) => (
-                                  <>
-                                    <div className="w-full center_div justify-end px-10">
-                                      <Tag type="dashed" onClick={() => subOpt.add({ images: [] })} className="!cursor-pointer hover:!bg-orange-500 !bg-green-500 !mb-4 !text-white">
-                                        + Add new image with content
-                                      </Tag>
-                                    </div>
-                                    <div className="grid grid-cols-1 gap-3">
-                                      {subFields.map((subField) => (
-                                        <div key={subField.key} className="flex flex-col">
-                                          <Form.Item label="Content" name={[subField.name, "content"]} rules={[formValidation("Enter content")]}>
-                                            <Input.TextArea placeholder="Content" className=" !w-full" />
-                                          </Form.Item>
-                                          <Form.Item label="Content" hidden name={[subField.name, "image_id"]} initialValue={subField.key} rules={[formValidation("Enter content")]}>
-                                            <Input.TextArea placeholder="Content" className=" !w-full" />
-                                          </Form.Item>
-                                          <Form.Item
-                                            hidden
-                                            rules={[
-                                              {
-                                                required: true,
-                                                message: `Please upload images`,
-                                              },
-                                            ]}
-                                            name={[subField.name, "images"]}
-                                            initialValue={[]}
-                                            label="images"
+                        + Add New Tab
+                      </Tag>
+                      <div className="grid grid-cols-1 gap-x-2 gap-y-3">
+                        {fields.map((field) => (
+                          <Card
+                            size="small"
+                            title={`Tab ${field.name + 1}`}
+                            key={field.key}
+                            extra={
+                              <DeleteFilled
+                                onClick={() => {
+                                  remove(field.name);
+                                }}
+                                className="!text-red-500"
+                              />
+                            }
+                          >
+                            <div className="center_div justify-start gap-x-2">
+                              <Form.Item
+                                label="Tab Name"
+                                name={[field.name, "name"]}
+                                rules={[formValidation("Enter tab name")]}
+                              >
+                                <Input className="!h-[50px] !w-[300px]" />
+                              </Form.Item>
+                              <Form.Item
+                                label="Tab Name"
+                                hidden
+                                name={[field.name, "key"]}
+                                initialValue={field.key}
+                                rules={[formValidation("Enter tab name")]}
+                              >
+                                <Input className="!h-[50px] !w-[300px]" />
+                              </Form.Item>
+                              <Form.Item
+                                label="Tab Type"
+                                name={[field.name, "tab_type"]}
+                                rules={[formValidation("Select tab Type")]}
+                              >
+                                <Select
+                                  className="!h-[50px] !w-[300px]"
+                                  onChange={() => {
+                                    setDummy(!dummy);
+                                  }}
+                                >
+                                  <Select.Option value={"Editor"}>
+                                    Editor
+                                  </Select.Option>
+                                  <Select.Option value={"Table"}>
+                                    Table View
+                                  </Select.Option>
+                                  <Select.Option value={"Content-With-Image"}>
+                                    Content With Image
+                                  </Select.Option>
+                                </Select>
+                              </Form.Item>
+                            </div>
+                            {GET_TABLE_TYPE(field.key) === "Editor" && (
+                              <>
+                                <Form.Item
+                                  label="Description"
+                                  name={[field.name, "description"]}
+                                  rules={[formValidation("Enter Description")]}
+                                >
+                                  <JoditEditor />
+                                </Form.Item>
+                              </>
+                            )}
+                            {GET_TABLE_TYPE(field.key) === "Table" && (
+                              <>
+                                <Form.Item label="Table View">
+                                  <Form.List name={[field.name, "table_view"]}>
+                                    {(subFields, subOpt) => (
+                                      <>
+                                        <div className="w-full center_div justify-end px-10">
+                                          <Tag
+                                            type="dashed"
+                                            onClick={() => subOpt.add()}
+                                            className="!cursor-pointer hover:!bg-orange-500 !bg-green-500 !mb-4 !text-white"
                                           >
-                                            <Input.TextArea disabled rows={5} placeholder="Images" className="!w-[90%] !h-[50px]" />
-                                          </Form.Item>
-                                          <div className="flex items-center gap-x-2">
-                                            <Form.Item label="Image" name={[subField.name, "image"]}>
-                                              <UploadHelper blog={true} current_key={`${subField.key}-${field.key}`} handleChange={handleChange} />
-                                            </Form.Item>
-                                            <div className="flex gap-x-2 flex-wrap">
-                                              {GETCURRENT_SETOF_IMAGES(`${subField.key}-${field.key}`)?.map((res, index) => {
-                                                return (
-                                                  <div key={index} className="relative">
-                                                    <Image height={50} key={index} className="!h-[50px] !w-[50px] !rounded-lg !border" src={res} />
-                                                    <div
-                                                      onClick={() => {
-                                                        REMOVE_IMAGES(`${subField.key}-${field.key}`, res);
-                                                      }}
-                                                      className="cursor-pointer text-center text-red-500 gap-x-2 center_div"
-                                                    >
-                                                      {<ICON_HELPER.DELETE_ICON2 />}
-                                                    </div>
-                                                  </div>
-                                                );
-                                              })}
-                                            </div>
-                                          </div>
-                                          <DeleteFilled
-                                            onClick={() => {
-                                              subOpt.remove(subField.name);
-                                            }}
-                                            className="!text-red-500"
-                                          />
+                                            + Add Table Item
+                                          </Tag>
                                         </div>
-                                      ))}
-                                    </div>
-                                  </>
-                                )}
-                              </Form.List>
-                            </Form.Item>
-                          </>
-                        )}
-                        {/* Nest Form.List */}
-                      </Card>
-                    ))}
-                  </div>
-                </>
-              )}
-            </Form.List>
-          </Collapse.Panel>
+                                        <div className="grid grid-cols-3 gap-3">
+                                          {subFields.map((subField) => (
+                                            <Space key={subField.key}>
+                                              <Form.Item
+                                                label="Left"
+                                                name={[subField.name, "left"]}
+                                                rules={[
+                                                  formValidation(
+                                                    "Enter left value"
+                                                  ),
+                                                ]}
+                                              >
+                                                <Input
+                                                  placeholder="Left"
+                                                  className="!h-[50px]"
+                                                />
+                                              </Form.Item>
+                                              <Form.Item
+                                                label="Right"
+                                                name={[subField.name, "right"]}
+                                                rules={[
+                                                  formValidation(
+                                                    "Enter right value"
+                                                  ),
+                                                ]}
+                                              >
+                                                <Input
+                                                  placeholder="right"
+                                                  className="!h-[50px]"
+                                                />
+                                              </Form.Item>
+                                              <DeleteFilled
+                                                onClick={() => {
+                                                  subOpt.remove(subField.name);
+                                                }}
+                                                className="!text-red-500"
+                                              />
+                                            </Space>
+                                          ))}
+                                        </div>
+                                      </>
+                                    )}
+                                  </Form.List>
+                                </Form.Item>
+                              </>
+                            )}
+                            {GET_TABLE_TYPE(field.key) ===
+                              "Content-With-Image" && (
+                              <>
+                                <Form.Item label="Content With Image">
+                                  <Form.List
+                                    name={[field.name, "content_image_view"]}
+                                  >
+                                    {(subFields, subOpt) => (
+                                      <>
+                                        <div className="w-full center_div justify-end px-10">
+                                          <Tag
+                                            type="dashed"
+                                            onClick={() =>
+                                              subOpt.add({ images: [] })
+                                            }
+                                            className="!cursor-pointer hover:!bg-orange-500 !bg-green-500 !mb-4 !text-white"
+                                          >
+                                            + Add new image with content
+                                          </Tag>
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-3">
+                                          {subFields.map((subField) => (
+                                            <div
+                                              key={subField.key}
+                                              className="flex flex-col"
+                                            >
+                                              <Form.Item
+                                                label="Content"
+                                                name={[
+                                                  subField.name,
+                                                  "content",
+                                                ]}
+                                                rules={[
+                                                  formValidation(
+                                                    "Enter content"
+                                                  ),
+                                                ]}
+                                              >
+                                                <Input.TextArea
+                                                  placeholder="Content"
+                                                  className=" !w-full"
+                                                />
+                                              </Form.Item>
+                                              <Form.Item
+                                                label="Content"
+                                                hidden
+                                                name={[
+                                                  subField.name,
+                                                  "image_id",
+                                                ]}
+                                                initialValue={subField.key}
+                                                rules={[
+                                                  formValidation(
+                                                    "Enter content"
+                                                  ),
+                                                ]}
+                                              >
+                                                <Input.TextArea
+                                                  placeholder="Content"
+                                                  className=" !w-full"
+                                                />
+                                              </Form.Item>
+                                              <Form.Item
+                                                hidden
+                                                rules={[
+                                                  {
+                                                    required: true,
+                                                    message: `Please upload images`,
+                                                  },
+                                                ]}
+                                                name={[subField.name, "images"]}
+                                                initialValue={[]}
+                                                label="images"
+                                              >
+                                                <Input.TextArea
+                                                  disabled
+                                                  rows={5}
+                                                  placeholder="Images"
+                                                  className="!w-[90%] !h-[50px]"
+                                                />
+                                              </Form.Item>
+                                              <div className="flex items-center gap-x-2">
+                                                <Form.Item
+                                                  label="Image"
+                                                  name={[
+                                                    subField.name,
+                                                    "image",
+                                                  ]}
+                                                >
+                                                  <UploadHelper
+                                                    blog={true}
+                                                    current_key={`${subField.key}-${field.key}`}
+                                                    handleChange={handleChange}
+                                                  />
+                                                </Form.Item>
+                                                <div className="flex gap-x-2 flex-wrap">
+                                                  {GETCURRENT_SETOF_IMAGES(
+                                                    `${subField.key}-${field.key}`
+                                                  )?.map((res, index) => {
+                                                    return (
+                                                      <div
+                                                        key={index}
+                                                        className="relative"
+                                                      >
+                                                        <Image
+                                                          height={50}
+                                                          key={index}
+                                                          className="!h-[50px] !w-[50px] !rounded-lg !border"
+                                                          src={res}
+                                                        />
+                                                        <div
+                                                          onClick={() => {
+                                                            REMOVE_IMAGES(
+                                                              `${subField.key}-${field.key}`,
+                                                              res
+                                                            );
+                                                          }}
+                                                          className="cursor-pointer text-center text-red-500 gap-x-2 center_div"
+                                                        >
+                                                          {
+                                                            <ICON_HELPER.DELETE_ICON2 />
+                                                          }
+                                                        </div>
+                                                      </div>
+                                                    );
+                                                  })}
+                                                </div>
+                                              </div>
+                                              <DeleteFilled
+                                                onClick={() => {
+                                                  subOpt.remove(subField.name);
+                                                }}
+                                                className="!text-red-500"
+                                              />
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </>
+                                    )}
+                                  </Form.List>
+                                </Form.Item>
+                              </>
+                            )}
+                          </Card>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </Form.List>
+              </Panel>
 
+              {/* SEO Information Panel */}
               <Panel
                 header={
                   <span className="text-lg font-semibold">SEO Information</span>
@@ -1511,6 +1722,93 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
           </Form>
         </Card>
       </div>
+
+      {/* Unit Configuration Modal */}
+      <Modal
+        title="Unit Configuration"
+        visible={modalUnitVisible}
+        onOk={handleUnitOk}
+        onCancel={handleUnitCancel}
+        width={800}
+        footer={[
+          <Button key="cancel" onClick={handleUnitCancel}>
+            Cancel
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            onClick={handleUnitOk}
+          >
+            Save Configuration
+          </Button>,
+        ]}
+      >
+        <Form form={form} layout="vertical">
+          <Form.List name="unit_splitup">
+            {(fields, { add, remove }) => (
+              <>
+                <Form.Item>
+                  <Button
+                    onClick={() => add()}
+                    icon={<PlusOutlined />}
+                    className="h-10 mb-4"
+                  >
+                    Add Unit
+                  </Button>
+                </Form.Item>
+
+                <div className="grid grid-cols-1 gap-3 max-h-96 overflow-y-auto pr-2">
+                  {fields.map(({ key, name, ...restField }) => (
+                    <Card
+                      size="small"
+                      key={key}
+                      className="relative"
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                        <Form.Item
+                          label="Unit"
+                          {...restField}
+                          name={[name, "Unit"]}
+                          rules={[formValidation("Enter a Unit")]}
+                          className="mb-0"
+                        >
+                          <Input
+                            type="Text"
+                            placeholder="Enter Unit"
+                            className="h-10"
+                          />
+                        </Form.Item>
+
+                        <Form.Item
+                          label="Measurement"
+                          {...restField}
+                          name={[name, "Measurement"]}
+                          rules={[formValidation("Enter a Measurement")]}
+                          className="mb-0"
+                        >
+                          <Input
+                            type="Text"
+                            placeholder="Enter Measurement"
+                            className="h-10"
+                          />
+                        </Form.Item>
+
+                        <Button
+                          type="text"
+                          danger
+                          icon={<DeleteFilled />}
+                          onClick={() => remove(name)}
+                          className="absolute top-2 right-2"
+                        />
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </>
+            )}
+          </Form.List>
+        </Form>
+      </Modal>
 
       <style jsx>{`
         :global(.custom-collapse .ant-collapse-header) {
