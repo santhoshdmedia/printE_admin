@@ -98,10 +98,7 @@ const TaxPreference = [
   { value: "Non-GST Apply" },
 ];
 
-const PRODCTSTOCK_TYPE = [
-  { value: "Limited" },
-  { value: "Unliimted" },
-];
+const PRODCTSTOCK_TYPE = [{ value: "Limited" }, { value: "Unliimted" }];
 
 const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   const [form] = Form.useForm();
@@ -148,16 +145,16 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       setLoading(true);
       onCategoryChnage(_.get(id, "category_details._id", ""));
       form.setFieldsValue(id);
-      
+
       let vendors_ids = _.get(id, "vendor_details", []).map((res) => res._id);
       setQuantityType(_.get(id, "quantity_type", ""));
-      
+
       form.setFieldsValue({
         vendor_details: vendors_ids,
         category_details: _.get(id, "category_details._id", ""),
         sub_category_details: _.get(id, "sub_category_details._id", ""),
       });
-      
+
       setSEO_Datas({
         title: _.get(id, "seo_title", ""),
         description: _.get(id, "seo_description", ""),
@@ -199,20 +196,22 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
 
   const handleFinish = async (values) => {
     console.log(values);
-    
+
     try {
       setLoading(true);
       if (!image_path) {
         return message.warning("Please provide a category image");
       }
-      
+
       values.images = image_path;
       values.variants = variants;
       values.variants_price = tableData;
       values.seo_url = String(values.seo_url).trim();
-      
-      let result = id ? await editProduct(values, id?._id) : await addproduct(values);
-      
+
+      let result = id
+        ? await editProduct(values, id?._id)
+        : await addproduct(values);
+
       setFormStatus(false);
       SUCCESS_NOTIFICATION(result);
       form.resetFields();
@@ -301,7 +300,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       const result = await uploadImage(formData);
       let value = _.get(result, "data.data.url", "");
       setLoading(false);
-      
+
       const changeVariantOptionName = variants.map((data) => {
         if (data._id === VariantId) {
           const optionChange = data.options.map((option) => {
@@ -504,10 +503,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   };
 
   const handleUnitOk = () => {
-    form.validateFields().then((values) => {
-      console.log("Form values:", values);
-      setModalUnitVisible(false);
-    });
+    setModalUnitVisible(false);
   };
 
   const handleUnitCancel = () => {
@@ -609,7 +605,10 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
         >
           <div className="flex justify-between px-5 items-center mb-6">
             <div>
-              <Title level={2} style={{ color: "#2c3e50", marginBottom: "8px" }}>
+              <Title
+                level={2}
+                style={{ color: "#2c3e50", marginBottom: "8px" }}
+              >
                 {id ? "Edit Product" : "Add New Product"}
               </Title>
               <Text type="secondary">
@@ -617,16 +616,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                   ? "Update the product details below"
                   : "Fill in the details below to add a new product to your catalog"}
               </Text>
-            </div>
-            <div className="flex items-center gap-4">
-              <span>Visibility</span>
-              <Switch
-                checkedChildren={<EyeOutlined />}
-                unCheckedChildren={<EyeInvisibleOutlined />}
-                checked={isProductVisible}
-                onChange={setIsProductVisible}
-              />
-              <Text>{isProductVisible ? "Visible" : "Hidden"}</Text>
             </div>
           </div>
 
@@ -639,18 +628,28 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
               {/* Product Basic Information Panel */}
               <Panel
                 header={
-                  <span className="text-lg font-semibold">
+                  <span className="text-lg font-semibold relative">
                     Product Basic Information
                   </span>
                 }
                 key="1"
               >
+                <Form.Item className=" items-center gap-4 absolute right-10 top-10 hidden">
+                  <span>Visibility</span>
+                  <Switch
+                    checkedChildren={<EyeOutlined />}
+                    unCheckedChildren={<EyeInvisibleOutlined />}
+                    checked={isProductVisible}
+                    onChange={setIsProductVisible}
+                  />
+                  <Text>{isProductVisible ? "Visible" : "Hidden"}</Text>
+                </Form.Item>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <Form.Item
                     label="Product Type"
                     name="type"
                     rules={[
-                      {
+                      { 
                         required: true,
                         message: "Please select a product type!",
                       },
@@ -737,7 +736,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     />
                   </Form.Item>
 
-                  {productStockSelectedValue === "Track Stocks" && (
+                  {productStockSelectedValue === "Limited" && (
                     <Form.Item
                       rules={[formValidation("Enter In-Stock Count")]}
                       name="stock_count"
@@ -781,9 +780,8 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     rules={[formValidation("Select Vendor")]}
                   >
                     <Select
-                      maxTagCount={1}
                       placeholder="Select Vendor"
-                      mode="multiple"
+                      mode="tags"
                       className="h-12"
                     >
                       {allVendors.map((item) => (
@@ -803,17 +801,17 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                   </Form.Item>
 
                   <Form.Item
-                    rules={[formValidation("Enter HSM code")]}
-                    label="HSM code"
-                    name="HSMcode_time"
+                    rules={[formValidation("Enter HSN code")]}
+                    label="HSN code"
+                    name="HSNcode_time"
                   >
                     <Input
-                      placeholder="Enter HSM code"
+                      placeholder="Enter HSN code"
                       type="Text"
                       className="h-12"
                     />
                   </Form.Item>
-                  
+
                   <div className="flex flex-col justify-start">
                     <h2 className="font-medium mb-1">Unit</h2>
                     <Button
@@ -836,7 +834,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                       className="h-12"
                     />
                   </Form.Item>
-                  
+
                   <Form.Item
                     rules={[formValidation("Enter Stock Arrangement Time")]}
                     label="Stock Arrangement Time"
@@ -848,9 +846,9 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                       className="h-12"
                     />
                   </Form.Item>
-                  
+
                   <Form.Item
-                    label="Tax prefernce"
+                    label="Tax Prefernce"
                     name="Tax_prefernce"
                     rules={[
                       {
@@ -870,7 +868,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
 
                 <Form.Item
                   rules={[formValidation("enter tittle for description")]}
-                  label="product description tittle"
+                  label="Product Description Tittle"
                   name="product_description_tittle"
                 >
                   <Input
@@ -879,7 +877,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     className="h-12"
                   />
                 </Form.Item>
-                
+
                 <div className="grid grid-cols-2 gap-2">
                   <Form.Item
                     rules={[formValidation("enter Point one")]}
@@ -967,7 +965,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                   <Form.Item
                     rules={[formValidation("Enter Product Price")]}
                     label="Product Price"
-                    name="single_product_price"
+                    name="product_price"
                   >
                     <Input
                       placeholder="Enter Product Price"
@@ -1204,15 +1202,8 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     </Select>
                   </Form.Item>
 
-                  {quantityType === "dropdown" && (
+                  {quantityType === "textbox" && (
                     <>
-                      <Form.Item
-                        name="dropdown_gap"
-                        rules={[formValidation("Enter dropdown gap")]}
-                        label="dropdown gap"
-                      >
-                        <Input type="number" className="h-12 w-full" />
-                      </Form.Item>
                       <Form.Item
                         name="max_quantity"
                         rules={[formValidation("Enter Maximum Quantity")]}
@@ -1734,11 +1725,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
           <Button key="cancel" onClick={handleUnitCancel}>
             Cancel
           </Button>,
-          <Button
-            key="submit"
-            type="primary"
-            onClick={handleUnitOk}
-          >
+          <Button key="submit" type="primary" onClick={handleUnitOk}>
             Save Configuration
           </Button>,
         ]}
@@ -1759,11 +1746,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
 
                 <div className="grid grid-cols-1 gap-3 max-h-96 overflow-y-auto pr-2">
                   {fields.map(({ key, name, ...restField }) => (
-                    <Card
-                      size="small"
-                      key={key}
-                      className="relative"
-                    >
+                    <Card size="small" key={key} className="relative">
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
                         <Form.Item
                           label="Unit"
