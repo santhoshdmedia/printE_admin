@@ -274,10 +274,10 @@ const Products = () => {
       },
     },
     {
-      title: "Type",
-      dataIndex: "type",
+      title: "Stock",
+      dataIndex: "stock_count",
       render: (type) => (
-        <Tag color={type === "Single Product" ? "green" : "orange"}>
+        <Tag color={type === "Stand Alone Product" ? "green" : "orange"}>
           {type}
         </Tag>
       )
@@ -285,7 +285,7 @@ const Products = () => {
     {
       title: "Price",
       render: (data) => {
-        const price = data.single_product_price || _.get(data, "variants_price[0].price", "N/A");
+        const price = data.single_product_price||data.customer_product_price || _.get(data, "variants_price[0].price", "N/A");
         return <span className="font-semibold text-gray-800">Rs. {price}</span>;
       },
       align: "center",
