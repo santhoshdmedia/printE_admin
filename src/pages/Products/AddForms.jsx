@@ -25,6 +25,7 @@ import {
   DeleteFilled,
   MinusCircleOutlined,
   PlusOutlined,
+  ReloadOutlined,
 } from "@ant-design/icons";
 import React, { useEffect, useState } from "react";
 import { MdDeleteOutline } from "react-icons/md";
@@ -98,7 +99,21 @@ const TaxPreference = [
   { value: "Non-GST Apply" },
 ];
 
-const PRODCTSTOCK_TYPE = [{ value: "Limited" }, { value: "Unliimted" }];
+const PRODUTSTOCK_TYPE = [{ value: "Limited" }, { value: "Unliimted" }];
+const Unit_type = [
+  { value: "pcs" }, 
+  { value: "Box" },
+  { value: "cm" },
+  { value: "dozen" },
+  { value: "gm" },
+  { value: "kg" },
+  { value: "lbs" },
+  { value: "meter" },
+  { value: "inches" },
+  { value: "ft" },
+  { value: "Nos" },
+  { value: "Sqft" },
+];
 
 const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   const [form] = Form.useForm();
@@ -113,7 +128,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   const [quantityType, setQuantityType] = useState("");
   const [dummy, setDummy] = useState(false);
   const [modalUnitVisible, setModalUnitVisible] = useState(false);
-  const [isProductVisible, setIsProductVisible] = useState(true);
+  const [isProductVisible, setIsProductVisible] = useState(false);
   const [productTypeSelectedValue, setProductTypeSelectedValue] = useState(
     id?.type || productType[0].value
   );
@@ -121,8 +136,12 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     id?.type || TaxPreference[0].value
   );
   const [productStockSelectedValue, setProductStockSelectedValue] = useState(
-    id?.stocks_status || PRODCTSTOCK_TYPE[1].value
+    id?.stocks_status || PRODUTSTOCK_TYPE[1].value
   );
+  const [UnitSelectedValue, setUnitSelectedValue] = useState(
+    id?.stocks_status || PRODUTSTOCK_TYPE[1].value
+  );
+  const [usedProductCodes, setUsedProductCodes] = useState(new Set());
 
   const initial_seo_data = {
     title: "",
@@ -538,6 +557,65 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     );
   });
 
+  // Generate unique product code
+  const generateProductCode = (isVariableProduct = false, variantName = "") => {
+    const categoryId = form.getFieldValue('category_details');
+    const subCategoryId = form.getFieldValue('sub_category_details');
+    
+    if (!categoryId || !subCategoryId) {
+      message.warning("Please select category and subcategory first");
+      return null;
+    }
+    
+    const category = categoryData.find(c => c._id === categoryId);
+    const subCategory = filter_subcategory_data.find(sc => sc._id === subCategoryId);
+    
+    if (!category || !subCategory) {
+      message.warning("Please select valid category and subcategory");
+      return null;
+    }
+    
+    // Get first letters of category and subcategory
+    const categoryPrefix = category.main_category_name.charAt(0).toUpperCase();
+    const subCategoryPrefix = subCategory.sub_category_name.charAt(0).toUpperCase();
+    
+    // Add variant prefix if it's a variable product
+    let variantPrefix = "";
+    if (isVariableProduct && variantName) {
+      variantPrefix = variantName.charAt(0).toUpperCase();
+    }
+    
+    let productCode = "";
+    let isUnique = false;
+    let attemptCount = 0;
+    const maxAttempts = 50; // Prevent infinite loop
+    
+    // Generate codes until we find a unique one
+    while (!isUnique && attemptCount < maxAttempts) {
+      // Generate a 4-digit number with leading zeros
+      const randomNum = Math.floor(1000 + Math.random() * 9000);
+      
+      // Construct the product code
+      productCode = `${categoryPrefix}${subCategoryPrefix}${variantPrefix}${randomNum}`;
+      
+      // Check if this code is already used
+      if (!usedProductCodes.has(productCode)) {
+        isUnique = true;
+        // Add the new code to our used codes set
+        setUsedProductCodes(prev => new Set([...prev, productCode]));
+      }
+      
+      attemptCount++;
+    }
+    
+    if (attemptCount >= maxAttempts) {
+      message.error("Could not generate a unique product code. Please try again.");
+      return null;
+    }
+    
+    return productCode;
+  };
+
   // Table columns
   const columns = [
     ...variants.map((variant) => ({
@@ -587,6 +665,24 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
           key={index}
           value={record.product_code}
           onChange={(e) => handleProductCodeChange(record, e)}
+          suffix={
+            <ReloadOutlined 
+              onClick={() => {
+                const isVariable = productTypeSelectedValue === "Variable Product";
+                const code = generateProductCode(isVariable, record.variant_name);
+                if (code) {
+                  const updatedTableValue = tableValue.map((data) => {
+                    if (data.key === record.key) {
+                      return { ...data, product_code: code };
+                    }
+                    return data;
+                  });
+                  setTableValue(updatedTableValue);
+                }
+              }}
+              style={{ cursor: 'pointer' }}
+            />
+          }
         />
       ),
     },
@@ -634,16 +730,16 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                 }
                 key="1"
               >
-                <Form.Item className=" items-center gap-4 absolute right-10 top-10 hidden">
-                  <span>Visibility</span>
-                  <Switch
-                    checkedChildren={<EyeOutlined />}
-                    unCheckedChildren={<EyeInvisibleOutlined />}
-                    checked={isProductVisible}
-                    onChange={setIsProductVisible}
-                  />
-                  <Text>{isProductVisible ? "Visible" : "Hidden"}</Text>
-                </Form.Item>
+                  <Form.Item
+                name="is_visible"
+                label="Visibility"
+                valuePropName="checked"
+              >
+                <Switch 
+                  checkedChildren={<EyeOutlined />} 
+                  unCheckedChildren={<EyeInvisibleOutlined />} 
+                />
+              </Form.Item>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <Form.Item
                     label="Product Type"
@@ -731,7 +827,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     <Select
                       placeholder="Select Stocks Type"
                       className="h-12"
-                      options={PRODCTSTOCK_TYPE}
+                      options={PRODUTSTOCK_TYPE}
                       onChange={(val) => setProductStockSelectedValue(val)}
                     />
                   </Form.Item>
@@ -751,14 +847,21 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                   )}
 
                   <Form.Item
-                    name="product_code"
                     label="Product Code"
-                    rules={[formValidation("Enter Product Code")]}
+                    name="product_code"
+                    rules={[{ required: true, message: 'Product code is required' }]}
                   >
                     <Input
-                      placeholder="Enter Product code"
-                      type="text"
-                      className="h-12"
+                      placeholder="Product code will be generated automatically"
+                      suffix={
+                        <ReloadOutlined 
+                          onClick={() => {
+                            const code = generateProductCode(false);
+                            if (code) form.setFieldsValue({ product_code: code });
+                          }}
+                          style={{ cursor: 'pointer' }}
+                        />
+                      }
                     />
                   </Form.Item>
 
@@ -781,7 +884,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                   >
                     <Select
                       placeholder="Select Vendor"
-                      mode="tags"
+                      mode="multiple"
                       className="h-12"
                     >
                       {allVendors.map((item) => (
@@ -812,16 +915,23 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     />
                   </Form.Item>
 
-                  <div className="flex flex-col justify-start">
-                    <h2 className="font-medium mb-1">Unit</h2>
-                    <Button
-                      type="primary"
-                      onClick={showUnitModal}
+                <Form.Item
+                    label="Unit"
+                    name="unit"
+                    rules={[
+                      {
+                        required: true,
+                        message: "Please select a unit!",
+                      },
+                    ]}
+                  >
+                    <Select
+                      placeholder="Select Unit Type"
                       className="h-12"
-                    >
-                      Configure Unit
-                    </Button>
-                  </div>
+                      options={Unit_type}
+                      onChange={(val) => setUnitSelectedValue(val)}
+                    />
+                  </Form.Item>
 
                   <Form.Item
                     rules={[formValidation("Enter Production Time")]}
@@ -951,7 +1061,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                   </div>
                 </Form.Item>
               </Panel>
-
               {/* Pricing Information Panel */}
               <Panel
                 header={
@@ -962,10 +1071,11 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                 key="3"
               >
                 {productTypeSelectedValue === "Stand Alone Product" ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                   <Form.Item
                     rules={[formValidation("Enter Product Price")]}
-                    label="Product Price"
-                    name="product_price"
+                    label="Customer Price"
+                    name="customer_product_price"
                   >
                     <Input
                       placeholder="Enter Product Price"
@@ -973,6 +1083,29 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                       className="h-12 w-full md:w-80"
                     />
                   </Form.Item>
+                  <Form.Item
+                    rules={[formValidation("Enter Product Price")]}
+                    label="Delear Price"
+                    name="Deler_product_price"
+                  >
+                    <Input
+                      placeholder="Enter Product Price"
+                      type="text"
+                      className="h-12 w-full md:w-80"
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    rules={[formValidation("Enter Product Price")]}
+                    label="Corporate Price"
+                    name="corporate_product_price"
+                  >
+                    <Input
+                      placeholder="Enter Product Price"
+                      type="text"
+                      className="h-12 w-full md:w-80"
+                    />
+                  </Form.Item>
+                  </div>
                 ) : (
                   <>
                     <div className="flex gap-3 items-center mb-4">
@@ -1275,7 +1408,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
 
                                 <Form.Item
                                   label="Recommended"
-                                  initialValue={"Not Recommended"}
+                                  initialValue={"No comments"}
                                   {...restField}
                                   name={[name, "recommended_stats"]}
                                   rules={[formValidation("Enter a discount")]}
@@ -1283,9 +1416,9 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                                 >
                                   <Select
                                     className="h-10"
-                                    defaultValue={"Not Recommended"}
+                                    defaultValue={"No comments"}
                                   >
-                                    {["Recommended", "Not Recommended"].map(
+                                    {["Recommended", "Most Liked","Best seller","No comments"].map(
                                       (res, index) => {
                                         return (
                                           <Select.Option
