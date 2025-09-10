@@ -56,7 +56,7 @@ const Login = () => {
   }, []);
 
   return (
-    <div className="bg-white min-h-screen overflow-hidden">
+    <div className="bg-white min-h-screen overflow-hidden ">
       <div className="flex flex-col lg:flex-row h-screen">
         {/* Left Section - Image & Welcome */}
         <motion.div 
@@ -143,9 +143,10 @@ const Login = () => {
               onFinish={onFinish} 
               name="login" 
               layout="vertical" 
-              className="w-full"
+              className="w-full !lowercase"
               form={form} 
               requiredMark={false}
+
             >
               <motion.div
                 initial={{ y: 20, opacity: 0 }}
@@ -159,7 +160,7 @@ const Login = () => {
                 >
                   <Input 
                     placeholder="Enter Email" 
-                    className="h-12 rounded-lg"
+                    className="h-12 rounded-lg !lowercase"
                     disabled={loading}
                   />
                 </Form.Item>
