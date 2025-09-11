@@ -890,7 +890,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                       {allVendors.map((item) => (
                         <Select.Option key={item._id} value={item._id}>
                           <div className="flex justify-between items-center">
-                            {item.vendor_name}
+                            {item.business_name}({item.vendor_name})
                             <Link
                               to={`/vendor_details/${item._id}`}
                               target="_blank"
