@@ -18,6 +18,7 @@ import {
   Typography,
   Modal,
   Switch,
+  DatePicker,
 } from "antd";
 import {
   EyeOutlined,
@@ -33,6 +34,7 @@ import { FaCirclePlus } from "react-icons/fa6";
 import { Link } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
 import JoditEditor from "jodit-react";
+import moment from "moment";
 
 // Helper imports
 import Inputs from "../../components/Inputs";
@@ -172,6 +174,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
         vendor_details: vendors_ids,
         category_details: _.get(id, "category_details._id", ""),
         sub_category_details: _.get(id, "sub_category_details._id", ""),
+        stock_info: [], // Initialize with empty array to avoid showing existing entries in form
       });
 
       setSEO_Datas({
@@ -214,13 +217,39 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   };
 
   const handleFinish = async (values) => {
-    console.log(values);
-
     try {
       setLoading(true);
       if (!image_path) {
         return message.warning("Please provide a category image");
       }
+
+      // Get existing stock_info from the product (in edit mode) or empty array (in add mode)
+      const existingStockInfo = id ? _.get(id, "stock_info", []) : [];
+      // Get new stock_info entries from the form and add unique _id
+      const newStockInfo = (values.stock_info || []).map(item => ({
+        ...item,
+        _id: uuidv4(),
+        date: item.date ? item.date.toISOString() : null,
+      }));
+
+      // Combine existing and new stock_info, ensuring no duplicates by _id
+      const combinedStockInfo = [...existingStockInfo, ...newStockInfo];
+      const uniqueStockInfo = [];
+      const seenIds = new Set();
+
+      combinedStockInfo.forEach(item => {
+        if (!seenIds.has(item._id)) {
+          seenIds.add(item._id);
+          uniqueStockInfo.push(item);
+        }
+      });
+
+      values.stock_info = uniqueStockInfo;
+
+      // Calculate total stock by adding new stock_info entries to existing stock_count
+      const existingStockCount = id ? Number(_.get(id, "stock_count", 0)) : 0;
+      const newStock = newStockInfo.reduce((sum, item) => sum + (Number(item.add_stock) || 0), 0);
+      values.stock_count = existingStockCount + newStock;
 
       values.images = image_path;
       values.variants = variants;
@@ -233,7 +262,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
 
       setFormStatus(false);
       SUCCESS_NOTIFICATION(result);
-      form.resetFields();
+      form.resetFields(); // Clear all form fields, including stock_info
       setId("");
       setQuantityType("");
       setImagePath("");
@@ -557,6 +586,59 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     );
   });
 
+  // Stock Info Table Data
+  const stockInfoData = (form.getFieldValue("stock_info") || []).map((item, index) => ({
+    key: `new-${index}`,
+    _id: item._id || uuidv4(),
+    add_stock: item.add_stock,
+    date: item.date ? moment(item.date).format("DD/MM/YYYY h:mm A") : "",
+    invoice: item.invoice || "",
+    note: item.notes || "",
+  }));
+
+  // Combine existing and new stock info, removing duplicates by _id
+  const combinedStockInfoData = [
+    ...(id?.stock_info || []).map((item, index) => ({
+      key: `existing-${index}`,
+      _id: item._id || uuidv4(),
+      add_stock: item.add_stock,
+      date: item.date ? moment(item.date).format("DD/MM/YYYY h:mm A") : "",
+      invoice: item.invoice || "",
+      note: item.notes || "",
+    })),
+    ...stockInfoData,
+  ].reduce((unique, item) => {
+    return unique.some(u => u._id === item._id) ? unique : [...unique, item];
+  }, []);
+
+  // Stock Info Table Columns
+  const stockInfoColumns = [
+    {
+      title: "Add Stock",
+      dataIndex: "add_stock",
+      key: "add_stock",
+      render: (text) => text || "N/A",
+    },
+    {
+      title: "Date & Time",
+      dataIndex: "date",
+      key: "date",
+      render: (text) => text || "N/A",
+    },
+    {
+      title: "Invoice",
+      dataIndex: "invoice",
+      key: "invoice",
+      render: (text) => text || "N/A",
+    },
+    {
+      title: "Note",
+      dataIndex: "note",
+      key: "note",
+      render: (text) => text || "N/A",
+    },
+  ];
+
   // Generate unique product code
   const generateProductCode = (isVariableProduct = false, variantName = "") => {
     const categoryId = form.getFieldValue('category_details');
@@ -616,7 +698,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     return productCode;
   };
 
-  // Table columns
+  // Table columns for variants
   const columns = [
     ...variants.map((variant) => ({
       title: variant.variant_name,
@@ -717,7 +799,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
 
           <Form form={form} layout="vertical" onFinish={handleFinish}>
             <Collapse
-              defaultActiveKey={["1", "2", "3", "4", "5"]}
+              defaultActiveKey={["1", "2", "3", "4", "5", "6", "7"]}
               expandIconPosition="end"
               className="custom-collapse"
             >
@@ -730,16 +812,16 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                 }
                 key="1"
               >
-                  <Form.Item
-                name="is_visible"
-                label="Visibility"
-                valuePropName="checked"
-              >
-                <Switch 
-                  checkedChildren={<EyeOutlined />} 
-                  unCheckedChildren={<EyeInvisibleOutlined />} 
-                />
-              </Form.Item>
+                <Form.Item
+                  name="is_visible"
+                  label="Visibility"
+                  valuePropName="checked"
+                >
+                  <Switch 
+                    checkedChildren={<EyeOutlined />} 
+                    unCheckedChildren={<EyeInvisibleOutlined />} 
+                  />
+                </Form.Item>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <Form.Item
                     label="Product Type"
@@ -842,6 +924,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                         placeholder="Enter Stock Count"
                         type="text"
                         className="w-full h-12"
+                        disabled={id} // Disable in edit mode
                       />
                     </Form.Item>
                   )}
@@ -915,7 +998,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     />
                   </Form.Item>
 
-                <Form.Item
+                  <Form.Item
                     label="Unit"
                     name="unit"
                     rules={[
@@ -958,12 +1041,12 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                   </Form.Item>
 
                   <Form.Item
-                    label="Tax Prefernce"
+                    label="Tax Preference"
                     name="Tax_prefernce"
                     rules={[
                       {
                         required: true,
-                        message: "Please select a Tax prefernce!",
+                        message: "Please select a Tax preference!",
                       },
                     ]}
                   >
@@ -977,12 +1060,12 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                 </div>
 
                 <Form.Item
-                  rules={[formValidation("enter tittle for description")]}
-                  label="Product Description Tittle"
+                  rules={[formValidation("enter title for description")]}
+                  label="Product Description Title"
                   name="product_description_tittle"
                 >
                   <Input
-                    placeholder="Enter description tittle"
+                    placeholder="Enter description title"
                     type="Text"
                     className="h-12"
                   />
@@ -1036,6 +1119,117 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                 </div>
               </Panel>
 
+               {/* Stock Info Panel */}
+              <Panel
+                header={
+                  <span className="text-lg font-semibold">
+                    Stock Information
+                  </span>
+                }
+                key="7"
+              >
+                <div className="mt-4">
+                  <h2 className="font-medium mb-3">Stock Info</h2>
+                  <Form.List name="stock_info">
+                    {(fields, { add, remove }) => (
+                      <>
+                        <Form.Item>
+                          <Button
+                            onClick={() => add()}
+                            icon={<PlusOutlined />}
+                            className="h-10 mb-4"
+                          >
+                            Add Stock Info
+                          </Button>
+                        </Form.Item>
+
+                        <div className="grid grid-cols-1 gap-3">
+                          {fields.map(({ key, name, ...restField }) => (
+                            <Card size="small" key={key} className="relative">
+                              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                                <Form.Item
+                                  label="Add Stock"
+                                  {...restField}
+                                  name={[name, "add_stock"]}
+                                  rules={[formValidation("Enter stock quantity")]}
+                                  className="mb-0"
+                                >
+                                  <Input
+                                    type="number"
+                                    placeholder="Enter Stock Quantity"
+                                    className="h-10"
+                                  />
+                                </Form.Item>
+
+                                <Form.Item
+                                  label="Date & Time"
+                                  {...restField}
+                                  name={[name, "date"]}
+                                  rules={[formValidation("Select a date")]}
+                                  className="mb-0"
+                                >
+                                  <DatePicker
+                                    showTime
+                                    className="h-10 w-full"
+                                    format="DD/MM/YYYY h:mm A"
+                                  />
+                                </Form.Item>
+
+                                <Form.Item
+                                  label="Invoice"
+                                  {...restField}
+                                  name={[name, "invoice"]}
+                                  className="mb-0"
+                                >
+                                  <Input
+                                    placeholder="Enter Invoice"
+                                    className="h-10"
+                                  />
+                                </Form.Item>
+
+                                <Form.Item
+                                  label="Note"
+                                  {...restField}
+                                  name={[name, "notes"]}
+                                  className="mb-0"
+                                >
+                                  <Input.TextArea
+                                    placeholder="Enter Notes"
+                                    className="h-10"
+                                  />
+                                </Form.Item>
+
+                                <Button
+                                  type="text"
+                                  danger
+                                  icon={<DeleteFilled />}
+                                  onClick={() => remove(name)}
+                                  className="absolute top-2 right-2"
+                                />
+                              </div>
+                            </Card>
+                          ))}
+                        </div>
+
+                        {/* Display unique stock entries in the table */}
+                        {combinedStockInfoData.length > 0 && (
+                          <div className="mt-6">
+                            <Table
+                              bordered
+                              dataSource={combinedStockInfoData}
+                              columns={stockInfoColumns}
+                              pagination={false}
+                              scroll={{ x: true }}
+                              className="custom-table"
+                            />
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </Form.List>
+                </div>
+              </Panel>              
+
               {/* Product Images Panel */}
               <Panel
                 header={
@@ -1085,7 +1279,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                   </Form.Item>
                   <Form.Item
                     rules={[formValidation("Enter Product Price")]}
-                    label="Delear Price"
+                    label="Dealer Price"
                     name="Deler_product_price"
                   >
                     <Input
@@ -1449,6 +1643,8 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                   </Form.List>
                 </div>
               </Panel>
+
+             
 
               {/* Product Tab Description Info Panel */}
               <Panel
