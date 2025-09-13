@@ -264,9 +264,8 @@ const Products = () => {
       },
     },
 
-     (userRole.role=="super admin"?[{
+     (userRole.role=="super admin"?([{
       title: "Visiblity",
-      
       align: "center",
       dataIndex: "is_visible",
       render: (data, record) => {
@@ -281,7 +280,7 @@ const Products = () => {
       />
         );
       },
-    }]:([])),
+    }]):([])),
     {
       title: "Image",
       dataIndex: "images",
