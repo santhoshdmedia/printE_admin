@@ -39,6 +39,7 @@ import {
   getProduct,
   getSubCategory,
   getSubProductCategory,
+  getSingleVendor
 } from "../../api";
 import {
   ERROR_NOTIFICATION,
@@ -201,6 +202,8 @@ const Products = () => {
     vendor_filter,
   ]);
   const userRole=JSON.parse(localStorage.getItem("userprofile"))
+  console.log(userRole,"user");
+  
 
 
   const handleDelete = async (data) => {
@@ -263,24 +266,23 @@ const Products = () => {
         );
       },
     },
-
-     (userRole.role=="super admin"?([{
-      title: "Visiblity",
-      align: "center",
-      dataIndex: "is_visible",
-      render: (data, record) => {
-        return (
+  ...(userRole?.role === "super admin" 
+    ? [{
+        title: "Visibility",
+        align: "center",
+        dataIndex: "is_visible",
+        render: (data, record) => (
           <Switch
-        size="small"
-        checked={data}
-        onChange={(checked) => {
-          handleOnChangeLabel({ is_visible: checked }, record);
-        }}
-        className="bg-gray-300"
-      />
-        );
-      },
-    }]):([])),
+            size="small"
+            checked={data}
+            onChange={(checked) => {
+              handleOnChangeLabel({ is_visible: checked }, record);
+            }}
+            className="bg-gray-300"
+          />
+        ),
+      }]
+    : []),
     {
       title: "Image",
       dataIndex: "images",
@@ -511,6 +513,12 @@ const Products = () => {
     collectVendors();
   }, []);
 
+  // getvender name
+  const getVenderName=(id)=>{
+    console.log("vghgvhvhh",getSingleVendor(id))
+
+  }
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       <DefaultTile
@@ -688,7 +696,7 @@ const Products = () => {
               ]}
             />
           </Card>
-
+{/* vendor */}
           <Modal
             title="Vendor Details"
             open={!_.isEmpty(vendorClose)}
