@@ -2,18 +2,48 @@ import { useEffect, useState } from "react";
 import DefaultTile from "../../components/DefaultTile";
 import AddForms from "./AddForms";
 import { MdDelete, MdContentCopy } from "react-icons/md";
-import { 
-  Button, Checkbox, Collapse, Descriptions, Form, Image, Input, Modal, 
-  Popconfirm, Select, Spin, Switch, Table, Tabs, Tag, Tooltip, Card, 
-  Row, Col, Divider, Space, Typography 
+import {
+  Button,
+  Checkbox,
+  Collapse,
+  Descriptions,
+  Form,
+  Image,
+  Input,
+  Modal,
+  Popconfirm,
+  Select,
+  Spin,
+  Switch,
+  Table,
+  Tabs,
+  Tag,
+  Tooltip,
+  Card,
+  Row,
+  Col,
+  Divider,
+  Space,
+  Typography,
 } from "antd";
 import { FaEdit, FaEye, FaFilter } from "react-icons/fa";
 import _ from "lodash";
-import { 
-  addproduct, CLIENT_URL, deleteProduct, editProduct, getAllCategoryProducts, 
-  getAllVendor, getMainCategory, getProduct, getSubCategory, getSubProductCategory 
+import {
+  addproduct,
+  CLIENT_URL,
+  deleteProduct,
+  editProduct,
+  getAllCategoryProducts,
+  getAllVendor,
+  getMainCategory,
+  getProduct,
+  getSubCategory,
+  getSubProductCategory,
 } from "../../api";
-import { ERROR_NOTIFICATION, SUCCESS_NOTIFICATION } from "../../helper/notification_helper";
+import {
+  ERROR_NOTIFICATION,
+  SUCCESS_NOTIFICATION,
+} from "../../helper/notification_helper";
 import CustomTable from "../../components/CustomTable";
 import { ICON_HELPER } from "../../helper/iconhelper";
 import { Link } from "react-router-dom";
@@ -29,7 +59,8 @@ const Products = () => {
   const [loading, setLoading] = useState(false);
   const [mainCategory, setmainCategoryData] = useState([]);
   const [filterByProduct_category, setFilterByProduct_category] = useState("");
-  const [filterByProduct_subcategory, setFilterByProduct_subcategory] = useState("");
+  const [filterByProduct_subcategory, setFilterByProduct_subcategory] =
+    useState("");
   const [vendor_filter, setVendor_filter] = useState("");
   const [filterByType, setFilterByType] = useState("");
   const [vendorClose, setVendorClose] = useState([]);
@@ -135,7 +166,15 @@ const Products = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const result = await getProduct("", search, true, filterByProduct_category, filterByType, filterByProduct_subcategory, vendor_filter);
+      const result = await getProduct(
+        "",
+        search,
+        true,
+        filterByProduct_category,
+        filterByType,
+        filterByProduct_subcategory,
+        vendor_filter
+      );
       setTableData(_.get(result, "data.data"));
     } catch (err) {
       console.log(err);
@@ -153,7 +192,16 @@ const Products = () => {
   useEffect(() => {
     fetchData();
     if (!formStatus) setId("");
-  }, [search, formStatus, filterByProduct_category, filterByType, filterByProduct_subcategory, vendor_filter]);
+  }, [
+    search,
+    formStatus,
+    filterByProduct_category,
+    filterByType,
+    filterByProduct_subcategory,
+    vendor_filter,
+  ]);
+  const userRole=JSON.parse(localStorage.getItem("userprofile"))
+
 
   const handleDelete = async (data) => {
     try {
@@ -186,10 +234,10 @@ const Products = () => {
 
   const productType = [
     {
-      value: "Single Product",
+      value: "Stand Alone Product",
     },
     {
-      value: "Variant Product",
+      value: "Variable Product",
     },
   ];
 
@@ -206,12 +254,34 @@ const Products = () => {
       title: "Clone",
       render: (data) => {
         return (
-          <div onClick={() => setCloneProductDetails(data)} className="text-lg text-blue-500 center_div cursor-pointer hover:text-blue-700 transition-colors">
+          <div
+            onClick={() => setCloneProductDetails(data)}
+            className="text-lg text-blue-500 center_div cursor-pointer hover:text-blue-700 transition-colors"
+          >
             <MdContentCopy />
           </div>
         );
       },
     },
+
+     (userRole.role=="super admin"?[{
+      title: "Visiblity",
+      
+      align: "center",
+      dataIndex: "is_visible",
+      render: (data, record) => {
+        return (
+          <Switch
+        size="small"
+        checked={data}
+        onChange={(checked) => {
+          handleOnChangeLabel({ is_visible: checked }, record);
+        }}
+        className="bg-gray-300"
+      />
+        );
+      },
+    }]:([])),
     {
       title: "Image",
       dataIndex: "images",
@@ -220,9 +290,9 @@ const Products = () => {
           <div className="flex justify-center">
             {image ? (
               <div className="rounded-md overflow-hidden border border-gray-200 p-1 bg-white shadow-sm">
-                <Image 
-                  src={_.get(image, "[0].path", "")} 
-                  alt="Product" 
+                <Image
+                  src={_.get(image, "[0].path", "")}
+                  alt="Product"
                   className="!w-[50px] !h-[50px] !object-cover"
                   preview={false}
                 />
@@ -242,7 +312,9 @@ const Products = () => {
       render: (data) => {
         return (
           <Tooltip title={data}>
-            <span className="font-medium text-gray-800 line-clamp-1 max-w-[120px]">{data}</span>
+            <span className="font-medium text-gray-800 line-clamp-1 max-w-[120px]">
+              {data}
+            </span>
           </Tooltip>
         );
       },
@@ -280,12 +352,15 @@ const Products = () => {
         <Tag color={type === "Stand Alone Product" ? "green" : "orange"}>
           {type}
         </Tag>
-      )
+      ),
     },
     {
       title: "Price",
       render: (data) => {
-        const price = data.single_product_price||data.customer_product_price || _.get(data, "variants_price[0].price", "N/A");
+        const price =
+          data.single_product_price ||
+          data.customer_product_price ||
+          _.get(data, "variants_price[0].price", "N/A");
         return <span className="font-semibold text-gray-800">Rs. {price}</span>;
       },
       align: "center",
@@ -331,23 +406,23 @@ const Products = () => {
                 Edit
               </Button>
             )}
-            <Popconfirm 
-              title="Delete Product" 
-              description="Are you sure you want to delete this product?" 
+            <Popconfirm
+              title="Delete Product"
+              description="Are you sure you want to delete this product?"
               onConfirm={() => handleDelete(data)}
               okText="Yes"
               cancelText="No"
             >
-              <Button 
-                size="small" 
+              <Button
+                size="small"
                 icon={<MdDelete />}
                 className="text-red-500 border-red-100 hover:bg-red-50"
               >
                 Delete
               </Button>
             </Popconfirm>
-            <Button 
-              size="small" 
+            <Button
+              size="small"
               icon={<FaEye />}
               onClick={() => handleView(data)}
               className="text-green-500 border-green-100 hover:bg-green-50"
@@ -375,6 +450,7 @@ const Products = () => {
         );
       },
     },
+ 
     {
       title: "Popular",
       align: "center",
@@ -415,7 +491,9 @@ const Products = () => {
     let filte_category_subcategory = mainCategory.filter((category) => {
       return category._id === filterByProduct_category;
     });
-    setSubcategoryData(_.get(filte_category_subcategory, "[0].sub_categories_details", []));
+    setSubcategoryData(
+      _.get(filte_category_subcategory, "[0].sub_categories_details", [])
+    );
   }, [filterByProduct_category]);
 
   const collectVendors = async () => {
@@ -436,48 +514,55 @@ const Products = () => {
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-      <DefaultTile 
-        title={"Products Management"} 
-        add={true} 
-        addText={"Add Product"} 
-        formStatus={formStatus} 
-        setFormStatus={setFormStatus} 
-        search={true} 
-        setSearch={setSearch} 
+      <DefaultTile
+        title={"Products Management"}
+        add={true}
+        addText={"Add Product"}
+        formStatus={formStatus}
+        setFormStatus={setFormStatus}
+        search={true}
+        setSearch={setSearch}
       />
 
       {formStatus ? (
-        <AddForms fetchData={fetchData} setFormStatus={setFormStatus} id={id} setId={setId} />
+        <AddForms
+          fetchData={fetchData}
+          setFormStatus={setFormStatus}
+          id={id}
+          setId={setId}
+        />
       ) : (
         <>
-          <Card 
+          <Card
             className="mb-6 shadow-sm border-0 rounded-xl"
-            bodyStyle={{ padding: '16px 24px' }}
+            bodyStyle={{ padding: "16px 24px" }}
           >
             <div className="flex justify-between items-center mb-4">
               <Title level={5} className="m-0 flex items-center">
                 <FaFilter className="mr-2 text-blue-500" />
                 Filters
               </Title>
-              <Button 
-                type="text" 
+              <Button
+                type="text"
                 icon={showFilters ? <span>▲</span> : <span>▼</span>}
                 onClick={() => setShowFilters(!showFilters)}
                 className="text-gray-500"
               >
-                {showFilters ? 'Hide' : 'Show'} Filters
+                {showFilters ? "Hide" : "Show"} Filters
               </Button>
             </div>
-            
+
             <Collapse in={showFilters}>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
-                  <Text className="text-sm font-medium text-gray-600">Product Category</Text>
-                  <Select 
-                    placeholder="Select Category" 
-                    size="middle" 
+                  <Text className="text-sm font-medium text-gray-600">
+                    Product Category
+                  </Text>
+                  <Select
+                    placeholder="Select Category"
+                    size="middle"
                     className="w-full mt-1"
-                    allowClear 
+                    allowClear
                     onChange={(val) => setFilterByProduct_category(val)}
                     suffixIcon={<span className="text-gray-400">▼</span>}
                   >
@@ -491,12 +576,14 @@ const Products = () => {
 
                 {!_.isEmpty(subcategoryData) && (
                   <div>
-                    <Text className="text-sm font-medium text-gray-600">Sub Category</Text>
-                    <Select 
-                      placeholder="Select Sub Category" 
-                      size="middle" 
+                    <Text className="text-sm font-medium text-gray-600">
+                      Sub Category
+                    </Text>
+                    <Select
+                      placeholder="Select Sub Category"
+                      size="middle"
                       className="w-full mt-1"
-                      allowClear 
+                      allowClear
                       onChange={(val) => setFilterByProduct_subcategory(val)}
                       suffixIcon={<span className="text-gray-400">▼</span>}
                     >
@@ -510,12 +597,14 @@ const Products = () => {
                 )}
 
                 <div>
-                  <Text className="text-sm font-medium text-gray-600">Vendor</Text>
-                  <Select 
-                    placeholder="Select Vendor" 
-                    size="middle" 
+                  <Text className="text-sm font-medium text-gray-600">
+                    Vendor
+                  </Text>
+                  <Select
+                    placeholder="Select Vendor"
+                    size="middle"
                     className="w-full mt-1"
-                    allowClear 
+                    allowClear
                     onChange={(val) => setVendor_filter(val)}
                     suffixIcon={<span className="text-gray-400">▼</span>}
                   >
@@ -528,13 +617,15 @@ const Products = () => {
                 </div>
 
                 <div>
-                  <Text className="text-sm font-medium text-gray-600">Product Type</Text>
-                  <Select 
-                    placeholder="Select Type" 
-                    size="middle" 
+                  <Text className="text-sm font-medium text-gray-600">
+                    Product Type
+                  </Text>
+                  <Select
+                    placeholder="Select Type"
+                    size="middle"
                     className="w-full mt-1"
-                    options={productType} 
-                    allowClear 
+                    options={productType}
+                    allowClear
                     onChange={(val) => setFilterByType(val)}
                     suffixIcon={<span className="text-gray-400">▼</span>}
                   />
@@ -543,7 +634,7 @@ const Products = () => {
             </Collapse>
           </Card>
 
-          <Card 
+          <Card
             className="shadow-sm border-0 rounded-xl overflow-hidden"
             bodyStyle={{ padding: 0 }}
           >
@@ -559,7 +650,7 @@ const Products = () => {
                     <span className="flex items-center">
                       <span className="mr-1">📦</span> Products
                       <Tag className="ml-2" color="blue">
-                        {tableData.filter(res => !res.is_cloned).length}
+                        {tableData.filter((res) => !res.is_cloned).length}
                       </Tag>
                     </span>
                   ),
@@ -580,7 +671,7 @@ const Products = () => {
                     <span className="flex items-center">
                       <MdContentCopy className="mr-1" /> Cloned Products
                       <Tag className="ml-2" color="green">
-                        {tableData.filter(res => res.is_cloned).length}
+                        {tableData.filter((res) => res.is_cloned).length}
                       </Tag>
                     </span>
                   ),
@@ -607,15 +698,22 @@ const Products = () => {
               setVendorClose([]);
             }}
             className="rounded-lg"
-            bodyStyle={{ padding: '16px 24px' }}
+            bodyStyle={{ padding: "16px 24px" }}
           >
             <Descriptions layout="vertical" bordered column={1}>
               {vendorClose.map((res, index) => {
                 return (
-                  <Descriptions.Item key={index} label={<p className="font-medium">Vendor {index + 1}</p>}>
+                  <Descriptions.Item
+                    key={index}
+                    label={<p className="font-medium">Vendor {index + 1}</p>}
+                  >
                     <div className="flex justify-between items-center text-sm">
                       <span className="font-medium">{res.vendor_name}</span>
-                      <Link to={`/vendor_details/${res._id}`} target="_blank" className="text-blue-500 hover:text-blue-700 transition-colors">
+                      <Link
+                        to={`/vendor_details/${res._id}`}
+                        target="_blank"
+                        className="text-blue-500 hover:text-blue-700 transition-colors"
+                      >
                         View Details →
                       </Link>
                     </div>
@@ -627,19 +725,21 @@ const Products = () => {
         </>
       )}
 
-      <Modal 
-        title="Clone Product" 
-        open={!_.isEmpty(cloneProductDetails)} 
-        onCancel={handleCloseModal} 
+      <Modal
+        title="Clone Product"
+        open={!_.isEmpty(cloneProductDetails)}
+        onCancel={handleCloseModal}
         footer={null}
         className="rounded-lg"
-        bodyStyle={{ padding: '24px' }}
+        bodyStyle={{ padding: "24px" }}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          <Form.Item 
-            label="Category" 
-            name="category_details" 
-            rules={[{ required: true, message: "Please select a product category!" }]}
+          <Form.Item
+            label="Category"
+            name="category_details"
+            rules={[
+              { required: true, message: "Please select a product category!" },
+            ]}
           >
             <Select
               placeholder="Select Product Category"
@@ -649,7 +749,10 @@ const Products = () => {
             >
               {categoryData
                 .filter((res) => {
-                  return res._id !== _.get(cloneProductDetails, "category_details._id", "");
+                  return (
+                    res._id !==
+                    _.get(cloneProductDetails, "category_details._id", "")
+                  );
                 })
                 .map((item) => (
                   <Select.Option key={item._id} value={item._id}>
@@ -659,13 +762,18 @@ const Products = () => {
             </Select>
           </Form.Item>
 
-          <Form.Item 
-            label="Sub Category" 
-            name="sub_category_details" 
-            rules={[{ required: true, message: "Please select a product sub-category!" }]}
+          <Form.Item
+            label="Sub Category"
+            name="sub_category_details"
+            rules={[
+              {
+                required: true,
+                message: "Please select a product sub-category!",
+              },
+            ]}
           >
-            <Select 
-              placeholder="Select Product Sub Category" 
+            <Select
+              placeholder="Select Product Sub Category"
               className="w-full"
               suffixIcon={<span className="text-gray-400">▼</span>}
             >
@@ -679,11 +787,9 @@ const Products = () => {
 
           <Form.Item className="mb-0">
             <div className="flex justify-end space-x-3">
-              <Button onClick={handleCloseModal}>
-                Cancel
-              </Button>
-              <Button 
-                type="primary" 
+              <Button onClick={handleCloseModal}>Cancel</Button>
+              <Button
+                type="primary"
                 htmlType="submit"
                 className="bg-blue-500 hover:bg-blue-600 border-blue-500"
                 loading={loading}

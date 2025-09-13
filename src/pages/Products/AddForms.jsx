@@ -2917,6 +2917,9 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     },
   ];
 
+  const userRole=JSON.parse(localStorage.getItem("userprofile"))
+  
+
   return (
     <Spin spinning={loading}>
       <div className="bg-gray-50 min-h-screen">
@@ -2959,7 +2962,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                 }
                 key="1"
               >
-                <Form.Item
+              {userRole.role=="super admin"&&  <Form.Item
                   name="is_visible"
                   label="Visibility"
                   valuePropName="checked"
@@ -2968,7 +2971,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     checkedChildren={<EyeOutlined />} 
                     unCheckedChildren={<EyeInvisibleOutlined />} 
                   />
-                </Form.Item>
+                </Form.Item>}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <Form.Item
                     label="Product Type"
