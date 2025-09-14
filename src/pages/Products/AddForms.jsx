@@ -1611,7 +1611,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                                     className="h-10"
                                     defaultValue={"No comments"}
                                   >
-                                    {["Recommended", "Most Liked","Best seller","No comments"].map(
+                                    {["Recommended", "Most Picked","High seller","Best seller","No comments"].map(
                                       (res, index) => {
                                         return (
                                           <Select.Option
