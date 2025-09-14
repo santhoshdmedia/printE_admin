@@ -402,7 +402,7 @@ const Products = () => {
       ),
     },
     {
-      title: "Type",
+      title: "stock",
       dataIndex: "stock_count",
       render: (type) => (
         <Tag
@@ -553,7 +553,7 @@ const Products = () => {
       <DefaultTile
         title="Products Dashboard"
         add={true}
-        addText="Add New Product"
+        addText="  New Product"
         formStatus={formStatus}
         setFormStatus={setFormStatus}
         search={true}

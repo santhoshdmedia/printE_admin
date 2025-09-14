@@ -253,7 +253,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       // Calculate total stock by adding new stock_info entries to existing stock_count
       const existingStockCount = id ? Number(_.get(id, "stock_count", 0)) : 0;
       const newStock = newStockInfo.reduce((sum, item) => sum + (Number(item.add_stock) || 0), 0);
-      values.stock_count = existingStockCount + newStock;
+      values.stock_count = Number(existingStockCount) + Number(newStock);
 
       values.images = image_path;
       values.variants = variants;
@@ -921,20 +921,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     />
                   </Form.Item>
 
-                  {productStockSelectedValue === "Limited" && (
-                    <Form.Item
-                      rules={[formValidation("Enter In-Stock Count")]}
-                      name="stock_count"
-                      label="In-Stock Count"
-                    >
-                      <InputNumber
-                        placeholder="Enter Stock Count"
-                        type="text"
-                        className="w-full h-12"
-                        disabled={id} // Disable in edit mode
-                      />
-                    </Form.Item>
-                  )}
 
                   <Form.Item
                     label="Product Code"
@@ -1153,16 +1139,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                               </Button>
                             </Form.Item>
                             
-                            <Form.Item className="mb-0">
-                              <Button
-                                htmlType="submit"
-                                type="primary"
-                                size="medium"
-                                loading={loading}
-                              >
-                                {id ? "Update Stock" : "Add Product"}
-                              </Button>
-                            </Form.Item>
+                           
                           </div>
 
                           <div className="grid grid-cols-1 gap-3">
