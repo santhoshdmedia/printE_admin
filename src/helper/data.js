@@ -21,7 +21,7 @@ export const MENU_DATA = [
   },
   
   {
-    id: 4,
+    id: 3,
     name: "Categories",
     icon: ICON_HELPER.CATEGORY_ICON,
     to: "/categories",
@@ -50,7 +50,7 @@ export const MENU_DATA = [
   },
 
   {
-    id: 5,
+    id: 4,
     name: "Products",
     icon: ICON_HELPER.PRODUCT_ICON,
     to: "/product-details",
@@ -80,20 +80,20 @@ export const MENU_DATA = [
   //   ],
   // },
   {
-    id: 77,
+    id:5,
     name: "Homepage",
     icon: ICON_HELPER.BANNER_ICON,
     special: ["banners", "product-section"],
     for: ["super admin"],
     children: [
       {
-        id: 71,
+        id: 51,
         name: "Banners",
         to: "/homepage/banners",
         special: ["banners"],
       },
       {
-        id: 72,
+        id: 52,
         name: "Product Section",
         to: "/homepage/product-section",
         special: ["product-section"],
@@ -102,7 +102,7 @@ export const MENU_DATA = [
   },
 
   {
-    id: 2,
+    id: 6,
     name: "Admin Users",
     icon: ICON_HELPER.ADMIN_ICON,
     to: "/admin-users",
@@ -111,24 +111,32 @@ export const MENU_DATA = [
   },
 
   {
-    id: 4,
+    id: 7,
     name: "Customers",
     icon: ICON_HELPER.USER_ICON,
     to: "/client-users",
     special: ["client-users", "user_details"],
     for: ["super admin"],
   },
+  {
+    id: 8,
+    name: "Users",
+    icon: ICON_HELPER.VENDORS_ICON,
+    to: "/users",
+    special: ["client-users", "user_details"],
+    for: ["super admin","frontend admin"],
+  },
 
   {
-    id: 10,
+    id: 9,
     name: "Vendors",
     icon: ICON_HELPER.VENDORS_ICON,
     to: "/vendors",
     special: ["vendors", "vendor_details"],
-    for: ["super admin"],
+    for: ["super admin","frontend admin"],
   },
   {
-    id: 7,
+    id: 10,
     name: "Blogs",
     icon: ICON_HELPER.BLOG_ICONS,
     to: "/blogs",
@@ -137,7 +145,7 @@ export const MENU_DATA = [
   },
 
   {
-    id: 8,
+    id: 11,
     name: "Review",
     icon: ICON_HELPER.REVIEW_ICON,
     to: "/review",
@@ -145,7 +153,7 @@ export const MENU_DATA = [
     for: ["super admin"],
   },
   {
-    id: 9,
+    id: 12,
     name: "Enquires",
     icon: ICON_HELPER.MAIL_ICON,
     to: "/enquires",
@@ -153,7 +161,7 @@ export const MENU_DATA = [
     for: ["super admin"],
   },
   {
-    id: 10,
+    id: 13,
     name: "Setting",
     icon: ICON_HELPER.SETTINGS_ICON,
     to: "/settings",

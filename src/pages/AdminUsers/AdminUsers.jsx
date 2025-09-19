@@ -168,7 +168,8 @@ const AdminUsers = () => {
 
   // Role configuration with colors and icons
   const roleConfig = {
-    "super admin": { color: "red", icon: <FaUserCog /> },
+    "Frontend admin": { color: "red", icon: <FaUserCog /> },
+    "Backend admin": { color: "red", icon: <FaUserCog /> },
     "accounting team": { color: "#1890ff", icon: <FaRupeeSign /> },
     "designing team": { color: "#722ed1", icon: <FiUsers /> },
     "production team": { color: "#faad14", icon: <FiBox /> },

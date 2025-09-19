@@ -24,6 +24,7 @@ import CustomerPage from "../pages/customerpage/CustomerPage";
 import ProductDetails from "../pages/productdetails/ProductDetails";
 // import EnquiresDetails from "../pages/Enquries/EnquiresDetails";
 import AssignedOrder from "../pages/Orders/AssignedOrder";
+import UserPanel from "../pages/userPanel/UserPanel";
 
 export const router = createBrowserRouter([
   {
@@ -111,6 +112,11 @@ export const router = createBrowserRouter([
     path: "/review",
     element: <Layout />,
     children: [{ path: "/review", element: <Review /> }],
+  },
+  {
+    path: "/users",
+    element: <Layout />,
+    children: [{ path: "/users", element: <UserPanel /> }],
   },
   {
     path: "/vendors",

@@ -202,7 +202,6 @@ const Orders = () => {
       setLoading(true);
       const searchData = {
         search,
-        // date_filter: dateFilter,
         order_status: orderStatus,
       };
       const result = await collectallorders(JSON.stringify(searchData));
@@ -925,7 +924,7 @@ const Orders = () => {
                             title={_.startCase(status.label)}
                           >
                             <div
-                              className={`p-1 rounded-full ${
+                              className={`p-2 rounded-full text-lg ${
                                 idx <= getStatusIndex(order.order_status)
                                   ? "bg-blue-100 text-blue-600"
                                   : "bg-gray-100 text-gray-400"

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { MdDelete, MdContentCopy, MdMoreVert } from "react-icons/md";
+import { MdDelete, MdContentCopy, MdMoreVert, MdStar, MdNewReleases, MdThumbUp } from "react-icons/md";
 import {
   Button,
   Descriptions,
@@ -42,7 +42,6 @@ import CustomTable from "../../components/CustomTable";
 import DefaultTile from "../../components/DefaultTile";
 import { useForm } from "antd/es/form/Form";
 import AddForms from "./AddForms"
-
 
 const { Title, Text } = Typography;
 
@@ -369,7 +368,7 @@ const Products = () => {
       dataIndex: "name",
       render: (data) => (
         <Tooltip title={data}>
-          <span className="font-semibold text-gray-900 truncate max-w-[160px] block">
+          <span className="font-semibold text-gray-900 truncate !w-fit block">
             {data}
           </span>
         </Tooltip>
@@ -389,20 +388,7 @@ const Products = () => {
       ),
     },
     {
-      title: "Sub Category",
-      dataIndex: "sub_category_details",
-      render: (data) => (
-        <Tooltip title={_.get(data, "sub_category_name", "")}>
-          <Tag
-            className="max-w-[120px] truncate font-semibold bg-blue-100 text-blue-800 border-none rounded-full px-4 py-1"
-          >
-            {_.get(data, "sub_category_name", "")}
-          </Tag>
-        </Tooltip>
-      ),
-    },
-    {
-      title: "stock",
+      title: "Stock",
       dataIndex: "stock_count",
       render: (type) => (
         <Tag
@@ -417,12 +403,37 @@ const Products = () => {
       ),
     },
     {
-      title: "Price",
+      title: "Customer Price",
+      render: (data) => {
+        const CustomerPrice =
+          data.single_product_price ||
+          data.customer_product_price ||
+          _.get(data, "variants_price[0].customer_product_price", "N/A");
+
+        return <span className="font-bold text-gray-900">Rs. {CustomerPrice}</span>;
+      },
+      align: "center",
+    },
+    {
+      title: "Dealer Price",
       render: (data) => {
         const price =
           data.single_product_price ||
-          data.customer_product_price ||
-          _.get(data, "variants_price[0].price", "N/A");
+          data.Deler_product_price ||
+          _.get(data, "variants_price[0].Deler_product_price", "N/A");
+
+        return <span className="font-bold text-gray-900">Rs. {price}</span>;
+      },
+      align: "center",
+    },
+    {
+      title: "Corporate Price",
+      render: (data) => {
+        const price =
+          data.single_product_price ||
+          data.corporate_product_price ||
+          _.get(data, "variants_price[0].corporate_product_price", "N/A");
+
         return <span className="font-bold text-gray-900">Rs. {price}</span>;
       },
       align: "center",
@@ -445,6 +456,59 @@ const Products = () => {
               None
             </Tag>
           )}
+        </div>
+      ),
+    },
+    {
+      title: "Status",
+      align: "center",
+      render: (record) => (
+        <div className="flex flex-col space-y-2">
+          <Tooltip title="New Product">
+            <Button
+              size="small"
+              type={record.new_product ? "primary" : "default"}
+              icon={<MdNewReleases />}
+              onClick={() => handleOnChangeLabel({ new_product: !record.new_product }, record)}
+              className={`flex items-center justify-center w-full ${
+                record.new_product 
+                  ? "bg-blue-700 text-white border-blue-300 hover:bg-blue-200" 
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              New
+            </Button>
+          </Tooltip>
+          <Tooltip title="Popular Product">
+            <Button
+              size="small"
+              type={record.popular_product ? "primary" : "default"}
+              icon={<MdThumbUp />}
+              onClick={() => handleOnChangeLabel({ popular_product: !record.popular_product }, record)}
+              className={`flex items-center justify-center w-full ${
+                record.popular_product 
+                  ? "bg-green-700 text-white font-semibold border-green-300 hover:bg-green-200" 
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              Popular
+            </Button>
+          </Tooltip>
+          <Tooltip title="Recommended Product">
+            <Button
+              size="small"
+              type={record.recommended_product ? "primary" : "default"}
+              icon={<MdStar />}
+              onClick={() => handleOnChangeLabel({ recommended_product: !record.recommended_product }, record)}
+              className={`flex items-center justify-center w-full ${
+                record.recommended_product 
+                  ? "bg-amber-700 text-white font-semibold border-amber-500 hover:bg-amber-200" 
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              Recommended
+            </Button>
+          </Tooltip>
         </div>
       ),
     },
@@ -503,47 +567,6 @@ const Products = () => {
             </div>
           </div>
         </Dropdown>
-      ),
-    },
-    {
-      title: "New",
-      align: "center",
-      dataIndex: "new_product",
-      render: (data, record) => (
-        <Switch
-          size="small"
-          checked={data}
-          onChange={(e) => handleOnChangeLabel({ new_product: e }, record)}
-          className="bg-gray-300 hover:bg-teal-500 transition-colors duration-300"
-        />
-      ),
-    },
-    {
-      title: "Popular",
-      align: "center",
-      dataIndex: "popular_product",
-      render: (data, record) => (
-        <Switch
-          size="small"
-          checked={data}
-          onChange={(e) => handleOnChangeLabel({ popular_product: e }, record)}
-          className="bg-gray-300 hover:bg-teal-500 transition-colors duration-300"
-        />
-      ),
-    },
-    {
-      title: "Recommended",
-      align: "center",
-      dataIndex: "recommended_product",
-      render: (data, record) => (
-        <Switch
-          size="small"
-          checked={data}
-          onChange={(e) =>
-            handleOnChangeLabel({ recommended_product: e }, record)
-          }
-          className="bg-gray-300 hover:bg-teal-500 transition-colors duration-300"
-        />
       ),
     },
   ];

@@ -82,7 +82,7 @@ const SideNavbar = () => {
 
   return (
     <div className="size-full bg-white flex border-r px-2  flex-col items-center rounded-lg   relative gap-y-2">
-      <div className="h-[50px] center_div">logo</div>
+      {/* <div className="h-[50px] center_div"></div> */}
       {new_menu_data.map((res, index) => {
         return (
           <>

@@ -183,6 +183,12 @@ export const deleteVendor = async (id) =>
 export const getSingleVendor = async (id) =>
   await custom_request.get(`${BASE_URL}/vendor/get_single_vendor/${id}`);
 
+// corporate and deler
+export const addCustomUser = async (formdata) =>
+  await custom_request.post(`${BASE_URL}/client_user/custom_signup`, formdata);
+export const getCustomUser = async () =>
+  await custom_request.get(`${BASE_URL}/client_user/get_all_custom_users`);
+
 //enquires
 export const getInquires = async () =>
   await custom_request.get(`${BASE_URL}/help/get_enquires`);

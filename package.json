@@ -12,7 +12,7 @@
   "dependencies": {
     "@ant-design/icons": "^5.6.1",
     "@reduxjs/toolkit": "^2.5.0",
-    "antd": "^5.22.2",
+    "antd": "^5.27.3",
     "axios": "^1.7.8",
     "framer-motion": "^12.23.12",
     "greeting-time": "^1.0.0",
