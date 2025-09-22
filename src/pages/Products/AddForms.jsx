@@ -1622,9 +1622,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                         setQuantityType(e);
                       }}
                     >
-                      <Select.Option key="Fixed" value="textbox">
-                        Single text box
-                      </Select.Option>
                       <Select.Option key="Variable" value="dropdown">
                         Dropdown
                       </Select.Option>
