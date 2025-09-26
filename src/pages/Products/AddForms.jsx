@@ -28,6 +28,8 @@ import {
   MinusCircleOutlined,
   PlusOutlined,
   ReloadOutlined,
+  ArrowUpOutlined,
+  ArrowDownOutlined,
 } from "@ant-design/icons";
 import React, { useEffect, useState } from "react";
 import { MdDeleteOutline } from "react-icons/md";
@@ -36,6 +38,9 @@ import { Link } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
 import JoditEditor from "jodit-react";
 import moment from "moment";
+import { DndContext } from '@dnd-kit/core';
+import { SortableContext, arrayMove, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // Helper imports
 import Inputs from "../../components/Inputs";
@@ -102,10 +107,10 @@ const TaxPreference = [
   { value: "Non-GST Apply" },
 ];
 const GST_preference = [
-  { value: "10" },
+  { value: "5" },
   { value: "12" },
-  { value: "15" },
-  { value: "20" },
+  { value: "18" },
+  { value: "28" },
 ];
 
 const PRODUTSTOCK_TYPE = [{ value: "Limited" }, { value: "Unliimted" }];
@@ -124,6 +129,113 @@ const Unit_type = [
   { value: "Sqft" },
 ];
 
+// Sortable Image Component
+const SortableImage = ({ id, image, onRemove }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    cursor: isDragging ? 'grabbing' : 'grab',
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="relative group"
+    >
+      <Image
+        src={image}
+        alt="Product"
+        className="w-20 h-20 object-cover rounded border-2 border-dashed border-gray-300"
+        preview={{
+          mask: (
+            <div className="flex items-center justify-center">
+              <EyeOutlined className="text-white" />
+            </div>
+          ),
+        }}
+      />
+      <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <Button
+          type="primary"
+          danger
+          size="small"
+          icon={<DeleteFilled />}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(image);
+          }}
+          className="!w-6 !h-6 !min-w-0 !p-0 flex items-center justify-center"
+        />
+      </div>
+      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs text-center py-1">
+        Drag to reorder
+      </div>
+    </div>
+  );
+};
+
+// Sortable Image List Component
+const SortableImageList = ({ images, setImages, onRemove }) => {
+  
+  const [items, setItems] = useState([images]);
+  console.log(items.path);
+  
+
+  useEffect(() => {
+    setItems(images);
+  }, [images]);
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+
+    if (!over) return;
+
+    if (active.id !== over.id) {
+      const oldIndex = items.findIndex((item) => item === active.id);
+      const newIndex = items.findIndex((item) => item === over.id);
+
+      const newItems = arrayMove(items, oldIndex, newIndex);
+      setItems(newItems);
+      setImages(newItems);
+    }
+  };
+
+  return (
+    <DndContext onDragEnd={handleDragEnd}>
+      <SortableContext items={items}>
+        <div className="flex flex-wrap gap-4 p-4 bg-gray-50 rounded-lg min-h-32">
+          {items.map((image, index) => (
+            <SortableImage
+              key={image}
+              id={image}
+              image={image}
+              onRemove={onRemove}
+            />
+          ))}
+          {items.length === 0 && (
+            <div className="flex items-center justify-center w-full h-32 text-gray-500">
+              No images uploaded yet
+            </div>
+          )}
+        </div>
+      </SortableContext>
+    </DndContext>
+  );
+};
+
 const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   const [form] = Form.useForm();
   const [image_path, setImagePath] = useState([]);
@@ -137,23 +249,20 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   const [quantityType, setQuantityType] = useState("");
   const [dummy, setDummy] = useState(false);
   const [modalUnitVisible, setModalUnitVisible] = useState(false);
-  const [isProductVisible, setIsProductVisible] = useState(false);
   const [productTypeSelectedValue, setProductTypeSelectedValue] = useState(
     id?.type || productType[0].value
-  );
-  const [TaxPreferenceValue, setTaxPreferenceValue] = useState(
-    id?.type || TaxPreference[0].value
-  );
-  const [GstPrefernceValue, setGstPrefernceValue] = useState(
-    id?.type || GST_preference[0].value
   );
   const [productStockSelectedValue, setProductStockSelectedValue] = useState(
     id?.stocks_status || PRODUTSTOCK_TYPE[1].value
   );
-  const [UnitSelectedValue, setUnitSelectedValue] = useState(
-    id?.stocks_status || PRODUTSTOCK_TYPE[1].value
-  );
   const [usedProductCodes, setUsedProductCodes] = useState(new Set());
+  
+  // State for percentage differences
+  const [percentageDifferences, setPercentageDifferences] = useState({
+    customer: 0,
+    dealer: 0,
+    corporate: 0
+  });
 
   const initial_seo_data = {
     title: "",
@@ -184,7 +293,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
         vendor_details: vendors_ids,
         category_details: _.get(id, "category_details._id", ""),
         sub_category_details: _.get(id, "sub_category_details._id", ""),
-        stock_info: [], // Initialize with empty array to avoid showing existing entries in form
+        stock_info: [],
       });
 
       setSEO_Datas({
@@ -200,6 +309,77 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       setLoading(false);
     }
   }, [id]);
+
+  // Calculate percentage difference between price and MRP
+  const calculatePercentageDifference = (mrp, price) => {
+    const mrpValue = parseFloat(mrp) || 0;
+    const priceValue = parseFloat(price) || 0;
+    
+    if (mrpValue === 0) return 0;
+    
+    const difference = priceValue - mrpValue;
+    const percentage = (difference / mrpValue) * 100;
+    
+    return Math.round(percentage * 100) / 100; // Round to 2 decimal places
+  };
+
+  // Update percentage differences when prices change
+  const updatePercentageDifferences = (mrp, customerPrice, dealerPrice, corporatePrice) => {
+    const mrpValue = parseFloat(mrp) || 0;
+    
+    const newPercentages = {
+      customer: calculatePercentageDifference(mrpValue, customerPrice),
+      dealer: calculatePercentageDifference(mrpValue, dealerPrice),
+      corporate: calculatePercentageDifference(mrpValue, corporatePrice)
+    };
+    
+    setPercentageDifferences(newPercentages);
+  };
+
+  // Handle MRP change
+  const handleMRPChange = (value) => {
+    const mrp = parseFloat(value) || 0;
+    const customerPrice = parseFloat(form.getFieldValue('customer_product_price') || 0);
+    const dealerPrice = parseFloat(form.getFieldValue('Deler_product_price') || 0);
+    const corporatePrice = parseFloat(form.getFieldValue('corporate_product_price') || 0);
+    
+    updatePercentageDifferences(mrp, customerPrice, dealerPrice, corporatePrice);
+  };
+
+  // Handle customer price change
+  const handleCustomerPriceChange = (value) => {
+    const customerPrice = parseFloat(value) || 0;
+    const mrp = parseFloat(form.getFieldValue('MRP_price') || 0);
+    const dealerPrice = parseFloat(form.getFieldValue('Deler_product_price') || 0);
+    const corporatePrice = parseFloat(form.getFieldValue('corporate_product_price') || 0);
+    
+    updatePercentageDifferences(mrp, customerPrice, dealerPrice, corporatePrice);
+  };
+
+  // Handle dealer price change
+  const handleDealerPriceChange = (value) => {
+    const dealerPrice = parseFloat(value) || 0;
+    const mrp = parseFloat(form.getFieldValue('MRP_price') || 0);
+    const customerPrice = parseFloat(form.getFieldValue('customer_product_price') || 0);
+    const corporatePrice = parseFloat(form.getFieldValue('corporate_product_price') || 0);
+    
+    updatePercentageDifferences(mrp, customerPrice, dealerPrice, corporatePrice);
+  };
+
+  // Handle corporate price change
+  const handleCorporatePriceChange = (value) => {
+    const corporatePrice = parseFloat(value) || 0;
+    const mrp = parseFloat(form.getFieldValue('MRP_price') || 0);
+    const customerPrice = parseFloat(form.getFieldValue('customer_product_price') || 0);
+    const dealerPrice = parseFloat(form.getFieldValue('Deler_product_price') || 0);
+    
+    updatePercentageDifferences(mrp, customerPrice, dealerPrice, corporatePrice);
+  };
+
+  // Image handlers
+  const handleImageRemove = (imageToRemove) => {
+    setImagePath(prev => prev.filter(img => img !== imageToRemove));
+  };
 
   // API functions
   const productCategory = async () => {
@@ -221,79 +401,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       setAllVendors(_.get(result, "data.data", []));
     } catch (err) {
       console.log(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleFinish = async (values) => {
-    try {
-      setLoading(true);
-      // if (!image_path) {
-      //   return message.warning("Please provide a category image");
-      // }
-
-      // Get existing stock_info from the product (in edit mode) or empty array (in add mode)
-      const existingStockInfo = (id ? _.get(id, "stock_info", []) : []).map(
-        (item) => ({
-          ...item,
-          _id: item._id || uuidv4(),
-          date: item.date ? new Date(item.date).toISOString() : null,
-        })
-      );
-      // Get new stock_info entries from the form and add unique _id
-      const newStockInfo = (values.stock_info || []).map((item) => ({
-        ...item,
-        _id: uuidv4(),
-        date: item.date ? item.date.toISOString() : null,
-      }));
-
-      // Combine existing and new stock_info, ensuring no duplicates by _id
-      const combinedStockInfo = [...existingStockInfo, ...newStockInfo];
-      const uniqueStockInfo = [];
-      const seenIds = new Set();
-
-      combinedStockInfo.forEach((item) => {
-        if (!seenIds.has(item._id)) {
-          seenIds.add(item._id);
-          uniqueStockInfo.push(item);
-        }
-      });
-
-      values.stock_info = uniqueStockInfo;
-
-      // Calculate total stock by adding new stock_info entries to existing stock_count
-      const existingStockCount = id ? Number(_.get(id, "stock_count", 0)) : 0;
-      const newStock = newStockInfo.reduce(
-        (sum, item) => sum + (Number(item.add_stock) || 0),
-        0
-      );
-      values.stock_count = Number(existingStockCount) + Number(newStock);
-
-      values.images = image_path;
-      values.variants = variants;
-      values.variants_price = tableValue;
-      values.seo_url = String(values.seo_url).trim();
-
-      // let result = values
-
-      let result = id
-        ? await editProduct(values, id?._id)
-        : await addproduct(values);
-      console.log(result);
-
-      setFormStatus(false);
-      SUCCESS_NOTIFICATION(result);
-      form.resetFields(); // Clear all form fields, including stock_info
-      setId("");
-      setQuantityType("");
-      setImagePath("");
-      setFormStatus(false);
-      fetchData();
-      setSEO_Datas(initial_seo_data);
-    } catch (err) {
-      console.log(err);
-      ERROR_NOTIFICATION(err);
     } finally {
       setLoading(false);
     }
@@ -349,12 +456,12 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     );
   };
 
-  const handleOnDeleteVariantName = (varient_details) => {
-    if (!_.isEmpty(_.get(varient_details, "options", []))) {
+  const handleOnDeleteVariantName = (variant_details) => {
+    if (!_.isEmpty(_.get(variant_details, "options", []))) {
       return CUSTOM_ERROR_NOTIFICATION("Please Delete variant first");
     }
     setVariants((prevVariants) =>
-      prevVariants.filter((variant) => variant._id !== varient_details._id)
+      prevVariants.filter((variant) => variant._id !== variant_details._id)
     );
   };
 
@@ -430,22 +537,28 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   };
 
   // Table handlers
- const handlePriceChange = (record, e, priceType) => {
+  const handlePriceChange = (record, e, priceType) => {
     const { value } = e.target;
+    const numericValue = parseFloat(value) || 0;
+
+    const updatedRecord = {
+      ...record,
+      [priceType]: numericValue,
+    };
+
     const updatedTableValue = tableValue.map((data) => {
       if (data.key === record.key) {
-        return { ...data, [priceType]: value };
+        return updatedRecord;
       }
       return data;
     });
 
     if (!updatedTableValue.some((data) => data.key === record.key)) {
-      updatedTableValue.push({ ...record, [priceType]: value });
+      updatedTableValue.push(updatedRecord);
     }
 
     setTableValue(updatedTableValue);
   };
-
 
   const handleStockChange = (record, e) => {
     const { value } = e.target;
@@ -483,13 +596,20 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     setTableValue(updatedTableValue);
   };
 
+  // Calculate percentage difference for a variant row
+  const getVariantPercentageDifference = (record, priceType) => {
+    const mrp = record.MRP_price || 0;
+    const price = record[priceType] || 0;
+    return calculatePercentageDifference(mrp, price);
+  };
+
   // Helper functions
   const onCategoryChnge = (value) => {
     if (value) {
-      let responce = subcategory_data.filter((data) => {
+      let response = subcategory_data.filter((data) => {
         return data.select_main_category === value;
       });
-      setFilterSubcategory_data(responce);
+      setFilterSubcategory_data(response);
     }
   };
 
@@ -545,7 +665,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     }
   };
 
-  const REMOVE_IMAGES = (id, delte_url) => {
+  const REMOVE_IMAGES = (id, delete_url) => {
     try {
       setDummy(!dummy);
       let firstFieldKey = Number(id.split("-")[1]);
@@ -559,13 +679,65 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       });
 
       let initial = currentObject[0].images;
-      initial?.splice(initial?.indexOf(delte_url), 1);
+      initial?.splice(initial?.indexOf(delete_url), 1);
       currentObject[0].images = initial;
     } catch (err) {
       console.log(err);
     } finally {
       setDummy(!dummy);
     }
+  };
+
+  // Generate unique product code
+  const generateProductCode = (isVariableProduct = false, variantName = "") => {
+    const categoryId = form.getFieldValue("category_details");
+    const subCategoryId = form.getFieldValue("sub_category_details");
+
+    if (!categoryId || !subCategoryId) {
+      message.warning("Please select category and subcategory first");
+      return null;
+    }
+
+    const category = categoryData.find((c) => c._id === categoryId);
+    const subCategory = filter_subcategory_data.find(
+      (sc) => sc._id === subCategoryId
+    );
+
+    if (!category || !subCategory) {
+      message.warning("Please select valid category and subcategory");
+      return null;
+    }
+
+    const categoryPrefix = category.main_category_name.charAt(0).toUpperCase();
+    const subCategoryPrefix = subCategory.sub_category_name.charAt(0).toUpperCase();
+
+    let variantPrefix = "";
+    if (isVariableProduct && variantName) {
+      variantPrefix = variantName.charAt(0).toUpperCase();
+    }
+
+    let productCode = "";
+    let isUnique = false;
+    let attemptCount = 0;
+    const maxAttempts = 50;
+
+    while (!isUnique && attemptCount < maxAttempts) {
+      const randomNum = Math.floor(1000 + Math.random() * 9000);
+      productCode = `${categoryPrefix}${subCategoryPrefix}${variantPrefix}${randomNum}`;
+
+      if (!usedProductCodes.has(productCode)) {
+        isUnique = true;
+        setUsedProductCodes((prev) => new Set([...prev, productCode]));
+      }
+      attemptCount++;
+    }
+
+    if (attemptCount >= maxAttempts) {
+      message.error("Could not generate a unique product code. Please try again.");
+      return null;
+    }
+
+    return productCode;
   };
 
   // Modal handlers
@@ -621,7 +793,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     })
   );
 
-  // Combine existing and new stock info, removing duplicates by _id
+  // Combine existing and new stock info
   const combinedStockInfoData = [
     ...(id?.stock_info || []).map((item, index) => ({
       key: `existing-${index}`,
@@ -664,71 +836,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     },
   ];
 
-  // Generate unique product code
-  const generateProductCode = (isVariableProduct = false, variantName = "") => {
-    const categoryId = form.getFieldValue("category_details");
-    const subCategoryId = form.getFieldValue("sub_category_details");
-
-    if (!categoryId || !subCategoryId) {
-      message.warning("Please select category and subcategory first");
-      return null;
-    }
-
-    const category = categoryData.find((c) => c._id === categoryId);
-    const subCategory = filter_subcategory_data.find(
-      (sc) => sc._id === subCategoryId
-    );
-
-    if (!category || !subCategory) {
-      message.warning("Please select valid category and subcategory");
-      return null;
-    }
-
-    // Get first letters of category and subcategory
-    const categoryPrefix = category.main_category_name.charAt(0).toUpperCase();
-    const subCategoryPrefix = subCategory.sub_category_name
-      .charAt(0)
-      .toUpperCase();
-
-    // Add variant prefix if it's a variable product
-    let variantPrefix = "";
-    if (isVariableProduct && variantName) {
-      variantPrefix = variantName.charAt(0).toUpperCase();
-    }
-
-    let productCode = "";
-    let isUnique = false;
-    let attemptCount = 0;
-    const maxAttempts = 50; // Prevent infinite loop
-
-    // Generate codes until we find a unique one
-    while (!isUnique && attemptCount < maxAttempts) {
-      // Generate a 4-digit number with leading zeros
-      const randomNum = Math.floor(1000 + Math.random() * 9000);
-
-      // Construct the product code
-      productCode = `${categoryPrefix}${subCategoryPrefix}${variantPrefix}${randomNum}`;
-
-      // Check if this code is already used
-      if (!usedProductCodes.has(productCode)) {
-        isUnique = true;
-        // Add the new code to our used codes set
-        setUsedProductCodes((prev) => new Set([...prev, productCode]));
-      }
-
-      attemptCount++;
-    }
-
-    if (attemptCount >= maxAttempts) {
-      message.error(
-        "Could not generate a unique product code. Please try again."
-      );
-      return null;
-    }
-
-    return productCode;
-  };
-
   // Table columns for variants
   const columns = [
     ...variants.map((variant) => ({
@@ -738,18 +845,46 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       render: (text) => text,
     })),
     {
-      title: "Customer Price",
-      dataIndex: "customer_product_price",
-      key: "customer_product_price",
+      title: "MRP price",
+      dataIndex: "MRP_price",
+      key: "MRP_price",
       render: (text, record, index) => (
         <Input
           type="number"
           key={index}
           required
-          placeholder="Customer Price"
-          value={record.customer_product_price}
-          onChange={(e) => handlePriceChange(record, e, "customer_product_price")}
+          placeholder="MRP price"
+          value={record.MRP_price}
+          onChange={(e) => handlePriceChange(record, e, "MRP_price")}
         />
+      ),
+    },
+    {
+      title: "Customer Price",
+      dataIndex: "customer_product_price",
+      key: "customer_product_price",
+      render: (text, record, index) => (
+        <div>
+          <Input
+            type="number"
+            key={index}
+            required
+            placeholder="Customer Price"
+            value={record.customer_product_price}
+            onChange={(e) => handlePriceChange(record, e, "customer_product_price")}
+          />
+          {record.MRP_price && record.customer_product_price && (
+            <div className="text-xs mt-1">
+              <Tag 
+                color={getVariantPercentageDifference(record, "customer_product_price") > 0 ? "green" : "red"}
+                icon={getVariantPercentageDifference(record, "customer_product_price") > 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
+              >
+                {getVariantPercentageDifference(record, "customer_product_price") > 0 ? '+' : ''}
+                {getVariantPercentageDifference(record, "customer_product_price").toFixed(2)}%
+              </Tag>
+            </div>
+          )}
+        </div>
       ),
     },
     {
@@ -757,14 +892,27 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       dataIndex: "Deler_product_price",
       key: "Deler_product_price",
       render: (text, record, index) => (
-        <Input
-          type="number"
-          key={index}
-          required
-          placeholder="Dealer Price"
-          value={record.Deler_product_price}
-          onChange={(e) => handlePriceChange(record, e, "Deler_product_price")}
-        />
+        <div>
+          <Input
+            type="number"
+            key={index}
+            required
+            placeholder="Dealer Price"
+            value={record.Deler_product_price}
+            onChange={(e) => handlePriceChange(record, e, "Deler_product_price")}
+          />
+          {record.MRP_price && record.Deler_product_price && (
+            <div className="text-xs mt-1">
+              <Tag 
+                color={getVariantPercentageDifference(record, "Deler_product_price") > 0 ? "green" : "red"}
+                icon={getVariantPercentageDifference(record, "Deler_product_price") > 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
+              >
+                {getVariantPercentageDifference(record, "Deler_product_price") > 0 ? '+' : ''}
+                {getVariantPercentageDifference(record, "Deler_product_price").toFixed(2)}%
+              </Tag>
+            </div>
+          )}
+        </div>
       ),
     },
     {
@@ -772,17 +920,29 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       dataIndex: "corporate_product_price",
       key: "corporate_product_price",
       render: (text, record, index) => (
-        <Input
-          type="number"
-          key={index}
-          required
-          placeholder="Corporate Price"
-          value={record.corporate_product_price}
-          onChange={(e) => handlePriceChange(record, e, "corporate_product_price")}
-        />
+        <div>
+          <Input
+            type="number"
+            key={index}
+            required
+            placeholder="Corporate Price"
+            value={record.corporate_product_price}
+            onChange={(e) => handlePriceChange(record, e, "corporate_product_price")}
+          />
+          {record.MRP_price && record.corporate_product_price && (
+            <div className="text-xs mt-1">
+              <Tag 
+                color={getVariantPercentageDifference(record, "corporate_product_price") > 0 ? "green" : "red"}
+                icon={getVariantPercentageDifference(record, "corporate_product_price") > 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
+              >
+                {getVariantPercentageDifference(record, "corporate_product_price") > 0 ? '+' : ''}
+                {getVariantPercentageDifference(record, "corporate_product_price").toFixed(2)}%
+              </Tag>
+            </div>
+          )}
+        </div>
       ),
     },
- 
     {
       title: "Product Code",
       dataIndex: "product_code",
@@ -797,12 +957,8 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
           suffix={
             <ReloadOutlined
               onClick={() => {
-                const isVariable =
-                  productTypeSelectedValue === "Variable Product";
-                const code = generateProductCode(
-                  isVariable,
-                  record.variant_name
-                );
+                const isVariable = productTypeSelectedValue === "Variable Product";
+                const code = generateProductCode(isVariable, record.variant_name);
                 if (code) {
                   const updatedTableValue = tableValue.map((data) => {
                     if (data.key === record.key) {
@@ -820,6 +976,75 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       ),
     },
   ];
+
+  const handleFinish = async (values) => {
+    try {
+      setLoading(true);
+      
+      // Get existing stock_info from the product (in edit mode) or empty array (in add mode)
+      const existingStockInfo = (id ? _.get(id, "stock_info", []) : []).map(
+        (item) => ({
+          ...item,
+          _id: item._id || uuidv4(),
+          date: item.date ? new Date(item.date).toISOString() : null,
+        })
+      );
+      
+      // Get new stock_info entries from the form and add unique _id
+      const newStockInfo = (values.stock_info || []).map((item) => ({
+        ...item,
+        _id: uuidv4(),
+        date: item.date ? item.date.toISOString() : null,
+      }));
+
+      // Combine existing and new stock_info, ensuring no duplicates by _id
+      const combinedStockInfo = [...existingStockInfo, ...newStockInfo];
+      const uniqueStockInfo = [];
+      const seenIds = new Set();
+
+      combinedStockInfo.forEach((item) => {
+        if (!seenIds.has(item._id)) {
+          seenIds.add(item._id);
+          uniqueStockInfo.push(item);
+        }
+      });
+
+      values.stock_info = uniqueStockInfo;
+
+      // Calculate total stock
+      const existingStockCount = id ? Number(_.get(id, "stock_count", 0)) : 0;
+      const newStock = newStockInfo.reduce(
+        (sum, item) => sum + (Number(item.add_stock) || 0),
+        0
+      );
+      values.stock_count = Number(existingStockCount) + Number(newStock);
+
+      values.images = image_path;
+      values.variants = variants;
+      values.variants_price = tableValue;
+      values.seo_url = String(values.seo_url).trim();
+
+      let result = id
+        ? await editProduct(values, id?._id)
+        : await addproduct(values);
+
+      setFormStatus(false);
+      SUCCESS_NOTIFICATION(result);
+      form.resetFields();
+      setId("");
+      setQuantityType("");
+      setImagePath("");
+      setFormStatus(false);
+      fetchData();
+      setSEO_Datas(initial_seo_data);
+      setPercentageDifferences({ customer: 0, dealer: 0, corporate: 0 });
+    } catch (err) {
+      console.log(err);
+      ERROR_NOTIFICATION(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const userRole = JSON.parse(localStorage.getItem("userprofile"));
 
@@ -868,7 +1093,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                 <div className={`grid grid-cols-1 md:grid-cols-2 ${userRole.role == "super admin"?"lg:grid-cols-4":"lg:grid-cols-3"} gap-4`}>
                   {userRole.role == "super admin" && (
                   <div className="p-2 bg-blue-200 rounded-lg !text-lg">
-
                     <Form.Item
                       name="is_visible"
                       label="Visibility"
@@ -900,7 +1124,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     </Form.Item>
                   </div>
                   <div className="p-2 bg-gray-100 rounded-lg !text-lg">
-
                   <Form.Item
                     name="is_corporate"
                     label="Corporate product"
@@ -1020,7 +1243,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                               form.setFieldsValue({ product_code: code });
                           }}
                       className="h-10"
-
                           style={{ cursor: "pointer" }}
                         />
                       }
@@ -1091,7 +1313,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                       placeholder="Select Unit Type"
                       className="h-12"
                       options={Unit_type}
-                      onChange={(val) => setUnitSelectedValue(val)}
                     />
                   </Form.Item>
 
@@ -1133,11 +1354,10 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                       placeholder="Select type"
                       className="h-12"
                       options={TaxPreference}
-                      onChange={(val) => setTaxPreferenceValue(val)}
                     />
                   </Form.Item>
                   <Form.Item
-                    label="GST Percemtage"
+                    label="GST Percentage"
                     name="GST"
                     rules={[
                       {
@@ -1150,7 +1370,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                       placeholder="Select type"
                       className="h-12"
                       options={GST_preference}
-                      onChange={(val) => setGstPrefernceValue(val)}
                     />
                   </Form.Item>
                 </div>
@@ -1218,10 +1437,11 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
               {/* Stock Info Panel */}
               <Panel
                 header={
-                  <div className="flex justify-between items-center">
+                  <div className="flex md:flex-row flex-col justify-between items-center">
                     <span className="text-lg font-semibold">
                       Stock Information
                     </span>
+                    <span>Current Stock:{_.get(id, "stock_count", 0)}</span>
                   </div>
                 }
                 key="7"
@@ -1333,7 +1553,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
               </Panel>
 
               {/* Product Images Panel */}
-              <Panel
+               <Panel
                 header={
                   <span className="text-lg font-semibold">Product Images</span>
                 }
@@ -1357,6 +1577,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                   </div>
                 </Form.Item>
               </Panel>
+
               {/* Pricing Information Panel */}
               <Panel
                 header={
@@ -1367,38 +1588,98 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                 key="3"
               >
                 {productTypeSelectedValue === "Stand Alone Product" ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Form.Item
-                      rules={[formValidation("Enter Product Price")]}
-                      label="Customer Price"
+                      rules={[formValidation("Enter MRP Price")]}
+                      label="MRP Price"
+                      name="MRP_price"
+                    >
+                      <Input
+                        placeholder="Enter MRP Price"
+                        type="Number"
+                        className="h-12"
+                        onChange={(e) => handleMRPChange(e.target.value)}
+                      />
+                    </Form.Item>
+                    
+                    <Form.Item
+                      rules={[formValidation("Enter Customer Price")]}
+                      label={
+                        <div className="flex items-center gap-2">
+                          <span>Customer Price</span>
+                          {percentageDifferences.customer !== 0 && (
+                            <Tag 
+                              color={percentageDifferences.customer > 0 ? "green" : "red"}
+                              icon={percentageDifferences.customer > 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
+                              className="text-xs"
+                            >
+                              {percentageDifferences.customer > 0 ? '+' : ''}
+                              {percentageDifferences.customer.toFixed(2)}%
+                            </Tag>
+                          )}
+                        </div>
+                      }
                       name="customer_product_price"
                     >
                       <Input
-                        placeholder="Enter Product Price"
-                        type="text"
-                        className="h-12 w-full md:w-80"
+                        placeholder="Enter Customer Price"
+                        type="Number"
+                        className="h-12"
+                        onChange={(e) => handleCustomerPriceChange(e.target.value)}
                       />
                     </Form.Item>
+                    
                     <Form.Item
-                      rules={[formValidation("Enter Product Price")]}
-                      label="Dealer Price"
+                      rules={[formValidation("Enter Dealer Price")]}
+                      label={
+                        <div className="flex items-center gap-2">
+                          <span>Dealer Price</span>
+                          {percentageDifferences.dealer !== 0 && (
+                            <Tag 
+                              color={percentageDifferences.dealer > 0 ? "green" : "red"}
+                              icon={percentageDifferences.dealer > 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
+                              className="text-xs"
+                            >
+                              {percentageDifferences.dealer > 0 ? '+' : ''}
+                              {percentageDifferences.dealer.toFixed(2)}%
+                            </Tag>
+                          )}
+                        </div>
+                      }
                       name="Deler_product_price"
                     >
                       <Input
-                        placeholder="Enter Product Price"
-                        type="text"
-                        className="h-12 w-full md:w-80"
+                        placeholder="Enter Dealer Price"
+                        type="Number"
+                        className="h-12"
+                        onChange={(e) => handleDealerPriceChange(e.target.value)}
                       />
                     </Form.Item>
+                    
                     <Form.Item
-                      rules={[formValidation("Enter Product Price")]}
-                      label="Corporate Price"
+                      rules={[formValidation("Enter Corporate Price")]}
+                      label={
+                        <div className="flex items-center gap-2">
+                          <span>Corporate Price</span>
+                          {percentageDifferences.corporate !== 0 && (
+                            <Tag 
+                              color={percentageDifferences.corporate > 0 ? "green" : "red"}
+                              icon={percentageDifferences.corporate > 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
+                              className="text-xs"
+                            >
+                              {percentageDifferences.corporate > 0 ? '+' : ''}
+                              {percentageDifferences.corporate.toFixed(2)}%
+                            </Tag>
+                          )}
+                        </div>
+                      }
                       name="corporate_product_price"
                     >
                       <Input
-                        placeholder="Enter Product Price"
-                        type="text"
-                        className="h-12 w-full md:w-80"
+                        placeholder="Enter Corporate Price"
+                        type="Number"
+                        className="h-12"
+                        onChange={(e) => handleCorporatePriceChange(e.target.value)}
                       />
                     </Form.Item>
                   </div>
@@ -1659,7 +1940,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                         <div className="grid grid-cols-1 gap-3">
                           {fields.map(({ key, name, ...restField }) => (
                             <Card size="small" key={key} className="relative">
-                              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                              <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
                                 <Form.Item
                                   label="Quantity"
                                   {...restField}
@@ -1686,15 +1967,41 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                                 </Form.Item>
 
                                 <Form.Item
-                                  label="Discount %"
+                                  label="Customer Discount %"
                                   {...restField}
-                                  name={[name, "discount"]}
-                                  rules={[formValidation("Enter a discount")]}
+                                  name={[name, "Customer_discount"]}
+                                  rules={[formValidation("Enter a Customer  discount")]}
                                   className="mb-0"
                                 >
                                   <Input
                                     type="number"
-                                    placeholder="Enter Discount"
+                                    placeholder="Enter Customer  Discount"
+                                    className="h-10"
+                                  />
+                                </Form.Item>
+                                <Form.Item
+                                  label="Dealer Discount %"
+                                  {...restField}
+                                  name={[name, "Dealer_discount"]}
+                                  rules={[formValidation("Enter a Dealer discount")]}
+                                  className="mb-0"
+                                >
+                                  <Input
+                                    type="number"
+                                    placeholder="Enter Dealer Discount"
+                                    className="h-10"
+                                  />
+                                </Form.Item>
+                                <Form.Item
+                                  label="Corporate Discount %"
+                                  {...restField}
+                                  name={[name, "Corporate_discount"]}
+                                  rules={[formValidation("Enter a Corporate discount")]}
+                                  className="mb-0"
+                                >
+                                  <Input
+                                    type="number"
+                                    placeholder="Enter Dealer Discount"
                                     className="h-10"
                                   />
                                 </Form.Item>
