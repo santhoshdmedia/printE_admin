@@ -1027,7 +1027,8 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       let result = id
         ? await editProduct(values, id?._id)
         : await addproduct(values);
-
+      // let result=values;
+      console.log("Submitted Values:", result);
       setFormStatus(false);
       SUCCESS_NOTIFICATION(result);
       form.resetFields();
@@ -1940,7 +1941,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                         <div className="grid grid-cols-1 gap-3">
                           {fields.map(({ key, name, ...restField }) => (
                             <Card size="small" key={key} className="relative">
-                              <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+                              <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
                                 <Form.Item
                                   label="Quantity"
                                   {...restField}
@@ -2004,6 +2005,16 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                                     placeholder="Enter Dealer Discount"
                                     className="h-10"
                                   />
+                                </Form.Item>
+                                
+
+                                <Form.Item
+                                  label="Free Deliverey"
+                                  {...restField}
+                                  name={[name, "Free_Deliverey"]}
+                                  className="mb-0 "
+                                  >
+                                  <Switch />
                                 </Form.Item>
 
                                 <Form.Item

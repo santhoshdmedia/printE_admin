@@ -161,6 +161,14 @@ export const MENU_DATA = [
     for: ["super admin"],
   },
   {
+    id: 14,
+    name: "Bulk Enquires",
+    icon: ICON_HELPER.MAIL_ICON,
+    to: "/bulk-enquires",
+    special: ["bulk-enquires"],
+    for: ["super admin"]
+  },
+  {
     id: 13,
     name: "Setting",
     icon: ICON_HELPER.SETTINGS_ICON,

@@ -25,6 +25,7 @@ import ProductDetails from "../pages/productdetails/ProductDetails";
 // import EnquiresDetails from "../pages/Enquries/EnquiresDetails";
 import AssignedOrder from "../pages/Orders/AssignedOrder";
 import UserPanel from "../pages/userPanel/UserPanel";
+import BulkEnquirey from "../pages/Enquries/BulkEnquirey";
 
 export const router = createBrowserRouter([
   {
@@ -142,6 +143,11 @@ export const router = createBrowserRouter([
     path: "/enquires",
     element: <Layout />,
     children: [{ path: "/enquires", element: <Enquires /> }],
+  },
+  {
+    path: "/bulk-enquires",
+    element: <Layout />,
+    children: [{ path: "/bulk-enquires", element: <BulkEnquirey /> }],
   },
   {
     path: "/homepage/product-section",

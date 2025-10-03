@@ -193,6 +193,10 @@ export const getCustomUser = async () =>
 export const getInquires = async () =>
   await custom_request.get(`${BASE_URL}/help/get_enquires`);
 
+// bulk enquires
+export const getBulkInquires = async () =>
+  await custom_request.get(`${BASE_URL}/bulk/get_all_bulk`);
+
 export const getSingelInquires = async (id) =>
   await custom_request.get(`${BASE_URL}/help/get_single_enquires/${id}`);
 
