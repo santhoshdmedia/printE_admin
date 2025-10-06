@@ -257,16 +257,16 @@ const Products = () => {
     }
   };
 
-  // Helper function to get variant images
+  // Enhanced helper function to get variant images
   const getVariantImages = (product) => {
-    if (!product.variants || !product.variants_price) return [];
+    if (!product.variants || !Array.isArray(product.variants)) return [];
 
     const variantImages = [];
     
     product.variants.forEach((variantGroup) => {
-      if (variantGroup.options && variantGroup.variant_type === "image_variant") {
+      if (variantGroup.variant_type === "image_variant" && variantGroup.options) {
         variantGroup.options.forEach((option) => {
-          if (option.image_names && option.image_names.length > 0) {
+          if (option.image_names && Array.isArray(option.image_names) && option.image_names.length > 0) {
             variantImages.push({
               variantName: variantGroup.variant_name,
               optionValue: option.value,
@@ -277,25 +277,30 @@ const Products = () => {
       }
     });
 
-    
-
     return variantImages;
   };
 
-  // Helper function to get first variant image
+  // Enhanced helper function to get first variant image
   const getFirstVariantImage = (product) => {
     const variantImages = getVariantImages(product);
-    if (variantImages.length > 0 && variantImages[0].images.length > 0) {
-      return variantImages[0].images[0];
+    
+    // Check all variant images for the first available image
+    for (const variant of variantImages) {
+      if (variant.images && variant.images.length > 0) {
+        return variant.images[0];
+      }
     }
+    
     return null;
   };
 
-  // Helper function to display product image
+  // Enhanced helper function to display product image
   const getProductImage = (product) => {
     // First check if there are main product images
-    if (product.images && product.images.length > 0) {
-      return _.get(product, "images[0].path", "");
+    if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+      // Handle both object format and string format
+      const firstImage = product.images[0];
+      return typeof firstImage === 'object' ? _.get(firstImage, "path", "") : firstImage;
     }
     
     // Then check for variant images
@@ -305,6 +310,53 @@ const Products = () => {
     }
     
     return "";
+  };
+
+  // Enhanced function to get product price based on type
+  const getProductPrice = (product, priceType = 'customer') => {
+    const priceFieldMap = {
+      'customer': 'customer_product_price',
+      'dealer': 'Deler_product_price', 
+      'corporate': 'corporate_product_price'
+    };
+
+    const priceField = priceFieldMap[priceType];
+    
+    if (product.type === "Stand Alone Product") {
+      return product[priceField] || product.single_product_price || "N/A";
+    } 
+    else if (product.type === "Variant Product" || product.type === "Variable Product") {
+      if (product.variants_price && Array.isArray(product.variants_price) && product.variants_price.length > 0) {
+        // Get all prices from variants
+        const prices = product.variants_price
+          .map(variant => {
+            const price = variant[priceField] || variant.price;
+            return price ? parseFloat(price) : null;
+          })
+          .filter(price => price !== null && !isNaN(price));
+        
+        if (prices.length > 0) {
+          return Math.min(...prices);
+        }
+      }
+      
+      // Fallback to main product price if no variant prices found
+      return product[priceField] || product.single_product_price || "N/A";
+    }
+    
+    return "N/A";
+  };
+
+  // Enhanced function to calculate total stock for variant products
+  const getTotalStock = (product) => {
+    if (product.type === "Variant Product" && product.variants_price && Array.isArray(product.variants_price)) {
+      return product.variants_price.reduce((sum, variant) => {
+        const stock = parseInt(variant.stock) || 0;
+        return sum + stock;
+      }, 0);
+    }
+    
+    return product.stock_count || 0;
   };
 
   useEffect(() => {
@@ -364,6 +416,10 @@ const Products = () => {
   const processedTableData = tableData.map((item, index) => ({
     ...item,
     serialNumber: index + 1,
+    totalStock: getTotalStock(item),
+    customerPrice: getProductPrice(item, 'customer'),
+    dealerPrice: getProductPrice(item, 'dealer'),
+    corporatePrice: getProductPrice(item, 'corporate'),
   }));
 
   const columns = [
@@ -415,6 +471,7 @@ const Products = () => {
         const productImage = getProductImage(record);
         const hasVariants = record.variants && record.variants.length > 0;
         const variantImages = getVariantImages(record);
+        const isVariableProduct = record.type === "Variable Product" || record.type === "Variant Product";
 
         return (
           <div className="flex justify-center">
@@ -429,6 +486,11 @@ const Products = () => {
                 {hasVariants && variantImages.length > 0 && (
                   <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                     {variantImages.length}
+                  </div>
+                )}
+                {isVariableProduct && (
+                  <div className="absolute -bottom-1 -left-1 bg-purple-500 text-white text-xs rounded-full px-1">
+                    Var
                   </div>
                 )}
                 <div className="absolute inset-0 bg-teal-500 bg-opacity-0 hover:bg-opacity-10 transition-all duration-300"></div>
@@ -449,6 +511,8 @@ const Products = () => {
       dataIndex: "name",
       render: (data, record) => {
         const hasVariants = record.variants && record.variants.length > 0;
+        const variantCount = hasVariants ? record.variants.reduce((count, variant) => count + (variant.options?.length || 0), 0) : 0;
+        
         return (
           <div className="flex flex-col">
             <Tooltip title={data}>
@@ -458,7 +522,7 @@ const Products = () => {
             </Tooltip>
             {hasVariants && (
               <span className="text-xs text-blue-600 font-medium mt-1">
-                {record.variants.length} variant(s)
+                {variantCount} option(s)
               </span>
             )}
           </div>
@@ -468,19 +532,23 @@ const Products = () => {
     {
       title: "Type",
       dataIndex: "type",
-      render: (type) => (
-        <Tag
-          className={`font-semibold border-none rounded-full px-4 py-1 ${
-            type === "Stand Alone Product"
-              ? "bg-green-100 text-green-800"
-              : type === "Variable Product"
-              ? "bg-blue-100 text-blue-800"
-              : "bg-orange-100 text-orange-800"
-          }`}
-        >
-          {type}
-        </Tag>
-      ),
+      render: (type) => {
+        const typeColors = {
+          "Stand Alone Product": "bg-green-100 text-green-800",
+          "Variable Product": "bg-blue-100 text-blue-800",
+          "Variant Product": "bg-purple-100 text-purple-800"
+        };
+        
+        return (
+          <Tag
+            className={`font-semibold border-none rounded-full px-4 py-1 ${
+              typeColors[type] || "bg-orange-100 text-orange-800"
+            }`}
+          >
+            {type}
+          </Tag>
+        );
+      },
     },
     {
       title: "Main Category",
@@ -495,86 +563,39 @@ const Products = () => {
     },
     {
       title: "Stock",
-      dataIndex: "stock_count",
-      render: (stock, record) => {
-        if (record.type === "Variant Product" && record.variants_price) {
-          const totalStock = record.variants_price.reduce((sum, variant) => {
-            return sum + (parseInt(variant.stock) || 0);
-          }, 0);
-          return (
-            <span className="font-semibold text-gray-900">{totalStock}</span>
-          );
-        }
-        return <span className="font-semibold text-gray-900">{stock}</span>;
-      },
+      dataIndex: "totalStock",
+      render: (stock) => (
+        <span className="font-semibold text-gray-900">{stock}</span>
+      ),
     },
     {
       title: "Customer Price",
-      render: (data) => {
-        let customerPrice = "N/A";
-        
-        if (data.type === "Stand Alone Product") {
-          customerPrice = data.customer_product_price || data.single_product_price;
-        } else if (data.type === "Variant Product" && data.variants_price && data.variants_price.length > 0) {
-          // Get the minimum price from variants
-          const prices = data.variants_price.map(variant => 
-            parseFloat(variant.customer_product_price || variant.price || 0)
-          );
-          customerPrice = Math.min(...prices);
-        }
-        
-        return (
-          <span className="font-bold text-gray-900">
-            Rs. {customerPrice !== "N/A" ? customerPrice : "N/A"}
-          </span>
-        );
-      },
+      dataIndex: "customerPrice",
+      render: (price) => (
+        <span className="font-bold text-gray-900">
+          {price !== "N/A" ? `Rs. ${price}` : "N/A"}
+        </span>
+      ),
       align: "center",
     },
     {
       title: "Dealer Price",
-      render: (data) => {
-        let dealerPrice = "N/A";
-        
-        if (data.type === "Stand Alone Product") {
-          dealerPrice = data.Deler_product_price || data.single_product_price;
-        } else if (data.type === "Variant Product" && data.variants_price && data.variants_price.length > 0) {
-          // Get the minimum price from variants
-          const prices = data.variants_price.map(variant => 
-            parseFloat(variant.Deler_product_price || variant.price || 0)
-          );
-          dealerPrice = Math.min(...prices);
-        }
-        
-        return (
-          <span className="font-bold text-gray-900">
-            Rs. {dealerPrice !== "N/A" ? dealerPrice : "N/A"}
-          </span>
-        );
-      },
+      dataIndex: "dealerPrice",
+      render: (price) => (
+        <span className="font-bold text-gray-900">
+          {price !== "N/A" ? `Rs. ${price}` : "N/A"}
+        </span>
+      ),
       align: "center",
     },
     {
       title: "Corporate Price",
-      render: (data) => {
-        let corporatePrice = "N/A";
-        
-        if (data.type === "Stand Alone Product") {
-          corporatePrice = data.corporate_product_price || data.single_product_price;
-        } else if (data.type === "Variant Product" && data.variants_price && data.variants_price.length > 0) {
-          // Get the minimum price from variants
-          const prices = data.variants_price.map(variant => 
-            parseFloat(variant.corporate_product_price || variant.price || 0)
-          );
-          corporatePrice = Math.min(...prices);
-        }
-        
-        return (
-          <span className="font-bold text-gray-900">
-            Rs. {corporatePrice !== "N/A" ? corporatePrice : "N/A"}
-          </span>
-        );
-      },
+      dataIndex: "corporatePrice",
+      render: (price) => (
+        <span className="font-bold text-gray-900">
+          {price !== "N/A" ? `Rs. ${price}` : "N/A"}
+        </span>
+      ),
       align: "center",
     },
     {
