@@ -116,7 +116,6 @@ const Blog = () => {
       let currentObject = form.getFieldValue("blog_descriptions").filter((res) => {
         return res.uuid === id;
       });
-      console.log("GETCURRENT_SETOF_IMAGES", _.get(currentObject, "[0].images", []));
       return _.get(currentObject, "[0].images", []);
     } catch (err) {
       return [];

@@ -364,7 +364,6 @@ const AssignedOrder = () => {
     const teamEntry = order.order_delivery_timeline?.find(entry => 
       teams.includes(entry.team_status)
     );
-console.log("",teamEntry)
     return (
       <span>
         <UserOutlined className="mr-1" />

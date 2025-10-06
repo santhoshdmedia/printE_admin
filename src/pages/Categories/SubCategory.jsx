@@ -56,7 +56,6 @@ const SubCategory = () => {
   }, [filter]);
 
   const handleFinish = async (values) => {
-    console.log(values);
     try {
       if (!image_path) {
         return message.warning("Please provide a category image");

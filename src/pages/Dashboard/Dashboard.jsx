@@ -104,7 +104,6 @@ const Dashboard = () => {
   }, []);
 
   const handleView = (url) => {
-    console.log(url);
     window.open(`${CLIENT_URL}/product/${url}`);
   };
   const userRole=JSON.parse(localStorage.getItem('userprofile'))
@@ -196,7 +195,6 @@ const Dashboard = () => {
       dataIndex: "user_data",
       align: "center",
       render: (user_data) => {
-        console.log(user_data);
         const images = _.get(user_data, "[0].profile_pic", null);
         const userName = _.get(user_data, "[0].name", "");
         const firstLetter = userName ? userName.charAt(0).toUpperCase() : "?";

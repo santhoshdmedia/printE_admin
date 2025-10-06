@@ -1,6 +1,13 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { MdDelete, MdContentCopy, MdMoreVert, MdStar, MdNewReleases, MdThumbUp } from "react-icons/md";
+import {
+  MdDelete,
+  MdContentCopy,
+  MdMoreVert,
+  MdStar,
+  MdNewReleases,
+  MdThumbUp,
+} from "react-icons/md";
 import {
   Button,
   Descriptions,
@@ -41,7 +48,7 @@ import {
 import CustomTable from "../../components/CustomTable";
 import DefaultTile from "../../components/DefaultTile";
 import { useForm } from "antd/es/form/Form";
-import AddForms from "./AddForms"
+import AddForms from "./AddForms";
 
 const { Title, Text } = Typography;
 
@@ -142,7 +149,7 @@ const Products = () => {
         filterByProductSubcategory,
         vendorFilter
       );
-      setTableData(_.get(result, "data.data", []));
+      setTableData(_.get(result, "data.data", []).reverse());
     } catch (err) {
       console.log(err);
       ERROR_NOTIFICATION(err);
@@ -219,7 +226,11 @@ const Products = () => {
       setVendorsLoading((prev) => ({ ...prev, [id]: true }));
       try {
         const vendor = await getSingleVendor(id);
-        const businessName = _.get(vendor, "data.data.business_name", "Unknown Vendor");
+        const businessName = _.get(
+          vendor,
+          "data.data.business_name",
+          "Unknown Vendor"
+        );
         setVendorNames((prev) => ({ ...prev, [id]: businessName }));
         return businessName;
       } catch (error) {
@@ -244,6 +255,56 @@ const Products = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper function to get variant images
+  const getVariantImages = (product) => {
+    if (!product.variants || !product.variants_price) return [];
+
+    const variantImages = [];
+    
+    product.variants.forEach((variantGroup) => {
+      if (variantGroup.options && variantGroup.variant_type === "image_variant") {
+        variantGroup.options.forEach((option) => {
+          if (option.image_names && option.image_names.length > 0) {
+            variantImages.push({
+              variantName: variantGroup.variant_name,
+              optionValue: option.value,
+              images: option.image_names
+            });
+          }
+        });
+      }
+    });
+
+    
+
+    return variantImages;
+  };
+
+  // Helper function to get first variant image
+  const getFirstVariantImage = (product) => {
+    const variantImages = getVariantImages(product);
+    if (variantImages.length > 0 && variantImages[0].images.length > 0) {
+      return variantImages[0].images[0];
+    }
+    return null;
+  };
+
+  // Helper function to display product image
+  const getProductImage = (product) => {
+    // First check if there are main product images
+    if (product.images && product.images.length > 0) {
+      return _.get(product, "images[0].path", "");
+    }
+    
+    // Then check for variant images
+    const variantImage = getFirstVariantImage(product);
+    if (variantImage) {
+      return variantImage;
+    }
+    
+    return "";
   };
 
   useEffect(() => {
@@ -288,6 +349,7 @@ const Products = () => {
   const productType = [
     { value: "Stand Alone Product", label: "Stand Alone Product" },
     { value: "Variable Product", label: "Variable Product" },
+    { value: "Variant Product", label: "Variant Product" },
   ];
 
   const handleClearFilters = () => {
@@ -298,13 +360,19 @@ const Products = () => {
     setSubcategoryDataFilter([]);
   };
 
+  // Process table data with serial numbers
+  const processedTableData = tableData.map((item, index) => ({
+    ...item,
+    serialNumber: index + 1,
+  }));
+
   const columns = [
     {
       title: "S.No",
-      dataIndex: "_id",
+      dataIndex: "serialNumber",
       align: "center",
-      render: (_, __, index) => (
-        <span className="text-gray-700 font-semibold">{index + 1}</span>
+      render: (serialNumber) => (
+        <span className="text-gray-700 font-semibold">{serialNumber}</span>
       ),
     },
     {
@@ -343,58 +411,70 @@ const Products = () => {
     {
       title: "Image",
       dataIndex: "images",
-      render: (image) => (
-        <div className="flex justify-center">
-          {image ? (
-            <div className="relative rounded-xl overflow-hidden border border-gray-200 p-1 bg-white shadow-lg hover:shadow-2xl transition-all duration-300">
-              <Image
-                src={_.get(image, "[0].path", "")}
-                alt="Product"
-                className="!w-16 !h-16 object-cover rounded-lg"
-                preview={false}
-              />
-              <div className="absolute inset-0 bg-teal-500 bg-opacity-0 hover:bg-opacity-10 transition-all duration-300"></div>
-            </div>
-          ) : (
-            <div className="w-16 h-16 bg-gray-50 rounded-xl flex items-center justify-center border border-dashed border-gray-300">
-              <span className="text-xs text-gray-500 font-medium">No Image</span>
-            </div>
-          )}
-        </div>
-      ),
+      render: (image, record) => {
+        const productImage = getProductImage(record);
+        const hasVariants = record.variants && record.variants.length > 0;
+        const variantImages = getVariantImages(record);
+
+        return (
+          <div className="flex justify-center">
+            {productImage ? (
+              <div className="relative rounded-xl overflow-hidden border border-gray-200 p-1 bg-white shadow-lg hover:shadow-2xl transition-all duration-300">
+                <Image
+                  src={productImage}
+                  alt="Product"
+                  className="!w-16 !h-16 object-cover rounded-lg"
+                  preview={false}
+                />
+                {hasVariants && variantImages.length > 0 && (
+                  <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    {variantImages.length}
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-teal-500 bg-opacity-0 hover:bg-opacity-10 transition-all duration-300"></div>
+              </div>
+            ) : (
+              <div className="w-16 h-16 bg-gray-50 rounded-xl flex items-center justify-center border border-dashed border-gray-300">
+                <span className="text-xs text-gray-500 font-medium">
+                  No Image
+                </span>
+              </div>
+            )}
+          </div>
+        );
+      },
     },
     {
       title: "Name",
       dataIndex: "name",
-      render: (data) => (
-        <Tooltip title={data}>
-          <span className="font-semibold text-gray-900 truncate !w-fit block">
-            {data}
-          </span>
-        </Tooltip>
-      ),
+      render: (data, record) => {
+        const hasVariants = record.variants && record.variants.length > 0;
+        return (
+          <div className="flex flex-col">
+            <Tooltip title={data}>
+              <span className="font-semibold text-gray-900 truncate !w-fit block">
+                {data}
+              </span>
+            </Tooltip>
+            {hasVariants && (
+              <span className="text-xs text-blue-600 font-medium mt-1">
+                {record.variants.length} variant(s)
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
-      title: "Main Category",
-      dataIndex: "category_details",
-      render: (data) => (
-        <Tooltip title={_.get(data, "main_category_name", "")}>
-          <Tag
-            className="max-w-[120px] truncate font-semibold bg-teal-100 text-teal-800 border-none rounded-full px-4 py-1"
-          >
-            {_.get(data, "main_category_name", "")}
-          </Tag>
-        </Tooltip>
-      ),
-    },
-    {
-      title: "Stock",
-      dataIndex: "stock_count",
+      title: "Type",
+      dataIndex: "type",
       render: (type) => (
         <Tag
           className={`font-semibold border-none rounded-full px-4 py-1 ${
             type === "Stand Alone Product"
               ? "bg-green-100 text-green-800"
+              : type === "Variable Product"
+              ? "bg-blue-100 text-blue-800"
               : "bg-orange-100 text-orange-800"
           }`}
         >
@@ -403,38 +483,97 @@ const Products = () => {
       ),
     },
     {
+      title: "Main Category",
+      dataIndex: "category_details",
+      render: (data) => (
+        <Tooltip title={_.get(data, "main_category_name", "")}>
+          <Tag className="max-w-[120px] truncate font-semibold bg-teal-100 text-teal-800 border-none rounded-full px-4 py-1">
+            {_.get(data, "main_category_name", "")}
+          </Tag>
+        </Tooltip>
+      ),
+    },
+    {
+      title: "Stock",
+      dataIndex: "stock_count",
+      render: (stock, record) => {
+        if (record.type === "Variant Product" && record.variants_price) {
+          const totalStock = record.variants_price.reduce((sum, variant) => {
+            return sum + (parseInt(variant.stock) || 0);
+          }, 0);
+          return (
+            <span className="font-semibold text-gray-900">{totalStock}</span>
+          );
+        }
+        return <span className="font-semibold text-gray-900">{stock}</span>;
+      },
+    },
+    {
       title: "Customer Price",
       render: (data) => {
-        const CustomerPrice =
-          data.single_product_price ||
-          data.customer_product_price ||
-          _.get(data, "variants_price[0].customer_product_price", "N/A");
-
-        return <span className="font-bold text-gray-900">Rs. {CustomerPrice}</span>;
+        let customerPrice = "N/A";
+        
+        if (data.type === "Stand Alone Product") {
+          customerPrice = data.customer_product_price || data.single_product_price;
+        } else if (data.type === "Variant Product" && data.variants_price && data.variants_price.length > 0) {
+          // Get the minimum price from variants
+          const prices = data.variants_price.map(variant => 
+            parseFloat(variant.customer_product_price || variant.price || 0)
+          );
+          customerPrice = Math.min(...prices);
+        }
+        
+        return (
+          <span className="font-bold text-gray-900">
+            Rs. {customerPrice !== "N/A" ? customerPrice : "N/A"}
+          </span>
+        );
       },
       align: "center",
     },
     {
       title: "Dealer Price",
       render: (data) => {
-        const price =
-          data.single_product_price ||
-          data.Deler_product_price ||
-          _.get(data, "variants_price[0].Deler_product_price", "N/A");
-
-        return <span className="font-bold text-gray-900">Rs. {price}</span>;
+        let dealerPrice = "N/A";
+        
+        if (data.type === "Stand Alone Product") {
+          dealerPrice = data.Deler_product_price || data.single_product_price;
+        } else if (data.type === "Variant Product" && data.variants_price && data.variants_price.length > 0) {
+          // Get the minimum price from variants
+          const prices = data.variants_price.map(variant => 
+            parseFloat(variant.Deler_product_price || variant.price || 0)
+          );
+          dealerPrice = Math.min(...prices);
+        }
+        
+        return (
+          <span className="font-bold text-gray-900">
+            Rs. {dealerPrice !== "N/A" ? dealerPrice : "N/A"}
+          </span>
+        );
       },
       align: "center",
     },
     {
       title: "Corporate Price",
       render: (data) => {
-        const price =
-          data.single_product_price ||
-          data.corporate_product_price ||
-          _.get(data, "variants_price[0].corporate_product_price", "N/A");
-
-        return <span className="font-bold text-gray-900">Rs. {price}</span>;
+        let corporatePrice = "N/A";
+        
+        if (data.type === "Stand Alone Product") {
+          corporatePrice = data.corporate_product_price || data.single_product_price;
+        } else if (data.type === "Variant Product" && data.variants_price && data.variants_price.length > 0) {
+          // Get the minimum price from variants
+          const prices = data.variants_price.map(variant => 
+            parseFloat(variant.corporate_product_price || variant.price || 0)
+          );
+          corporatePrice = Math.min(...prices);
+        }
+        
+        return (
+          <span className="font-bold text-gray-900">
+            Rs. {corporatePrice !== "N/A" ? corporatePrice : "N/A"}
+          </span>
+        );
       },
       align: "center",
     },
@@ -469,10 +608,15 @@ const Products = () => {
               size="small"
               type={record.new_product ? "primary" : "default"}
               icon={<MdNewReleases />}
-              onClick={() => handleOnChangeLabel({ new_product: !record.new_product }, record)}
+              onClick={() =>
+                handleOnChangeLabel(
+                  { new_product: !record.new_product },
+                  record
+                )
+              }
               className={`flex items-center justify-center w-full ${
-                record.new_product 
-                  ? "bg-blue-700 text-white border-blue-300 hover:bg-blue-200" 
+                record.new_product
+                  ? "bg-blue-700 text-white border-blue-300 hover:bg-blue-200"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
             >
@@ -484,10 +628,15 @@ const Products = () => {
               size="small"
               type={record.popular_product ? "primary" : "default"}
               icon={<MdThumbUp />}
-              onClick={() => handleOnChangeLabel({ popular_product: !record.popular_product }, record)}
+              onClick={() =>
+                handleOnChangeLabel(
+                  { popular_product: !record.popular_product },
+                  record
+                )
+              }
               className={`flex items-center justify-center w-full ${
-                record.popular_product 
-                  ? "bg-green-700 text-white font-semibold border-green-300 hover:bg-green-200" 
+                record.popular_product
+                  ? "bg-green-700 text-white font-semibold border-green-300 hover:bg-green-200"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
             >
@@ -499,10 +648,15 @@ const Products = () => {
               size="small"
               type={record.recommended_product ? "primary" : "default"}
               icon={<MdStar />}
-              onClick={() => handleOnChangeLabel({ recommended_product: !record.recommended_product }, record)}
+              onClick={() =>
+                handleOnChangeLabel(
+                  { recommended_product: !record.recommended_product },
+                  record
+                )
+              }
               className={`flex items-center justify-center w-full ${
-                record.recommended_product 
-                  ? "bg-amber-700 text-white font-semibold border-amber-500 hover:bg-amber-200" 
+                record.recommended_product
+                  ? "bg-amber-700 text-white font-semibold border-amber-500 hover:bg-amber-200"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
             >
@@ -599,7 +753,10 @@ const Products = () => {
             bodyStyle={{ padding: "32px" }}
           >
             <div className="flex justify-between items-center mb-6">
-              <Title level={4} className="m-0 flex items-center text-gray-900 font-extrabold tracking-tight">
+              <Title
+                level={4}
+                className="m-0 flex items-center text-gray-900 font-extrabold tracking-tight"
+              >
                 <FaFilter className="mr-3 text-teal-600 text-xl" />
                 Filter Products
               </Title>
@@ -658,7 +815,10 @@ const Products = () => {
                     onChange={(val) => setFilterByProductSubcategory(val)}
                     value={filterByProductSubcategory}
                     suffixIcon={<span className="text-teal-500">▼</span>}
-                    disabled={!filterByProductCategory || subcategoryDataFilter.length === 0}
+                    disabled={
+                      !filterByProductCategory ||
+                      subcategoryDataFilter.length === 0
+                    }
                   >
                     {subcategoryDataFilter.map((item) => (
                       <Select.Option key={item._id} value={item._id}>
@@ -739,7 +899,9 @@ const Products = () => {
                   children: (
                     <CustomTable
                       loading={loading}
-                      dataSource={tableData.filter((res) => !res.is_cloned)}
+                      dataSource={processedTableData.filter(
+                        (res) => !res.is_cloned
+                      )}
                       columns={columns}
                       scroll={{ x: 1500 }}
                       className="rounded-b-3xl"
@@ -760,7 +922,7 @@ const Products = () => {
                   children: (
                     <CustomTable
                       loading={loading}
-                      dataSource={tableData.filter((res) => res.is_cloned)}
+                      dataSource={processedTableData.filter((res) => res.is_cloned)}
                       columns={columns.filter((col) => col.title !== "Clone")}
                       scroll={{ x: 1400 }}
                       className="rounded-b-3xl"
@@ -785,7 +947,12 @@ const Products = () => {
             width={600}
           >
             <div className="max-h-96 overflow-y-auto">
-              <Descriptions layout="vertical" bordered column={1} className="rounded-xl">
+              <Descriptions
+                layout="vertical"
+                bordered
+                column={1}
+                className="rounded-xl"
+              >
                 {vendorClose.map((res, index) => (
                   <Descriptions.Item
                     key={index}
@@ -837,7 +1004,10 @@ const Products = () => {
                 }
                 name="category_details"
                 rules={[
-                  { required: true, message: "Please select a product category!" },
+                  {
+                    required: true,
+                    message: "Please select a product category!",
+                  },
                 ]}
               >
                 <Select
@@ -878,7 +1048,10 @@ const Products = () => {
                   placeholder="Select Product Sub Category"
                   className="w-full rounded-xl"
                   suffixIcon={<span className="text-teal-500">▼</span>}
-                  disabled={!filterByProductCategory || subcategoryDataFilter.length === 0}
+                  disabled={
+                    !filterByProductCategory ||
+                    subcategoryDataFilter.length === 0
+                  }
                 >
                   {subcategoryDataFilter.map((item) => (
                     <Select.Option key={item._id} value={item._id}>

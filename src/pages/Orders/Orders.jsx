@@ -339,7 +339,6 @@ const Orders = () => {
         design_time: designTime,
       };
 
-      console.log("Submitting design data:", designData);
 
       const success = await updateDesign(designData);
 
@@ -453,11 +452,7 @@ const Orders = () => {
       message.warning("Please select a vendor");
       return;
     }
-    console.log({
-      order_id: currentOrder._id,
-      vendor_id: selectedVendor,
-      member_id: userRole._id,
-    });
+  
 
     try {
       setLoading(true);
@@ -1018,10 +1013,7 @@ const Orders = () => {
 
                       {order.vender_id ? (
                         (() => {
-                          console.log(
-                            "Vendor assigned:",
-                            order.vender_id
-                          );
+                          
                           return (
                             <div className="text-sm bg-green-50 text-green-700 px-3 py-1 rounded-full flex items-center">
                               <FiUser className="mr-1" />

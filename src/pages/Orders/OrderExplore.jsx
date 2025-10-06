@@ -43,7 +43,6 @@ const OrderExplore = () => {
     fetchData();
   }, [_.get(location, "state", search)]);
 
-  console.log(orderData);
 
   useEffect(() => {
     const filterOrderData = orderData.find((order) => order._id === order_id);
@@ -76,7 +75,6 @@ const OrderExplore = () => {
 
   completed_timelines.push("placed");
 
-  console.log(filterOrderData);
 
   const columns = [
     {
@@ -146,7 +144,6 @@ const OrderExplore = () => {
 
        const imgWidth = pageWidth;
        const imgHeight = 270;
-       console.log(imgHeight);
        const x = (pageWidth - imgWidth) / 2;
 
        const y = 10;
@@ -175,7 +172,6 @@ const OrderExplore = () => {
      value: !_.isEmpty(_.get(filterOrderData, "cart_items.product_variants[0]", {})) ? (
        <div className="flex flex-col gap-y-2 py-4 px-2 !text-sm ">
          {Object.entries(_.get(filterOrderData, "cart_items.product_variants[0]", {})).map((res, index) => {
-           console.log(_.get(filterOrderData, "cart_items.product_variants[0].product_code", {}));
            return (
              !["stock"].includes(res[0]) &&
              res[0] != "product_unique_code" && (

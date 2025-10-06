@@ -13,7 +13,6 @@ const EnquiresDetails = () => {
     try {
       const result = await getSingelInquires(JSON.stringify(searchData));
       const data = _.get(result, "data.data", "");
-      console.log(data);
     } catch (err) {
       console.log(err);
     }

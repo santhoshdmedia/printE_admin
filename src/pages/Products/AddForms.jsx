@@ -19,21 +19,17 @@ import {
   Modal,
   Switch,
   DatePicker,
-  Checkbox,
 } from "antd";
 import {
   EyeOutlined,
   EyeInvisibleOutlined,
   DeleteFilled,
-  MinusCircleOutlined,
   PlusOutlined,
   ReloadOutlined,
   ArrowUpOutlined,
   ArrowDownOutlined,
 } from "@ant-design/icons";
 import React, { useEffect, useState } from "react";
-import { MdDeleteOutline } from "react-icons/md";
-import { FaCirclePlus } from "react-icons/fa6";
 import { Link } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
 import JoditEditor from "jodit-react";
@@ -43,16 +39,12 @@ import { SortableContext, arrayMove, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
 // Helper imports
-import Inputs from "../../components/Inputs";
-import ShowImages from "../../helper/ShowImages";
-import UploadHelper from "../../helper/UploadHelper";
 import {
   addproduct,
   editProduct,
   getAllVendor,
   getMainCategory,
   getSubCategory,
-  getSubProductCategory,
   uploadImage,
 } from "../../api";
 import _ from "lodash";
@@ -72,28 +64,16 @@ const initialVariantOptionValue = {
   value: "",
   _id: Date.now() + 1,
   variant_type: "text_box_variant",
-  image_name: "",
+  image_names: [],
 };
 
 const initialVariantValue = {
   variant_name: "",
   variant_type: "text_box_variant",
   options: [initialVariantOptionValue],
+  variant_images: [],
+  _id: Date.now(),
 };
-
-const productCardColor = [
-  { value: "Red", bg: "bg-red-300" },
-  { value: "Green", bg: "bg-green-300" },
-  { value: "Yellow", bg: "bg-yellow-300" },
-  { value: "Gray", bg: "bg-gray-300" },
-  { value: "Indigo", bg: "bg-indigo-300" },
-  { value: "Pink", bg: "bg-pink-300" },
-  { value: "Teal", bg: "bg-teal-300" },
-  { value: "Purple", bg: "bg-purple-300" },
-  { value: "Blue", bg: "bg-blue-300" },
-  { value: "Orange", bg: "bg-orange-300" },
-  { value: "Amber", bg: "bg-amber-300" },
-];
 
 const productType = [
   { value: "Stand Alone Product" },
@@ -106,6 +86,7 @@ const TaxPreference = [
   { value: "Out of Scope" },
   { value: "Non-GST Apply" },
 ];
+
 const GST_preference = [
   { value: "5" },
   { value: "12" },
@@ -115,22 +96,13 @@ const GST_preference = [
 
 const PRODUTSTOCK_TYPE = [{ value: "Limited" }, { value: "Unliimted" }];
 const Unit_type = [
-  { value: "pcs" },
-  { value: "Box" },
-  { value: "cm" },
-  { value: "dozen" },
-  { value: "gm" },
-  { value: "kg" },
-  { value: "lbs" },
-  { value: "meter" },
-  { value: "inches" },
-  { value: "ft" },
-  { value: "Nos" },
-  { value: "Sqft" },
+  { value: "pcs" }, { value: "Box" }, { value: "cm" }, { value: "dozen" },
+  { value: "gm" }, { value: "kg" }, { value: "lbs" }, { value: "meter" },
+  { value: "inches" }, { value: "ft" }, { value: "Nos" }, { value: "Sqft" },
 ];
 
 // Sortable Image Component
-const SortableImage = ({ id, image, onRemove }) => {
+const SortableImage = ({ id, image, onRemove, showDragLabel = true }) => {
   const {
     attributes,
     listeners,
@@ -147,6 +119,12 @@ const SortableImage = ({ id, image, onRemove }) => {
     cursor: isDragging ? 'grabbing' : 'grab',
   };
 
+  const handleRemove = (e) => {
+    e.stopPropagation();
+    console.log('Remove image with id:', id);
+    onRemove(id);
+  };
+
   return (
     <div
       ref={setNodeRef}
@@ -158,7 +136,7 @@ const SortableImage = ({ id, image, onRemove }) => {
       <Image
         src={image}
         alt="Product"
-        className="w-20 h-20 object-cover rounded border-2 border-dashed border-gray-300"
+        className="!w-20 !h-20 object-cover rounded border-2 border-dashed border-gray-300"
         preview={{
           mask: (
             <div className="flex items-center justify-center">
@@ -173,59 +151,68 @@ const SortableImage = ({ id, image, onRemove }) => {
           danger
           size="small"
           icon={<DeleteFilled />}
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove(image);
-          }}
+          onClick={handleRemove}
           className="!w-6 !h-6 !min-w-0 !p-0 flex items-center justify-center"
         />
       </div>
-      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs text-center py-1">
-        Drag to reorder
-      </div>
+      {showDragLabel && (
+        <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs text-center py-1">
+          Drag to reorder
+        </div>
+      )}
     </div>
   );
 };
 
 // Sortable Image List Component
-const SortableImageList = ({ images, setImages, onRemove }) => {
-  
-  const [items, setItems] = useState([images]);
-  console.log(items.path);
-  
+const SortableImageList = ({ images, setImages, showDragLabel = true }) => {
+  const getImageId = (image) => {
+    if (typeof image === 'object' && image._id) return image._id;
+    if (typeof image === 'object' && image.path) return image.path;
+    return image;
+  };
 
-  useEffect(() => {
-    setItems(images);
-  }, [images]);
+  const getImageUrl = (image) => {
+    if (typeof image === 'object' && image.path) return image.path;
+    if (typeof image === 'object' && image.url) return image.url;
+    if (typeof image === 'string') return image;
+    return image;
+  };
 
   const handleDragEnd = (event) => {
     const { active, over } = event;
 
-    if (!over) return;
+    if (!over || active.id === over.id) return;
 
-    if (active.id !== over.id) {
-      const oldIndex = items.findIndex((item) => item === active.id);
-      const newIndex = items.findIndex((item) => item === over.id);
+    const oldIndex = images.findIndex((img) => getImageId(img) === active.id);
+    const newIndex = images.findIndex((img) => getImageId(img) === over.id);
 
-      const newItems = arrayMove(items, oldIndex, newIndex);
-      setItems(newItems);
-      setImages(newItems);
+    if (oldIndex !== -1 && newIndex !== -1) {
+      const newImages = arrayMove(images, oldIndex, newIndex);
+      setImages(newImages);
     }
+  };
+
+  const handleRemove = (imageId) => {
+    console.log('Removing image with id:', imageId);
+    const newImages = images.filter(img => getImageId(img) !== imageId);
+    setImages(newImages);
   };
 
   return (
     <DndContext onDragEnd={handleDragEnd}>
-      <SortableContext items={items}>
-        <div className="flex flex-wrap gap-4 p-4 bg-gray-50 rounded-lg min-h-32">
-          {items.map((image, index) => (
+      <SortableContext items={images.map(img => getImageId(img))}>
+        <div className="flex flex-wrap gap-4 p-4 bg-gray-50 rounded-lg !min-h-32">
+          {images.map((image, index) => (
             <SortableImage
-              key={image}
-              id={image}
-              image={image}
-              onRemove={onRemove}
+              key={getImageId(image)}
+              id={getImageId(image)}
+              image={getImageUrl(image)}
+              onRemove={handleRemove}
+              showDragLabel={showDragLabel}
             />
           ))}
-          {items.length === 0 && (
+          {images.length === 0 && (
             <div className="flex items-center justify-center w-full h-32 text-gray-500">
               No images uploaded yet
             </div>
@@ -236,33 +223,242 @@ const SortableImageList = ({ images, setImages, onRemove }) => {
   );
 };
 
+// Enhanced UploadHelper Component
+const EnhancedUploadHelper = ({ 
+  multiple = true, 
+  max = 6,
+  setImagePath, 
+  image_path = [], 
+  blog = false, 
+  current_key, 
+  handleChange,
+  label = "Upload Images"
+}) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleImageUpload = async (event) => {
+    try {
+      setLoading(true);
+      const files = event.target.files;
+      if (!files || files.length === 0) return;
+
+      const uploadedImages = [];
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const formData = new FormData();
+        formData.append("image", file);
+        
+        const result = await uploadImage(formData);
+        const imageUrl = _.get(result, "data.data.url", "");
+        
+        if (imageUrl) {
+          uploadedImages.push({
+            _id: uuidv4(),
+            path: imageUrl,
+            url: imageUrl
+          });
+        }
+      }
+
+      if (uploadedImages.length > 0) {
+        if (blog && current_key && handleChange) {
+          handleChange(current_key, uploadedImages[0].url);
+        } else {
+          const currentImages = Array.isArray(image_path) ? image_path : [];
+          const newImages = [...currentImages, ...uploadedImages].slice(0, max);
+          setImagePath(newImages);
+        }
+        message.success(`Successfully uploaded ${uploadedImages.length} image(s)`);
+      }
+    } catch (err) {
+      console.error('Upload error:', err);
+      message.error('Failed to upload images');
+    } finally {
+      setLoading(false);
+      event.target.value = '';
+    }
+  };
+
+  if (blog) {
+    return (
+      <div className="flex flex-col gap-4">
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handleImageUpload}
+          multiple={multiple}
+          className="hidden"
+          id={`blog-upload-${current_key}`}
+        />
+        <label
+          htmlFor={`blog-upload-${current_key}`}
+          className="cursor-pointer bg-blue-500 text-white px-4 py-2 rounded-lg text-center hover:bg-blue-600 transition-colors"
+        >
+          {loading ? 'Uploading...' : 'Upload Image'}
+        </label>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <input
+        type="file"
+        accept="image/*"
+        onChange={handleImageUpload}
+        multiple={multiple}
+        className="hidden"
+        id={`upload-${current_key || 'product'}`}
+      />
+      <label
+        htmlFor={`upload-${current_key || 'product'}`}
+        className="cursor-pointer border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors"
+      >
+        <div className="flex flex-col items-center gap-2">
+          <PlusOutlined className="text-2xl text-gray-400" />
+          <span className="text-gray-600">{label}</span>
+          <span className="text-sm text-gray-500">Minimum {max} images recommended</span>
+          {loading && <Spin size="small" />}
+        </div>
+      </label>
+      
+      {image_path && image_path.length > 0 && (
+        <div className="mt-4">
+          <label className="text-gray-600 text-sm mb-2 block">
+            Uploaded Images ({image_path.length}/{max}) - Drag to reorder
+          </label>
+          <SortableImageList
+            images={image_path}
+            setImages={setImagePath}
+          />
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Variant Option Image Upload Component
+const VariantOptionImageUpload = ({ 
+  variantId, 
+  optionId, 
+  optionValue, 
+  image_names = [], 
+  onImageUpload
+}) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleImageUpload = async (event) => {
+    try {
+      setLoading(true);
+      const files = event.target.files;
+      if (!files || files.length === 0) return;
+
+      const uploadedImages = [];
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const formData = new FormData();
+        formData.append("image", file);
+        
+        const result = await uploadImage(formData);
+        const imageUrl = _.get(result, "data.data.url", "");
+        
+        if (imageUrl) {
+          uploadedImages.push({
+            _id: uuidv4(),
+            path: imageUrl,
+            url: imageUrl
+          });
+        }
+      }
+
+      if (uploadedImages.length > 0) {
+        const currentImages = Array.isArray(image_names) ? image_names : [];
+        const newImages = [...currentImages, ...uploadedImages].slice(0, 6);
+        onImageUpload(variantId, optionId, newImages);
+        message.success(`Uploaded ${uploadedImages.length} image(s) for ${optionValue}`);
+      }
+    } catch (err) {
+      console.error('Upload error:', err);
+      message.error('Failed to upload images');
+    } finally {
+      setLoading(false);
+      event.target.value = '';
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <input
+        type="file"
+        accept="image/*"
+        onChange={handleImageUpload}
+        multiple={true}
+        className="hidden"
+        id={`variant-option-upload-${variantId}-${optionId}`}
+      />
+      
+      <label
+        htmlFor={`variant-option-upload-${variantId}-${optionId}`}
+        className="cursor-pointer border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-500 transition-colors"
+      >
+        <div className="flex flex-col items-center gap-2">
+          <PlusOutlined className="text-xl text-gray-400" />
+          <span className="text-gray-600">
+            {image_names && image_names.length > 0 ? 'Add More' : 'Upload'} {optionValue} Images
+          </span>
+          <span className="text-sm text-gray-500">
+            {image_names && image_names.length > 0 
+              ? `${image_names.length}/6 images uploaded` 
+              : `Upload 6 images for ${optionValue}`
+            }
+          </span>
+          {loading && <Spin size="small" />}
+        </div>
+      </label>
+      
+      {/* Always show the image list if there are images */}
+      {(image_names && image_names.length > 0) && (
+        <div className="mt-4">
+          <label className="text-gray-600 text-sm mb-2 block">
+            {optionValue} Images ({image_names.length}/6) - Drag to reorder
+          </label>
+          <SortableImageList
+            images={image_names}
+            setImages={(newImages) => onImageUpload(variantId, optionId, newImages)}
+          />
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Main Component
 const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   const [form] = Form.useForm();
   const [image_path, setImagePath] = useState([]);
   const [categoryData, setCategoryData] = useState([]);
   const [subcategory_data, setSubcategory_data] = useState([]);
   const [filter_subcategory_data, setFilterSubcategory_data] = useState([]);
-  const [variants, setVariants] = useState([initialVariantValue]);
+  const [variants, setVariants] = useState([{ ...initialVariantValue, _id: Date.now() }]);
   const [tableValue, setTableValue] = useState([]);
   const [allVendors, setAllVendors] = useState([]);
   const [loading, setLoading] = useState(false);
   const [quantityType, setQuantityType] = useState("");
   const [dummy, setDummy] = useState(false);
   const [modalUnitVisible, setModalUnitVisible] = useState(false);
-  const [productTypeSelectedValue, setProductTypeSelectedValue] = useState(
-    id?.type || productType[0].value
-  );
-  const [productStockSelectedValue, setProductStockSelectedValue] = useState(
-    id?.stocks_status || PRODUTSTOCK_TYPE[1].value
-  );
   const [usedProductCodes, setUsedProductCodes] = useState(new Set());
   
-  // State for percentage differences
   const [percentageDifferences, setPercentageDifferences] = useState({
     customer: 0,
     dealer: 0,
     corporate: 0
   });
+
+  // Use Form.watch to get real-time form values
+  const productTypeSelectedValue = Form.useWatch('type', form) || (id?.type || productType[0].value);
+  const productStockSelectedValue = Form.useWatch('stocks_status', form) || (id?.stocks_status || PRODUTSTOCK_TYPE[1].value);
 
   const initial_seo_data = {
     title: "",
@@ -273,115 +469,12 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
 
   const [seo_datas, setSEO_Datas] = useState(initial_seo_data);
 
-  // Effect for loading initial data
-  useEffect(() => {
-    productCategory();
-    collectVendors();
-  }, []);
+  // Check if any variant is image variant
+  const hasImageVariant = variants.some(variant => 
+    variant.variant_type === "image_variant"
+  );
 
-  // Effect for handling edit mode
-  useEffect(() => {
-    if (id) {
-      setLoading(true);
-      onCategoryChnge(_.get(id, "category_details._id", ""));
-      form.setFieldsValue(id);
-
-      let vendors_ids = _.get(id, "vendor_details", []).map((res) => res._id);
-      setQuantityType(_.get(id, "quantity_type", ""));
-
-      form.setFieldsValue({
-        vendor_details: vendors_ids,
-        category_details: _.get(id, "category_details._id", ""),
-        sub_category_details: _.get(id, "sub_category_details._id", ""),
-        stock_info: [],
-      });
-
-      setSEO_Datas({
-        title: _.get(id, "seo_title", ""),
-        description: _.get(id, "seo_description", ""),
-        url: _.get(id, "seo_url", ""),
-      });
-
-      setTableValue(_.get(id, "variants_price", []));
-      setImagePath(_.get(id, "images", []));
-      setVariants(_.get(id, "variants", [initialVariantValue]));
-      setDummy(!dummy);
-      setLoading(false);
-    }
-  }, [id]);
-
-  // Calculate percentage difference between price and MRP
-  const calculatePercentageDifference = (mrp, price) => {
-    const mrpValue = parseFloat(mrp) || 0;
-    const priceValue = parseFloat(price) || 0;
-    
-    if (mrpValue === 0) return 0;
-    
-    const difference = priceValue - mrpValue;
-    const percentage = (difference / mrpValue) * 100;
-    
-    return Math.round(percentage * 100) / 100; // Round to 2 decimal places
-  };
-
-  // Update percentage differences when prices change
-  const updatePercentageDifferences = (mrp, customerPrice, dealerPrice, corporatePrice) => {
-    const mrpValue = parseFloat(mrp) || 0;
-    
-    const newPercentages = {
-      customer: calculatePercentageDifference(mrpValue, customerPrice),
-      dealer: calculatePercentageDifference(mrpValue, dealerPrice),
-      corporate: calculatePercentageDifference(mrpValue, corporatePrice)
-    };
-    
-    setPercentageDifferences(newPercentages);
-  };
-
-  // Handle MRP change
-  const handleMRPChange = (value) => {
-    const mrp = parseFloat(value) || 0;
-    const customerPrice = parseFloat(form.getFieldValue('customer_product_price') || 0);
-    const dealerPrice = parseFloat(form.getFieldValue('Deler_product_price') || 0);
-    const corporatePrice = parseFloat(form.getFieldValue('corporate_product_price') || 0);
-    
-    updatePercentageDifferences(mrp, customerPrice, dealerPrice, corporatePrice);
-  };
-
-  // Handle customer price change
-  const handleCustomerPriceChange = (value) => {
-    const customerPrice = parseFloat(value) || 0;
-    const mrp = parseFloat(form.getFieldValue('MRP_price') || 0);
-    const dealerPrice = parseFloat(form.getFieldValue('Deler_product_price') || 0);
-    const corporatePrice = parseFloat(form.getFieldValue('corporate_product_price') || 0);
-    
-    updatePercentageDifferences(mrp, customerPrice, dealerPrice, corporatePrice);
-  };
-
-  // Handle dealer price change
-  const handleDealerPriceChange = (value) => {
-    const dealerPrice = parseFloat(value) || 0;
-    const mrp = parseFloat(form.getFieldValue('MRP_price') || 0);
-    const customerPrice = parseFloat(form.getFieldValue('customer_product_price') || 0);
-    const corporatePrice = parseFloat(form.getFieldValue('corporate_product_price') || 0);
-    
-    updatePercentageDifferences(mrp, customerPrice, dealerPrice, corporatePrice);
-  };
-
-  // Handle corporate price change
-  const handleCorporatePriceChange = (value) => {
-    const corporatePrice = parseFloat(value) || 0;
-    const mrp = parseFloat(form.getFieldValue('MRP_price') || 0);
-    const customerPrice = parseFloat(form.getFieldValue('customer_product_price') || 0);
-    const dealerPrice = parseFloat(form.getFieldValue('Deler_product_price') || 0);
-    
-    updatePercentageDifferences(mrp, customerPrice, dealerPrice, corporatePrice);
-  };
-
-  // Image handlers
-  const handleImageRemove = (imageToRemove) => {
-    setImagePath(prev => prev.filter(img => img !== imageToRemove));
-  };
-
-  // API functions
+  // API Functions
   const productCategory = async () => {
     try {
       const result = await getMainCategory();
@@ -406,9 +499,180 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     }
   };
 
-  // Variant handlers
+  // Effects
+  useEffect(() => {
+    productCategory();
+    collectVendors();
+  }, []);
+
+  useEffect(() => {
+    if (id) {
+      setLoading(true);
+      onCategoryChnge(_.get(id, "category_details._id", ""));
+      
+      // Set form values
+      const formValues = {
+        ...id,
+        vendor_details: _.get(id, "vendor_details", []).map((res) => res._id),
+        category_details: _.get(id, "category_details._id", ""),
+        sub_category_details: _.get(id, "sub_category_details._id", ""),
+        stock_info: [],
+      };
+
+      form.setFieldsValue(formValues);
+      setQuantityType(_.get(id, "quantity_type", ""));
+
+      setSEO_Datas({
+        title: _.get(id, "seo_title", ""),
+        description: _.get(id, "seo_description", ""),
+        url: _.get(id, "seo_url", ""),
+      });
+
+      setTableValue(_.get(id, "variants_price", []));
+      
+      // Handle main product images
+      const productImages = _.get(id, "images", []);
+      const formattedImages = productImages.map(img => ({
+        _id: uuidv4(),
+        path: typeof img === 'string' ? img : img.path,
+        url: typeof img === 'string' ? img : img.url
+      }));
+      setImagePath(formattedImages);
+      
+      // FIXED: Initialize variants with proper image structure
+      const initialVariants = _.get(id, "variants", [initialVariantValue]);
+      const updatedVariants = initialVariants.map(variant => ({
+        ...variant,
+        _id: variant._id || Date.now() + Math.random(),
+        options: variant.options.map(option => {
+          // Handle image_names properly for existing data
+          let optionImages = [];
+          
+          if (Array.isArray(option.image_names) && option.image_names.length > 0) {
+            // If image_names is already an array of URLs/objects
+            optionImages = option.image_names.map(img => {
+              if (typeof img === 'string') {
+                // It's a URL string
+                return {
+                  _id: uuidv4(),
+                  path: img,
+                  url: img
+                };
+              } else if (typeof img === 'object' && img.path) {
+                // It's already an object with path
+                return {
+                  _id: uuidv4(),
+                  path: img.path,
+                  url: img.url || img.path
+                };
+              } else if (typeof img === 'object' && img.url) {
+                // It's an object with url
+                return {
+                  _id: uuidv4(),
+                  path: img.url,
+                  url: img.url
+                };
+              }
+              return img; // Return as-is if structure is unknown
+            }).filter(img => img); // Remove any null/undefined
+          } else if (option.image_name) {
+            // Legacy support for image_name field
+            optionImages = [{
+              _id: uuidv4(),
+              path: option.image_name,
+              url: option.image_name
+            }];
+          }
+          
+          return {
+            ...option,
+            _id: option._id || Date.now() + Math.random(),
+            image_names: optionImages
+          };
+        })
+      }));
+      
+      console.log("Loaded variants for editing:", updatedVariants);
+      setVariants(updatedVariants);
+      setDummy(!dummy);
+      setLoading(false);
+    }
+  }, [id, form]);
+
+  // Helper Functions
+  const calculatePercentageDifference = (mrp, price) => {
+    const mrpValue = parseFloat(mrp) || 0;
+    const priceValue = parseFloat(price) || 0;
+    
+    if (mrpValue === 0) return 0;
+    
+    const difference = priceValue - mrpValue;
+    const percentage = (difference / mrpValue) * 100;
+    
+    return Math.round(percentage * 100) / 100;
+  };
+
+  const updatePercentageDifferences = (mrp, customerPrice, dealerPrice, corporatePrice) => {
+    const mrpValue = parseFloat(mrp) || 0;
+    
+    const newPercentages = {
+      customer: calculatePercentageDifference(mrpValue, customerPrice),
+      dealer: calculatePercentageDifference(mrpValue, dealerPrice),
+      corporate: calculatePercentageDifference(mrpValue, corporatePrice)
+    };
+    
+    setPercentageDifferences(newPercentages);
+  };
+
+  // Price Handlers
+  const handleMRPChange = (value) => {
+    const mrp = parseFloat(value) || 0;
+    const customerPrice = parseFloat(form.getFieldValue('customer_product_price') || 0);
+    const dealerPrice = parseFloat(form.getFieldValue('Deler_product_price') || 0);
+    const corporatePrice = parseFloat(form.getFieldValue('corporate_product_price') || 0);
+    
+    updatePercentageDifferences(mrp, customerPrice, dealerPrice, corporatePrice);
+  };
+
+  const handleCustomerPriceChange = (value) => {
+    const customerPrice = parseFloat(value) || 0;
+    const mrp = parseFloat(form.getFieldValue('MRP_price') || 0);
+    const dealerPrice = parseFloat(form.getFieldValue('Deler_product_price') || 0);
+    const corporatePrice = parseFloat(form.getFieldValue('corporate_product_price') || 0);
+    
+    updatePercentageDifferences(mrp, customerPrice, dealerPrice, corporatePrice);
+  };
+
+  const handleDealerPriceChange = (value) => {
+    const dealerPrice = parseFloat(value) || 0;
+    const mrp = parseFloat(form.getFieldValue('MRP_price') || 0);
+    const customerPrice = parseFloat(form.getFieldValue('customer_product_price') || 0);
+    const corporatePrice = parseFloat(form.getFieldValue('corporate_product_price') || 0);
+    
+    updatePercentageDifferences(mrp, customerPrice, dealerPrice, corporatePrice);
+  };
+
+  const handleCorporatePriceChange = (value) => {
+    const corporatePrice = parseFloat(value) || 0;
+    const mrp = parseFloat(form.getFieldValue('MRP_price') || 0);
+    const customerPrice = parseFloat(form.getFieldValue('customer_product_price') || 0);
+    const dealerPrice = parseFloat(form.getFieldValue('Deler_product_price') || 0);
+    
+    updatePercentageDifferences(mrp, customerPrice, dealerPrice, corporatePrice);
+  };
+
+  // Variant Handlers
   const handleAddVariant = () => {
-    setVariants([...variants, { ...initialVariantValue, _id: Date.now() }]);
+    const newVariantId = Date.now() + Math.random();
+    const newVariant = { 
+      ...initialVariantValue, 
+      _id: newVariantId,
+      options: [{
+        ...initialVariantOptionValue,
+        _id: Date.now() + Math.random()
+      }]
+    };
+    setVariants([...variants, newVariant]);
   };
 
   const handleAddVariantOption = (id) => {
@@ -420,7 +684,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
             ...data.options,
             {
               ...initialVariantOptionValue,
-              _id: Date.now() + 1,
+              _id: Date.now() + Math.random(),
               variant_type: data.variant_type,
             },
           ],
@@ -447,9 +711,11 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
           ? {
               ...variant,
               variant_type: event,
-              options: [
-                { value: "", _id: Date.now() + 1, variant_type: event },
-              ],
+              options: variant.options.map(option => ({
+                ...option,
+                variant_type: event,
+                image_names: event === "image_variant" ? (option.image_names || []) : []
+              }))
             }
           : variant
       )
@@ -457,43 +723,17 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   };
 
   const handleOnDeleteVariantName = (variant_details) => {
-    if (!_.isEmpty(_.get(variant_details, "options", []))) {
-      return CUSTOM_ERROR_NOTIFICATION("Please Delete variant first");
+    if (variants.length <= 1) {
+      return CUSTOM_ERROR_NOTIFICATION("At least one variant is required");
     }
+    
+    if (!_.isEmpty(_.get(variant_details, "options", []))) {
+      return CUSTOM_ERROR_NOTIFICATION("Please delete variant options first");
+    }
+    
     setVariants((prevVariants) =>
       prevVariants.filter((variant) => variant._id !== variant_details._id)
     );
-  };
-
-  const handleOnChangeVariantOptionImageName = async (
-    event,
-    VariantId,
-    OptionId
-  ) => {
-    try {
-      setLoading(true);
-      const formData = new FormData();
-      formData.append("image", event.target.files[0]);
-      const result = await uploadImage(formData);
-      let value = _.get(result, "data.data.url", "");
-      setLoading(false);
-
-      const changeVariantOptionName = variants.map((data) => {
-        if (data._id === VariantId) {
-          const optionChange = data.options.map((option) => {
-            return option._id === OptionId
-              ? { ...option, image_name: value }
-              : option;
-          });
-          return { ...data, options: optionChange };
-        }
-        return data;
-      });
-
-      setVariants(changeVariantOptionName);
-    } catch (err) {
-      console.error(err);
-    }
   };
 
   const handleOnChangeVariantOptionName = async (
@@ -520,6 +760,11 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
 
   const handleOnDeleteVariantOptionName = (VariantId, OptionId) => {
     try {
+      const variant = variants.find(v => v._id === VariantId);
+      if (variant && variant.options.length <= 1) {
+        return CUSTOM_ERROR_NOTIFICATION("At least one option is required");
+      }
+
       const deleteVariantOptionName = variants.map((data) => {
         if (data._id === VariantId) {
           const optionChange = data.options.filter(
@@ -536,7 +781,25 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     }
   };
 
-  // Table handlers
+  // Variant Option Image Handlers
+  const handleVariantOptionImageUpload = (variantId, optionId, images) => {
+    setVariants(prevVariants =>
+      prevVariants.map(variant =>
+        variant._id === variantId
+          ? {
+              ...variant,
+              options: variant.options.map(option =>
+                option._id === optionId
+                  ? { ...option, image_names: images }
+                  : option
+              )
+            }
+          : variant
+      )
+    );
+  };
+
+  // Table Handlers
   const handlePriceChange = (record, e, priceType) => {
     const { value } = e.target;
     const numericValue = parseFloat(value) || 0;
@@ -555,22 +818,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
 
     if (!updatedTableValue.some((data) => data.key === record.key)) {
       updatedTableValue.push(updatedRecord);
-    }
-
-    setTableValue(updatedTableValue);
-  };
-
-  const handleStockChange = (record, e) => {
-    const { value } = e.target;
-    const updatedTableValue = tableValue.map((data) => {
-      if (data.key === record.key) {
-        return { ...data, stock: value };
-      }
-      return data;
-    });
-
-    if (!updatedTableValue.some((data) => data.key === record.key)) {
-      updatedTableValue.push({ ...record, stock: value });
     }
 
     setTableValue(updatedTableValue);
@@ -596,14 +843,13 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     setTableValue(updatedTableValue);
   };
 
-  // Calculate percentage difference for a variant row
   const getVariantPercentageDifference = (record, priceType) => {
     const mrp = record.MRP_price || 0;
     const price = record[priceType] || 0;
     return calculatePercentageDifference(mrp, price);
   };
 
-  // Helper functions
+  // Form Helpers
   const onCategoryChnge = (value) => {
     if (value) {
       let response = subcategory_data.filter((data) => {
@@ -688,7 +934,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     }
   };
 
-  // Generate unique product code
+  // Generate Product Code
   const generateProductCode = (isVariableProduct = false, variantName = "") => {
     const categoryId = form.getFieldValue("category_details");
     const subCategoryId = form.getFieldValue("sub_category_details");
@@ -740,7 +986,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     return productCode;
   };
 
-  // Modal handlers
+  // Modal Handlers
   const showUnitModal = () => {
     setModalUnitVisible(true);
   };
@@ -764,9 +1010,10 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
 
   const tableData = combinations.map((combination) => {
     const row = combination.reduce((acc, data, i) => {
+      const variantName = variants[i]?.variant_name || `Variant ${i + 1}`;
       return {
         ...acc,
-        [variants[i].variant_name]: data.value,
+        [variantName]: data.value,
       };
     }, {});
 
@@ -781,7 +1028,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     );
   });
 
-  // Stock Info Table Data
+  // Stock Info Data
   const stockInfoData = (form.getFieldValue("stock_info") || []).map(
     (item, index) => ({
       key: `new-${index}`,
@@ -793,7 +1040,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     })
   );
 
-  // Combine existing and new stock info
   const combinedStockInfoData = [
     ...(id?.stock_info || []).map((item, index) => ({
       key: `existing-${index}`,
@@ -808,7 +1054,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     return unique.some((u) => u._id === item._id) ? unique : [...unique, item];
   }, []);
 
-  // Stock Info Table Columns
+  // Stock Info Columns
   const stockInfoColumns = [
     {
       title: "Add Stock",
@@ -836,13 +1082,13 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     },
   ];
 
-  // Table columns for variants
+  // Variant Table Columns
   const columns = [
     ...variants.map((variant) => ({
-      title: variant.variant_name,
+      title: variant.variant_name || `Variant ${variant._id}`,
       dataIndex: variant.variant_name,
       key: variant.variant_name,
-      render: (text) => text,
+      render: (text) => text || "-",
     })),
     {
       title: "MRP price",
@@ -977,11 +1223,16 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     },
   ];
 
+  // Form Submission - FIXED VERSION
   const handleFinish = async (values) => {
     try {
+      console.log("Form Values:", values);
+      console.log("Variants:", variants);
+      console.log("Has Image Variant:", hasImageVariant);
+      
       setLoading(true);
       
-      // Get existing stock_info from the product (in edit mode) or empty array (in add mode)
+      // Handle stock info
       const existingStockInfo = (id ? _.get(id, "stock_info", []) : []).map(
         (item) => ({
           ...item,
@@ -990,14 +1241,12 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
         })
       );
       
-      // Get new stock_info entries from the form and add unique _id
       const newStockInfo = (values.stock_info || []).map((item) => ({
         ...item,
         _id: uuidv4(),
         date: item.date ? item.date.toISOString() : null,
       }));
 
-      // Combine existing and new stock_info, ensuring no duplicates by _id
       const combinedStockInfo = [...existingStockInfo, ...newStockInfo];
       const uniqueStockInfo = [];
       const seenIds = new Set();
@@ -1019,28 +1268,87 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       );
       values.stock_count = Number(existingStockCount) + Number(newStock);
 
-      values.images = image_path;
-      values.variants = variants;
+      // FIXED: Handle images based on product type
+      if (productTypeSelectedValue === "Variable Product" && hasImageVariant) {
+        // For variable products with image variants, use variant option images
+        values.images = image_path.map(img => {
+          // Extract URL from image object
+          if (typeof img === 'object') {
+            return img.path || img.url || (typeof img === 'string' ? img : '');
+          }
+          return img;
+        }).filter(url => url); // Remove empty values
+        
+        // Process variant images properly - FIXED VERSION
+        values.variants = variants.map(variant => ({
+          variant_name: variant.variant_name,
+          variant_type: variant.variant_type,
+          options: variant.options.map(option => ({
+            value: option.value,
+            variant_type: option.variant_type,
+            // FIX: Properly handle image_names - extract URLs from image objects
+            image_names: Array.isArray(option.image_names) 
+              ? option.image_names.map(img => {
+                  // Extract URL from various possible structures
+                  if (typeof img === 'object') {
+                    return img.path || img.url || (img.image_url || '');
+                  }
+                  return img; // If it's already a string URL
+                }).filter(url => url) // Remove empty URLs
+              : []
+          }))
+        }));
+      } else {
+        // For standalone products or variable products without image variants, use main images
+        values.images = image_path.map(img => {
+          if (typeof img === 'object') {
+            return img.path || img.url || (typeof img === 'string' ? img : '');
+          }
+          return img;
+        }).filter(url => url);
+        
+        values.variants = variants.map(variant => ({
+          variant_name: variant.variant_name,
+          variant_type: variant.variant_type,
+          options: variant.options.map(option => ({
+            value: option.value,
+            variant_type: option.variant_type,
+            image_names: []
+          }))
+        }));
+      }
+
       values.variants_price = tableValue;
       values.seo_url = String(values.seo_url).trim();
+
+      // ADD DEBUG LOGS TO VERIFY IMAGE DATA
+      console.log("Processed Variants:", values.variants);
+      values.variants.forEach((variant, index) => {
+        console.log(`Variant ${index}:`, variant.variant_name);
+        variant.options.forEach((option, optIndex) => {
+          console.log(`  Option ${optIndex}:`, option.value);
+          console.log(`  Images:`, option.image_names);
+        });
+      });
+
+      console.log("Final submission data:", values);
 
       let result = id
         ? await editProduct(values, id?._id)
         : await addproduct(values);
-      // let result=values;
-      console.log("Submitted Values:", result);
+
       setFormStatus(false);
       SUCCESS_NOTIFICATION(result);
       form.resetFields();
       setId("");
       setQuantityType("");
-      setImagePath("");
+      setImagePath([]);
       setFormStatus(false);
       fetchData();
       setSEO_Datas(initial_seo_data);
       setPercentageDifferences({ customer: 0, dealer: 0, corporate: 0 });
     } catch (err) {
-      console.log(err);
+      console.log("Error in form submission:", err);
       ERROR_NOTIFICATION(err);
     } finally {
       setLoading(false);
@@ -1149,7 +1457,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                       placeholder="Select type"
                       className="h-12"
                       options={productType}
-                      onChange={(val) => setProductTypeSelectedValue(val)}
                     />
                   </Form.Item>
 
@@ -1222,7 +1529,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                       placeholder="Select Stocks Type"
                       className="h-12"
                       options={PRODUTSTOCK_TYPE}
-                      onChange={(val) => setProductStockSelectedValue(val)}
                     />
                   </Form.Item>
 
@@ -1554,30 +1860,24 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
               </Panel>
 
               {/* Product Images Panel */}
-               <Panel
-                header={
-                  <span className="text-lg font-semibold">Product Images</span>
-                }
-                key="2"
-              >
-                <Form.Item className="py-4" label="Product Image" name="images">
-                  <div className="flex flex-col md:flex-row gap-6">
-                    <UploadHelper
+              {productTypeSelectedValue !== "Variable Product" || !hasImageVariant ? (
+                <Panel
+                  header={
+                    <span className="text-lg font-semibold">Product Images</span>
+                  }
+                  key="2"
+                >
+                  <Form.Item className="py-4" label="Product Image" name="images">
+                    <EnhancedUploadHelper
                       multiple={true}
-                      max={4}
+                      max={6}
                       setImagePath={setImagePath}
                       image_path={image_path}
+                      label="Upload Product Images (Minimum 6 images)"
                     />
-                    {image_path && (
-                      <ShowImages
-                        path={image_path}
-                        setImage={setImagePath}
-                        multiple={true}
-                      />
-                    )}
-                  </div>
-                </Form.Item>
-              </Panel>
+                  </Form.Item>
+                </Panel>
+              ) : null}
 
               {/* Pricing Information Panel */}
               <Panel
@@ -1755,7 +2055,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                                       Text Box Variant
                                     </Select.Option>
                                     <Select.Option value="image_variant">
-                                      Image Variant
+                                      Image Variant (Upload 6 images per option)
                                     </Select.Option>
                                   </Select>
                                 </div>
@@ -1777,13 +2077,12 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                                     </Button>
                                   </div>
 
-                                  {data.options.map((option) => {
-                                    return option.variant_type !==
-                                      "image_variant" ? (
-                                      <div
-                                        key={option._id}
-                                        className="flex items-center gap-2"
-                                      >
+                                  {data.options.map((option) => (
+                                    <div
+                                      key={option._id}
+                                      className="flex flex-col gap-3 p-3 border rounded-lg"
+                                    >
+                                      <div className="flex items-center gap-2">
                                         <Input
                                           placeholder="eg. White"
                                           value={option.value}
@@ -1809,58 +2108,19 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                                           size="small"
                                         />
                                       </div>
-                                    ) : (
-                                      <div
-                                        key={option._id}
-                                        className="flex items-center gap-2"
-                                      >
-                                        {option.image_name ? (
-                                          <Image
-                                            src={option.image_name}
-                                            className="w-12 h-12 object-contain border rounded"
-                                            preview={false}
-                                          />
-                                        ) : (
-                                          <Input
-                                            accept="image/*"
-                                            type="file"
-                                            onChange={(e) =>
-                                              handleOnChangeVariantOptionImageName(
-                                                e,
-                                                data._id,
-                                                option._id
-                                              )
-                                            }
-                                            className="flex-1"
-                                          />
-                                        )}
-                                        <Input
-                                          placeholder="eg. White"
-                                          value={option.value}
-                                          onChange={(e) =>
-                                            handleOnChangeVariantOptionName(
-                                              e,
-                                              data._id,
-                                              option._id
-                                            )
-                                          }
-                                          className="flex-1"
+                                      
+                                      {/* Image Upload for Image Variants */}
+                                      {data.variant_type === "image_variant" && (
+                                        <VariantOptionImageUpload
+                                          variantId={data._id}
+                                          optionId={option._id}
+                                          optionValue={option.value}
+                                          image_names={option.image_names || []}
+                                          onImageUpload={handleVariantOptionImageUpload}
                                         />
-                                        <Button
-                                          type="text"
-                                          danger
-                                          icon={<DeleteFilled />}
-                                          onClick={() =>
-                                            handleOnDeleteVariantOptionName(
-                                              data._id,
-                                              option._id
-                                            )
-                                          }
-                                          size="small"
-                                        />
-                                      </div>
-                                    );
-                                  })}
+                                      )}
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
                             </Card>
@@ -2298,7 +2558,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                                                     "image",
                                                   ]}
                                                 >
-                                                  <UploadHelper
+                                                  <EnhancedUploadHelper
                                                     blog={true}
                                                     current_key={`${subField.key}-${field.key}`}
                                                     handleChange={handleChange}

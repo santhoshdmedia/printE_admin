@@ -19,7 +19,14 @@ const CustomTable = ({ dataSource, columns, filter = [], loading, padding = true
 
   return (
     <div className={`bg-white ${padding ? "p-5" : "py-5"} rounded-lg`}>
-      <Table scroll={{ x: 800 }} loading={loading} dataSource={dataSource} columns={availableColumns} pagination={padding ? { pageSize: 7, position: ["bottomCenter"], size: "small" } : false} />
+      <Table 
+        scroll={{ x: 800 }} 
+        loading={loading} 
+        dataSource={dataSource} 
+        columns={availableColumns} 
+        pagination={padding ? { pageSize: 10, position: ["bottomCenter"], size: "small" } : false}
+        rowKey="_id" // Use _id as the row key for better performance
+      />
     </div>
   );
 };

@@ -57,7 +57,6 @@ const ClientUsersDetails = () => {
     setSelectedReview(null);
   };
 
-  console.log(userData);
   return (
     <div>
       <DefaultTile title={"User Details"} />
