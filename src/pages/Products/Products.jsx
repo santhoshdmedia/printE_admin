@@ -1090,13 +1090,15 @@ const Products = () => {
                   >
                     Cancel
                   </Button>
+
+
                   <Button
                     type="primary"
                     htmlType="submit"
                     className="bg-teal-600 hover:bg-teal-700 border-none rounded-xl font-semibold px-6"
                     loading={loading}
                   >
-                    Clone Product
+                    Cloned  Product
                   </Button>
                 </div>
               </Form.Item>
