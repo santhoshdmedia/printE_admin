@@ -412,14 +412,16 @@ const Products = () => {
     setSubcategoryDataFilter([]);
   };
 
-  // Process table data with serial numbers
+  // Process table data with serial numbers in reverse order
   const processedTableData = tableData.map((item, index) => ({
     ...item,
-    serialNumber: index + 1,
+    serialNumber: tableData.length - index, // Reverse serial number
     totalStock: getTotalStock(item),
-    customerPrice: getProductPrice(item, 'customer'),
-    dealerPrice: getProductPrice(item, 'dealer'),
-    corporatePrice: getProductPrice(item, 'corporate'),
+    prices: {
+      customerPrice: getProductPrice(item, 'customer'),
+      dealerPrice: getProductPrice(item, 'dealer'),
+      corporatePrice: getProductPrice(item, 'corporate'),
+    }
   }));
 
   const columns = [
@@ -480,16 +482,16 @@ const Products = () => {
                 <Image
                   src={productImage}
                   alt="Product"
-                  className="!w-16 !h-16 object-cover rounded-lg"
+                  className="!w-40 !h-40  rounded-lg"
                   preview={false}
                 />
                 {hasVariants && variantImages.length > 0 && (
-                  <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                     {variantImages.length}
                   </div>
                 )}
                 {isVariableProduct && (
-                  <div className="absolute -bottom-1 -left-1 bg-purple-500 text-white text-xs rounded-full px-1">
+                  <div className="absolute bottom-3 left-2 bg-purple-500 text-white text-xs rounded-full px-1">
                     Var
                   </div>
                 )}
@@ -514,9 +516,9 @@ const Products = () => {
         const variantCount = hasVariants ? record.variants.reduce((count, variant) => count + (variant.options?.length || 0), 0) : 0;
         
         return (
-          <div className="flex flex-col">
+          <div className="flex flex-col ">
             <Tooltip title={data}>
-              <span className="font-semibold text-gray-900 truncate !w-fit block">
+              <span className="font-semibold text-gray-900 truncate !w-[100px] text-wrap block">
                 {data}
               </span>
             </Tooltip>
@@ -569,32 +571,29 @@ const Products = () => {
       ),
     },
     {
-      title: "Customer Price",
-      dataIndex: "customerPrice",
-      render: (price) => (
-        <span className="font-bold text-gray-900">
-          {price !== "N/A" ? `Rs. ${price}` : "N/A"}
-        </span>
-      ),
-      align: "center",
-    },
-    {
-      title: "Dealer Price",
-      dataIndex: "dealerPrice",
-      render: (price) => (
-        <span className="font-bold text-gray-900">
-          {price !== "N/A" ? `Rs. ${price}` : "N/A"}
-        </span>
-      ),
-      align: "center",
-    },
-    {
-      title: "Corporate Price",
-      dataIndex: "corporatePrice",
-      render: (price) => (
-        <span className="font-bold text-gray-900">
-          {price !== "N/A" ? `Rs. ${price}` : "N/A"}
-        </span>
+      title: "Prices",
+      dataIndex: "prices",
+      render: (prices) => (
+        <div className="flex flex-col space-y-2">
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-semibold text-gray-600">Corporate:</span>
+            <span className="font-bold text-gray-900">
+              {prices.corporatePrice !== "N/A" ? `Rs. ${prices.corporatePrice}` : "N/A"}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-semibold text-gray-600">Dealer:</span>
+            <span className="font-bold text-gray-900">
+              {prices.dealerPrice !== "N/A" ? `Rs. ${prices.dealerPrice}` : "N/A"}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-semibold text-gray-600">Customer:</span>
+            <span className="font-bold text-gray-900">
+              {prices.customerPrice !== "N/A" ? `Rs. ${prices.customerPrice}` : "N/A"}
+            </span>
+          </div>
+        </div>
       ),
       align: "center",
     },
