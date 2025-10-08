@@ -924,7 +924,7 @@ const Products = () => {
                       )}
                       columns={columns}
                       scroll={{ x: 1500 }}
-                      className="rounded-b-3xl"
+                      className="rounded-b-3xl overflow-auto !w-screen"
                     />
                   ),
                 },

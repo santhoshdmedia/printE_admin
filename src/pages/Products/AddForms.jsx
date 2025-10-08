@@ -59,19 +59,28 @@ import { ICON_HELPER } from "../../helper/iconhelper";
 const { Title, Text } = Typography;
 const { Panel } = Collapse;
 
+// Image structure definition
+const createImageObject = (url, existingId = null) => ({
+  _id: existingId || uuidv4(),
+  path: url,
+  url: url,
+  type: 'image', // Consistent type
+  uploadedAt: new Date().toISOString()
+});
+
 // Constants
 const initialVariantOptionValue = {
   value: "",
   _id: Date.now() + 1,
   variant_type: "text_box_variant",
-  image_names: [],
+  image_names: [], // Always array of image objects
 };
 
 const initialVariantValue = {
   variant_name: "",
   variant_type: "text_box_variant",
   options: [initialVariantOptionValue],
-  variant_images: [],
+  variant_images: [], // Always array of image objects
   _id: Date.now(),
 };
 
@@ -121,7 +130,6 @@ const SortableImage = ({ id, image, onRemove, showDragLabel = true }) => {
 
   const handleRemove = (e) => {
     e.stopPropagation();
-    console.log('Remove image with id:', id);
     onRemove(id);
   };
 
@@ -134,7 +142,7 @@ const SortableImage = ({ id, image, onRemove, showDragLabel = true }) => {
       className="relative group"
     >
       <Image
-        src={image}
+        src={image.url || image.path || image}
         alt="Product"
         className="!w-20 !h-20 object-cover rounded border-2 border-dashed border-gray-300"
         preview={{
@@ -167,16 +175,11 @@ const SortableImage = ({ id, image, onRemove, showDragLabel = true }) => {
 // Sortable Image List Component
 const SortableImageList = ({ images, setImages, showDragLabel = true }) => {
   const getImageId = (image) => {
-    if (typeof image === 'object' && image._id) return image._id;
-    if (typeof image === 'object' && image.path) return image.path;
-    return image;
+    return image._id || image.path || image;
   };
 
   const getImageUrl = (image) => {
-    if (typeof image === 'object' && image.path) return image.path;
-    if (typeof image === 'object' && image.url) return image.url;
-    if (typeof image === 'string') return image;
-    return image;
+    return image.url || image.path || image;
   };
 
   const handleDragEnd = (event) => {
@@ -194,7 +197,6 @@ const SortableImageList = ({ images, setImages, showDragLabel = true }) => {
   };
 
   const handleRemove = (imageId) => {
-    console.log('Removing image with id:', imageId);
     const newImages = images.filter(img => getImageId(img) !== imageId);
     setImages(newImages);
   };
@@ -207,7 +209,7 @@ const SortableImageList = ({ images, setImages, showDragLabel = true }) => {
             <SortableImage
               key={getImageId(image)}
               id={getImageId(image)}
-              image={getImageUrl(image)}
+              image={image}
               onRemove={handleRemove}
               showDragLabel={showDragLabel}
             />
@@ -253,16 +255,13 @@ const EnhancedUploadHelper = ({
         const imageUrl = _.get(result, "data.data.url", "");
         
         if (imageUrl) {
-          uploadedImages.push({
-            _id: uuidv4(),
-            path: imageUrl,
-            url: imageUrl
-          });
+          uploadedImages.push(createImageObject(imageUrl));
         }
       }
 
       if (uploadedImages.length > 0) {
         if (blog && current_key && handleChange) {
+          // For blog, we only need the URL string
           handleChange(current_key, uploadedImages[0].url);
         } else {
           const currentImages = Array.isArray(image_path) ? image_path : [];
@@ -365,11 +364,7 @@ const VariantOptionImageUpload = ({
         const imageUrl = _.get(result, "data.data.url", "");
         
         if (imageUrl) {
-          uploadedImages.push({
-            _id: uuidv4(),
-            path: imageUrl,
-            url: imageUrl
-          });
+          uploadedImages.push(createImageObject(imageUrl));
         }
       }
 
@@ -418,7 +413,6 @@ const VariantOptionImageUpload = ({
         </div>
       </label>
       
-      {/* Always show the image list if there are images */}
       {(image_names && image_names.length > 0) && (
         <div className="mt-4">
           <label className="text-gray-600 text-sm mb-2 block">
@@ -456,7 +450,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     corporate: 0
   });
 
-  // Use Form.watch to get real-time form values
   const productTypeSelectedValue = Form.useWatch('type', form) || (id?.type || productType[0].value);
   const productStockSelectedValue = Form.useWatch('stocks_status', form) || (id?.stocks_status || PRODUTSTOCK_TYPE[1].value);
 
@@ -473,6 +466,26 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   const hasImageVariant = variants.some(variant => 
     variant.variant_type === "image_variant"
   );
+
+  // Helper function to normalize images to array of objects
+  const normalizeImages = (images) => {
+    if (!images) return [];
+    
+    return images.map(img => {
+      if (typeof img === 'string') {
+        return createImageObject(img);
+      } else if (typeof img === 'object') {
+        return {
+          _id: img._id || uuidv4(),
+          path: img.path || img.url || img.image_url || '',
+          url: img.url || img.path || img.image_url || '',
+          type: img.type || 'image',
+          uploadedAt: img.uploadedAt || new Date().toISOString()
+        };
+      }
+      return img;
+    }).filter(img => img.path || img.url);
+  };
 
   // API Functions
   const productCategory = async () => {
@@ -530,69 +543,25 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
 
       setTableValue(_.get(id, "variants_price", []));
       
-      // Handle main product images
+      // Normalize main product images to array of objects
       const productImages = _.get(id, "images", []);
-      const formattedImages = productImages.map(img => ({
-        _id: uuidv4(),
-        path: typeof img === 'string' ? img : img.path,
-        url: typeof img === 'string' ? img : img.url
-      }));
-      setImagePath(formattedImages);
+      const normalizedImages = normalizeImages(productImages);
+      setImagePath(normalizedImages);
       
-      // FIXED: Initialize variants with proper image structure
+      // Normalize variants with proper image structure
       const initialVariants = _.get(id, "variants", [initialVariantValue]);
       const updatedVariants = initialVariants.map(variant => ({
         ...variant,
         _id: variant._id || Date.now() + Math.random(),
-        options: variant.options.map(option => {
-          // Handle image_names properly for existing data
-          let optionImages = [];
-          
-          if (Array.isArray(option.image_names) && option.image_names.length > 0) {
-            // If image_names is already an array of URLs/objects
-            optionImages = option.image_names.map(img => {
-              if (typeof img === 'string') {
-                // It's a URL string
-                return {
-                  _id: uuidv4(),
-                  path: img,
-                  url: img
-                };
-              } else if (typeof img === 'object' && img.path) {
-                // It's already an object with path
-                return {
-                  _id: uuidv4(),
-                  path: img.path,
-                  url: img.url || img.path
-                };
-              } else if (typeof img === 'object' && img.url) {
-                // It's an object with url
-                return {
-                  _id: uuidv4(),
-                  path: img.url,
-                  url: img.url
-                };
-              }
-              return img; // Return as-is if structure is unknown
-            }).filter(img => img); // Remove any null/undefined
-          } else if (option.image_name) {
-            // Legacy support for image_name field
-            optionImages = [{
-              _id: uuidv4(),
-              path: option.image_name,
-              url: option.image_name
-            }];
-          }
-          
-          return {
-            ...option,
-            _id: option._id || Date.now() + Math.random(),
-            image_names: optionImages
-          };
-        })
+        variant_images: normalizeImages(variant.variant_images || []),
+        options: variant.options.map(option => ({
+          ...option,
+          _id: option._id || Date.now() + Math.random(),
+          image_names: normalizeImages(option.image_names || [])
+        }))
       }));
       
-      console.log("Loaded variants for editing:", updatedVariants);
+      console.log("Loaded variants with normalized images:", updatedVariants);
       setVariants(updatedVariants);
       setDummy(!dummy);
       setLoading(false);
@@ -1223,7 +1192,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     },
   ];
 
-  // Form Submission - FIXED VERSION
+  // Form Submission - FIXED with consistent image structure
   const handleFinish = async (values) => {
     try {
       console.log("Form Values:", values);
@@ -1268,60 +1237,44 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       );
       values.stock_count = Number(existingStockCount) + Number(newStock);
 
-      // FIXED: Handle images based on product type
-      if (productTypeSelectedValue === "Variable Product" && hasImageVariant) {
-        // For variable products with image variants, use variant option images
-        values.images = image_path.map(img => {
-          // Extract URL from image object
-          if (typeof img === 'object') {
-            return img.path || img.url || (typeof img === 'string' ? img : '');
-          }
-          return img;
-        }).filter(url => url); // Remove empty values
-        
-        // Process variant images properly - FIXED VERSION
-        values.variants = variants.map(variant => ({
-          variant_name: variant.variant_name,
-          variant_type: variant.variant_type,
-          options: variant.options.map(option => ({
-            value: option.value,
-            variant_type: option.variant_type,
-            // FIX: Properly handle image_names - extract URLs from image objects
-            image_names: Array.isArray(option.image_names) 
-              ? option.image_names.map(img => {
-                  // Extract URL from various possible structures
-                  if (typeof img === 'object') {
-                    return img.path || img.url || (img.image_url || '');
-                  }
-                  return img; // If it's already a string URL
-                }).filter(url => url) // Remove empty URLs
-              : []
+      // FIXED: Handle ALL images as arrays of objects
+      values.images = image_path.map(img => ({
+        _id: img._id,
+        path: img.path,
+        url: img.url,
+        type: img.type || 'image',
+        uploadedAt: img.uploadedAt
+      }));
+
+      // Process variants with consistent image structure
+      values.variants = variants.map(variant => ({
+        variant_name: variant.variant_name,
+        variant_type: variant.variant_type,
+        variant_images: variant.variant_images ? variant.variant_images.map(img => ({
+          _id: img._id,
+          path: img.path,
+          url: img.url,
+          type: img.type || 'image',
+          uploadedAt: img.uploadedAt
+        })) : [],
+        options: variant.options.map(option => ({
+          value: option.value,
+          variant_type: option.variant_type,
+          image_names: option.image_names.map(img => ({
+            _id: img._id,
+            path: img.path,
+            url: img.url,
+            type: img.type || 'image',
+            uploadedAt: img.uploadedAt
           }))
-        }));
-      } else {
-        // For standalone products or variable products without image variants, use main images
-        values.images = image_path.map(img => {
-          if (typeof img === 'object') {
-            return img.path || img.url || (typeof img === 'string' ? img : '');
-          }
-          return img;
-        }).filter(url => url);
-        
-        values.variants = variants.map(variant => ({
-          variant_name: variant.variant_name,
-          variant_type: variant.variant_type,
-          options: variant.options.map(option => ({
-            value: option.value,
-            variant_type: option.variant_type,
-            image_names: []
-          }))
-        }));
-      }
+        }))
+      }));
 
       values.variants_price = tableValue;
       values.seo_url = String(values.seo_url).trim();
 
       // ADD DEBUG LOGS TO VERIFY IMAGE DATA
+      console.log("Processed Main Images:", values.images);
       console.log("Processed Variants:", values.variants);
       values.variants.forEach((variant, index) => {
         console.log(`Variant ${index}:`, variant.variant_name);
