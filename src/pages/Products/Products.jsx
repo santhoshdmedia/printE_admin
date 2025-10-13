@@ -102,7 +102,7 @@ const Products = () => {
 
   const onCategoryChange = (value) => {
     setFilterByProductCategory(value);
-    setFilterByProductSubcategory(""); // Reset subcategory when category changes
+    setFilterByProductSubcategory("");
     if (value) {
       const response = subcategoryData.filter(
         (data) => data.select_main_category === value
@@ -257,7 +257,7 @@ const Products = () => {
     }
   };
 
-  // Enhanced helper function to get variant images
+  // Enhanced helper function to get variant images with proper handling
   const getVariantImages = (product) => {
     if (!product.variants || !Array.isArray(product.variants)) return [];
 
@@ -267,11 +267,18 @@ const Products = () => {
       if (variantGroup.variant_type === "image_variant" && variantGroup.options) {
         variantGroup.options.forEach((option) => {
           if (option.image_names && Array.isArray(option.image_names) && option.image_names.length > 0) {
-            variantImages.push({
-              variantName: variantGroup.variant_name,
-              optionValue: option.value,
-              images: option.image_names
-            });
+            // Handle both object format and string format for images
+            const images = option.image_names.map(img => 
+              typeof img === 'object' ? _.get(img, "url", _.get(img, "path", "")) : img
+            ).filter(img => img);
+            
+            if (images.length > 0) {
+              variantImages.push({
+                variantName: variantGroup.variant_name,
+                optionValue: option.value,
+                images: images
+              });
+            }
           }
         });
       }
@@ -284,7 +291,6 @@ const Products = () => {
   const getFirstVariantImage = (product) => {
     const variantImages = getVariantImages(product);
     
-    // Check all variant images for the first available image
     for (const variant of variantImages) {
       if (variant.images && variant.images.length > 0) {
         return variant.images[0];
@@ -294,13 +300,15 @@ const Products = () => {
     return null;
   };
 
-  // Enhanced helper function to display product image
+  // Enhanced helper function to display product image with proper URL handling
   const getProductImage = (product) => {
     // First check if there are main product images
     if (product.images && Array.isArray(product.images) && product.images.length > 0) {
-      // Handle both object format and string format
       const firstImage = product.images[0];
-      return typeof firstImage === 'object' ? _.get(firstImage, "path", "") : firstImage;
+      if (typeof firstImage === 'object') {
+        return _.get(firstImage, "url", _.get(firstImage, "path", ""));
+      }
+      return firstImage;
     }
     
     // Then check for variant images
@@ -323,11 +331,10 @@ const Products = () => {
     const priceField = priceFieldMap[priceType];
     
     if (product.type === "Stand Alone Product") {
-      return product[priceField] || product.single_product_price || "N/A";
+      return product[priceField] || product.MRP_price || "N/A";
     } 
     else if (product.type === "Variant Product" || product.type === "Variable Product") {
       if (product.variants_price && Array.isArray(product.variants_price) && product.variants_price.length > 0) {
-        // Get all prices from variants
         const prices = product.variants_price
           .map(variant => {
             const price = variant[priceField] || variant.price;
@@ -340,8 +347,7 @@ const Products = () => {
         }
       }
       
-      // Fallback to main product price if no variant prices found
-      return product[priceField] || product.single_product_price || "N/A";
+      return product[priceField] || product.MRP_price || "N/A";
     }
     
     return "N/A";
@@ -349,7 +355,8 @@ const Products = () => {
 
   // Enhanced function to calculate total stock for variant products
   const getTotalStock = (product) => {
-    if (product.type === "Variant Product" && product.variants_price && Array.isArray(product.variants_price)) {
+    if ((product.type === "Variant Product" || product.type === "Variable Product") && 
+        product.variants_price && Array.isArray(product.variants_price)) {
       return product.variants_price.reduce((sum, variant) => {
         const stock = parseInt(variant.stock) || 0;
         return sum + stock;
@@ -415,7 +422,7 @@ const Products = () => {
   // Process table data with serial numbers in reverse order
   const processedTableData = tableData.map((item, index) => ({
     ...item,
-    serialNumber: tableData.length - index, // Reverse serial number
+    serialNumber: tableData.length - index,
     totalStock: getTotalStock(item),
     prices: {
       customerPrice: getProductPrice(item, 'customer'),
@@ -429,19 +436,22 @@ const Products = () => {
       title: "S.No",
       dataIndex: "serialNumber",
       align: "center",
+      width: 80,
       render: (serialNumber) => (
         <span className="text-gray-700 font-semibold">{serialNumber}</span>
       ),
     },
     {
       title: "Clone",
+      align: "center",
+      width: 80,
       render: (data) => (
         <div
           onClick={() => {
             setCloneProductDetails(data);
             handleOpenModal(data);
           }}
-          className="text-2xl text-teal-600 cursor-pointer hover:text-teal-800 transition-transform duration-300 transform hover:scale-125"
+          className="text-2xl text-teal-600 cursor-pointer hover:text-teal-800 transition-transform duration-300 transform hover:scale-125 flex justify-center"
         >
           <MdContentCopy />
         </div>
@@ -452,6 +462,7 @@ const Products = () => {
           {
             title: "Visibility",
             align: "center",
+            width: 100,
             dataIndex: "is_visible",
             render: (data, record) => (
               <Switch
@@ -469,6 +480,7 @@ const Products = () => {
     {
       title: "Image",
       dataIndex: "images",
+      width: 260,
       render: (image, record) => {
         const productImage = getProductImage(record);
         const hasVariants = record.variants && record.variants.length > 0;
@@ -478,28 +490,30 @@ const Products = () => {
         return (
           <div className="flex justify-center">
             {productImage ? (
-              <div className="relative rounded-xl overflow-hidden border border-gray-200 p-1 bg-white shadow-lg hover:shadow-2xl transition-all duration-300">
+              <div className="relative aspect-square w-40 h-40 sm:w-40 sm:h-40 rounded-xl overflow-hidden border border-gray-200 bg-white shadow-lg hover:shadow-2xl transition-all duration-300">
                 <Image
                   src={productImage}
                   alt="Product"
-                  className="!w-40 !h-40  rounded-lg"
-                  preview={false}
+                  width="100%"
+                  height="100%"
+                  className="object-cover w-full h-full"
+                  preview={true}
+                  fallback="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzkzYTNiMyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=="
                 />
                 {hasVariants && variantImages.length > 0 && (
-                  <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  <div className="absolute top-1 right-1 bg-blue-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
                     {variantImages.length}
                   </div>
                 )}
                 {isVariableProduct && (
-                  <div className="absolute bottom-3 left-2 bg-purple-500 text-white text-xs rounded-full px-1">
+                  <div className="absolute bottom-1 left-1 bg-purple-500 text-white text-xs rounded-full px-1 py-0.5">
                     Var
                   </div>
                 )}
-                <div className="absolute inset-0 bg-teal-500 bg-opacity-0 hover:bg-opacity-10 transition-all duration-300"></div>
               </div>
             ) : (
-              <div className="w-16 h-16 bg-gray-50 rounded-xl flex items-center justify-center border border-dashed border-gray-300">
-                <span className="text-xs text-gray-500 font-medium">
+              <div className="aspect-square w-16 h-16 sm:w-20 sm:h-20 bg-gray-50 rounded-xl flex items-center justify-center border border-dashed border-gray-300">
+                <span className="text-xs text-gray-500 font-medium text-center px-1">
                   No Image
                 </span>
               </div>
@@ -511,20 +525,23 @@ const Products = () => {
     {
       title: "Name",
       dataIndex: "name",
+      width: 200,
       render: (data, record) => {
         const hasVariants = record.variants && record.variants.length > 0;
         const variantCount = hasVariants ? record.variants.reduce((count, variant) => count + (variant.options?.length || 0), 0) : 0;
+        const productCode = record.product_code || "N/A";
         
         return (
-          <div className="flex flex-col ">
+          <div className="flex flex-col space-y-1">
             <Tooltip title={data}>
-              <span className="font-semibold text-gray-900 truncate !w-[100px] text-wrap block">
+              <span className="font-semibold text-gray-900 text-sm line-clamp-2">
                 {data}
               </span>
             </Tooltip>
+            <span className="text-xs text-gray-500">Code: {productCode}</span>
             {hasVariants && (
-              <span className="text-xs text-blue-600 font-medium mt-1">
-                {variantCount} option(s)
+              <span className="text-xs text-blue-600 font-medium">
+                {variantCount} variant(s)
               </span>
             )}
           </div>
@@ -534,17 +551,18 @@ const Products = () => {
     {
       title: "Type",
       dataIndex: "type",
+      width: 150,
       render: (type) => {
         const typeColors = {
-          "Stand Alone Product": "bg-green-100 text-green-800",
-          "Variable Product": "bg-blue-100 text-blue-800",
-          "Variant Product": "bg-purple-100 text-purple-800"
+          "Stand Alone Product": "bg-green-100 text-green-800 border-green-200",
+          "Variable Product": "bg-blue-100 text-blue-800 border-blue-200",
+          "Variant Product": "bg-purple-100 text-purple-800 border-purple-200"
         };
         
         return (
           <Tag
-            className={`font-semibold border-none rounded-full px-4 py-1 ${
-              typeColors[type] || "bg-orange-100 text-orange-800"
+            className={`font-semibold rounded-full px-3 py-1 text-xs border ${
+              typeColors[type] || "bg-orange-100 text-orange-800 border-orange-200"
             }`}
           >
             {type}
@@ -553,12 +571,13 @@ const Products = () => {
       },
     },
     {
-      title: "Main Category",
+      title: "Category",
       dataIndex: "category_details",
+      width: 150,
       render: (data) => (
         <Tooltip title={_.get(data, "main_category_name", "")}>
-          <Tag className="max-w-[120px] truncate font-semibold bg-teal-100 text-teal-800 border-none rounded-full px-4 py-1">
-            {_.get(data, "main_category_name", "")}
+          <Tag className="max-w-full truncate font-semibold bg-teal-100 text-teal-800 border-teal-200 rounded-full px-3 py-1 text-xs">
+            {_.get(data, "main_category_name", "N/A")}
           </Tag>
         </Tooltip>
       ),
@@ -566,52 +585,65 @@ const Products = () => {
     {
       title: "Stock",
       dataIndex: "totalStock",
-      render: (stock) => (
-        <span className="font-semibold text-gray-900">{stock}</span>
-      ),
+      width: 100,
+      align: "center",
+      render: (stock, record) => {
+        const stockStatus = record.stocks_status || "In Stock";
+        const statusColor = stockStatus === "Limited" ? "text-orange-600" : "text-green-600";
+        
+        return (
+          <div className="flex flex-col items-center">
+            <span className="font-semibold text-gray-900 text-lg">{stock}</span>
+            <span className={`text-xs font-medium ${statusColor}`}>
+              {stockStatus}
+            </span>
+          </div>
+        );
+      },
     },
     {
       title: "Prices",
       dataIndex: "prices",
+      width: 180,
       render: (prices) => (
-        <div className="flex flex-col space-y-2">
+        <div className="flex flex-col space-y-1">
           <div className="flex justify-between items-center">
             <span className="text-xs font-semibold text-gray-600">Corporate:</span>
-            <span className="font-bold text-gray-900">
-              {prices.corporatePrice !== "N/A" ? `Rs. ${prices.corporatePrice}` : "N/A"}
+            <span className="font-bold text-gray-900 text-sm">
+              {prices.corporatePrice !== "N/A" ? `₹${prices.corporatePrice}` : "N/A"}
             </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs font-semibold text-gray-600">Dealer:</span>
-            <span className="font-bold text-gray-900">
-              {prices.dealerPrice !== "N/A" ? `Rs. ${prices.dealerPrice}` : "N/A"}
+            <span className="font-bold text-gray-900 text-sm">
+              {prices.dealerPrice !== "N/A" ? `₹${prices.dealerPrice}` : "N/A"}
             </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs font-semibold text-gray-600">Customer:</span>
-            <span className="font-bold text-gray-900">
-              {prices.customerPrice !== "N/A" ? `Rs. ${prices.customerPrice}` : "N/A"}
+            <span className="font-bold text-gray-900 text-sm">
+              {prices.customerPrice !== "N/A" ? `₹${prices.customerPrice}` : "N/A"}
             </span>
           </div>
         </div>
       ),
-      align: "center",
     },
     {
       title: "Vendor",
       align: "center",
+      width: 120,
       dataIndex: "vendor_details",
       render: (data) => (
-        <div className="flex justify-center gap-2">
+        <div className="flex justify-center">
           {data?.length > 0 ? (
             <Tag
               onClick={() => setVendorClose(data)}
-              className="cursor-pointer bg-purple-100 text-purple-800 font-semibold hover:bg-purple-200 transition-colors duration-300 rounded-full px-4 py-1 border-none"
+              className="cursor-pointer bg-purple-100 text-purple-800 font-semibold hover:bg-purple-200 transition-colors duration-300 rounded-full px-3 py-1 border-purple-200 text-xs"
             >
               View ({data.length})
             </Tag>
           ) : (
-            <Tag className="bg-gray-100 text-gray-600 font-semibold rounded-full px-4 py-1 border-none">
+            <Tag className="bg-gray-100 text-gray-600 font-semibold rounded-full px-3 py-1 border-gray-200 text-xs">
               None
             </Tag>
           )}
@@ -621,6 +653,7 @@ const Products = () => {
     {
       title: "Status",
       align: "center",
+      width: 150,
       render: (record) => (
         <div className="flex flex-col space-y-2">
           <Tooltip title="New Product">
@@ -634,10 +667,10 @@ const Products = () => {
                   record
                 )
               }
-              className={`flex items-center justify-center w-full ${
+              className={`flex items-center justify-center w-full text-xs ${
                 record.new_product
-                  ? "bg-blue-700 text-white border-blue-300 hover:bg-blue-200"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-300"
               }`}
             >
               New
@@ -654,10 +687,10 @@ const Products = () => {
                   record
                 )
               }
-              className={`flex items-center justify-center w-full ${
+              className={`flex items-center justify-center w-full text-xs ${
                 record.popular_product
-                  ? "bg-green-700 text-white font-semibold border-green-300 hover:bg-green-200"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "bg-green-600 text-white border-green-600 hover:bg-green-700"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-300"
               }`}
             >
               Popular
@@ -674,10 +707,10 @@ const Products = () => {
                   record
                 )
               }
-              className={`flex items-center justify-center w-full ${
+              className={`flex items-center justify-center w-full text-xs ${
                 record.recommended_product
-                  ? "bg-amber-700 text-white font-semibold border-amber-500 hover:bg-amber-200"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "bg-amber-600 text-white border-amber-600 hover:bg-amber-700"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-300"
               }`}
             >
               Recommended
@@ -688,17 +721,20 @@ const Products = () => {
     },
     {
       title: "Actions",
+      width: 100,
+      align: "center",
+      fixed: "right",
       render: (data) => (
         <Dropdown
           overlay={
-            <Menu className="rounded-xl shadow-2xl bg-white border border-gray-100 p-2">
+            <Menu className="rounded-xl shadow-2xl bg-white border border-gray-100 p-2 min-w-[120px]">
               {!_.get(data, "is_cloned", false) && (
                 <Menu.Item key="edit">
                   <Button
                     type="text"
                     icon={<FaEdit className="text-teal-600" />}
                     onClick={() => handleUpdate(data)}
-                    className="flex items-center text-teal-600 hover:bg-teal-50 w-full text-left px-4 py-2 rounded-lg font-medium"
+                    className="flex items-center text-teal-600 hover:bg-teal-50 w-full text-left px-3 py-2 rounded-lg font-medium text-xs"
                   >
                     Edit
                   </Button>
@@ -711,11 +747,12 @@ const Products = () => {
                   onConfirm={() => handleDelete(data)}
                   okText="Yes"
                   cancelText="No"
+                  okButtonProps={{ danger: true }}
                 >
                   <Button
                     type="text"
                     icon={<MdDelete className="text-red-600" />}
-                    className="flex items-center text-red-600 hover:bg-red-50 w-full text-left px-4 py-2 rounded-lg font-medium"
+                    className="flex items-center text-red-600 hover:bg-red-50 w-full text-left px-3 py-2 rounded-lg font-medium text-xs"
                   >
                     Delete
                   </Button>
@@ -726,36 +763,37 @@ const Products = () => {
                   type="text"
                   icon={<FaEye className="text-green-600" />}
                   onClick={() => handleView(data)}
-                  className="flex items-center text-green-600 hover:bg-green-50 w-full text-left px-4 py-2 rounded-lg font-medium"
+                  className="flex items-center text-green-600 hover:bg-green-50 w-full text-left px-3 py-2 rounded-lg font-medium text-xs"
                 >
                   View
                 </Button>
               </Menu.Item>
             </Menu>
           }
-          trigger={["hover"]}
+          trigger={["click"]}
+          placement="bottomRight"
         >
-          <div className="flex justify-center">
-            <div className="text-2xl text-gray-600 cursor-pointer hover:text-teal-600 transition-transform duration-300 transform hover:scale-125">
-              <MdMoreVert />
-            </div>
-          </div>
+          <Button
+            type="text"
+            icon={<MdMoreVert className="text-gray-600" />}
+            className="hover:text-teal-600 transition-colors duration-300"
+          />
         </Dropdown>
       ),
     },
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 to-blue-50 p-8 font-sans">
+    <div className="min-h-screen bg-gradient-to-br from-teal-50 to-blue-50 p-4 md:p-8 font-sans">
       <DefaultTile
         title="Products Dashboard"
         add={true}
-        addText="  New Product"
+        addText="New Product"
         formStatus={formStatus}
         setFormStatus={setFormStatus}
         search={true}
         setSearch={setSearch}
-        className="bg-white shadow-2xl rounded-3xl p-8 mb-8 border border-teal-100 transform hover:scale-[1.01] transition-transform duration-300"
+        className="bg-white shadow-2xl rounded-3xl p-6 md:p-8 mb-6 md:mb-8 border border-teal-100"
       />
 
       {formStatus ? (
@@ -764,29 +802,29 @@ const Products = () => {
           setFormStatus={setFormStatus}
           id={id}
           setId={setId}
-          className="bg-white shadow-2xl rounded-3xl p-8 border border-teal-100"
+          className="bg-white shadow-2xl rounded-3xl p-6 md:p-8 border border-teal-100"
         />
       ) : (
         <>
           <Card
-            className="mb-8 bg-white shadow-2xl rounded-3xl border-none overflow-hidden transform hover:scale-[1.01] transition-transform duration-300"
-            bodyStyle={{ padding: "32px" }}
+            className="mb-6 md:mb-8 bg-white shadow-2xl rounded-3xl border-none overflow-hidden"
+            bodyStyle={{ padding: "24px" }}
           >
             <div className="flex justify-between items-center mb-6">
               <Title
                 level={4}
-                className="m-0 flex items-center text-gray-900 font-extrabold tracking-tight"
+                className="m-0 flex items-center text-gray-900 font-extrabold tracking-tight text-lg md:text-xl"
               >
-                <FaFilter className="mr-3 text-teal-600 text-xl" />
+                <FaFilter className="mr-3 text-teal-600 text-lg" />
                 Filter Products
               </Title>
               <Button
                 type="text"
                 icon={
                   showFilters ? (
-                    <span className="text-teal-600 text-xl">▲</span>
+                    <span className="text-teal-600">▲</span>
                   ) : (
-                    <span className="text-teal-600 text-xl">▼</span>
+                    <span className="text-teal-600">▼</span>
                   )
                 }
                 onClick={() => setShowFilters(!showFilters)}
@@ -801,7 +839,7 @@ const Products = () => {
                 showFilters ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
               }`}
             >
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                 <div>
                   <Text className="text-sm font-semibold text-gray-700 mb-2 block">
                     Product Category
@@ -813,7 +851,6 @@ const Products = () => {
                     allowClear
                     onChange={onCategoryChange}
                     value={filterByProductCategory}
-                    suffixIcon={<span className="text-teal-500">▼</span>}
                   >
                     {mainCategory.map((item) => (
                       <Select.Option key={item._id} value={item._id}>
@@ -834,7 +871,6 @@ const Products = () => {
                     allowClear
                     onChange={(val) => setFilterByProductSubcategory(val)}
                     value={filterByProductSubcategory}
-                    suffixIcon={<span className="text-teal-500">▼</span>}
                     disabled={
                       !filterByProductCategory ||
                       subcategoryDataFilter.length === 0
@@ -859,7 +895,6 @@ const Products = () => {
                     allowClear
                     onChange={(val) => setVendorFilter(val)}
                     value={vendorFilter}
-                    suffixIcon={<span className="text-teal-500">▼</span>}
                   >
                     {allVendors.map((item) => (
                       <Select.Option key={item._id} value={item._id}>
@@ -881,7 +916,6 @@ const Products = () => {
                     allowClear
                     onChange={(val) => setFilterByType(val)}
                     value={filterByType}
-                    suffixIcon={<span className="text-teal-500">▼</span>}
                   />
                 </div>
               </div>
@@ -897,21 +931,21 @@ const Products = () => {
           </Card>
 
           <Card
-            className="bg-white shadow-2xl rounded-3xl border-none overflow-hidden transform hover:scale-[1.01] transition-transform duration-300"
+            className="bg-white shadow-2xl rounded-3xl border-none overflow-hidden"
             bodyStyle={{ padding: 0 }}
           >
             <Tabs
               destroyInactiveTabPane
               type="card"
               size="large"
-              className="px-8 pt-6"
+              className="px-4 md:px-8 pt-4 md:pt-6"
               items={[
                 {
                   key: "1",
                   label: (
-                    <span className="flex items-center text-gray-900 font-extrabold tracking-tight">
-                      <span className="mr-2 text-xl">📦</span> Products
-                      <Tag className="ml-3 bg-teal-100 text-teal-800 font-semibold rounded-full px-4 py-0.5">
+                    <span className="flex items-center text-gray-900 font-extrabold tracking-tight text-sm md:text-base">
+                      <span className="mr-2">📦</span> Products
+                      <Tag className="ml-2 bg-teal-100 text-teal-800 font-semibold rounded-full px-2 py-0.5 text-xs">
                         {tableData.filter((res) => !res.is_cloned).length}
                       </Tag>
                     </span>
@@ -923,18 +957,25 @@ const Products = () => {
                         (res) => !res.is_cloned
                       )}
                       columns={columns}
-                      scroll={{ x: 1500 }}
-                      className="rounded-b-3xl overflow-auto !w-screen"
+                      scroll={{ x: 1200 }}
+                      className="rounded-b-3xl"
+                      pagination={{
+                        pageSize: 10,
+                        showSizeChanger: true,
+                        showQuickJumper: true,
+                        showTotal: (total, range) => 
+                          `${range[0]}-${range[1]} of ${total} items`,
+                      }}
                     />
                   ),
                 },
                 {
                   key: "2",
                   label: (
-                    <span className="flex items-center text-gray-900 font-extrabold tracking-tight">
-                      <MdContentCopy className="mr-2 text-teal-600 text-xl" />
+                    <span className="flex items-center text-gray-900 font-extrabold tracking-tight text-sm md:text-base">
+                      <MdContentCopy className="mr-2 text-teal-600" />
                       Cloned Products
-                      <Tag className="ml-3 bg-green-100 text-green-800 font-semibold rounded-full px-4 py-0.5">
+                      <Tag className="ml-2 bg-green-100 text-green-800 font-semibold rounded-full px-2 py-0.5 text-xs">
                         {tableData.filter((res) => res.is_cloned).length}
                       </Tag>
                     </span>
@@ -944,8 +985,15 @@ const Products = () => {
                       loading={loading}
                       dataSource={processedTableData.filter((res) => res.is_cloned)}
                       columns={columns.filter((col) => col.title !== "Clone")}
-                      scroll={{ x: 1400 }}
+                      scroll={{ x: 1100 }}
                       className="rounded-b-3xl"
+                      pagination={{
+                        pageSize: 10,
+                        showSizeChanger: true,
+                        showQuickJumper: true,
+                        showTotal: (total, range) => 
+                          `${range[0]}-${range[1]} of ${total} items`,
+                      }}
                     />
                   ),
                 },
@@ -955,7 +1003,7 @@ const Products = () => {
 
           <Modal
             title={
-              <span className="text-2xl font-extrabold text-gray-900 tracking-tight">
+              <span className="text-xl md:text-2xl font-extrabold text-gray-900 tracking-tight">
                 Vendor Details
               </span>
             }
@@ -963,7 +1011,7 @@ const Products = () => {
             footer={null}
             onCancel={() => setVendorClose([])}
             className="rounded-3xl"
-            bodyStyle={{ padding: "32px" }}
+            bodyStyle={{ padding: "24px" }}
             width={600}
           >
             <div className="max-h-96 overflow-y-auto">
@@ -977,12 +1025,12 @@ const Products = () => {
                   <Descriptions.Item
                     key={index}
                     label={
-                      <p className="font-semibold text-gray-700 text-lg">
+                      <p className="font-semibold text-gray-700 text-base md:text-lg">
                         Vendor {index + 1}
                       </p>
                     }
                   >
-                    <div className="flex justify-between items-center text-base">
+                    <div className="flex justify-between items-center text-sm md:text-base">
                       <div className="flex items-center">
                         <span className="font-semibold text-gray-900 mr-3">
                           {vendorNames[res._id] || "Loading..."}
@@ -992,9 +1040,9 @@ const Products = () => {
                       <Link
                         to={`/vendor_details/${res._id}`}
                         target="_blank"
-                        className="text-teal-600 hover:text-teal-800 transition-colors duration-300 flex items-center font-semibold"
+                        className="text-teal-600 hover:text-teal-800 transition-colors duration-300 flex items-center font-semibold text-sm"
                       >
-                        View Details <span className="ml-2">→</span>
+                        View Details <span className="ml-1">→</span>
                       </Link>
                     </div>
                   </Descriptions.Item>
@@ -1005,7 +1053,7 @@ const Products = () => {
 
           <Modal
             title={
-              <span className="text-2xl font-extrabold text-gray-900 tracking-tight">
+              <span className="text-xl md:text-2xl font-extrabold text-gray-900 tracking-tight">
                 Clone Product
               </span>
             }
@@ -1013,7 +1061,8 @@ const Products = () => {
             onCancel={handleCloseModal}
             footer={null}
             className="rounded-3xl"
-            bodyStyle={{ padding: "32px" }}
+            bodyStyle={{ padding: "24px" }}
+            width={500}
           >
             <Form form={form} layout="vertical" onFinish={handleSubmit}>
               <Form.Item
@@ -1034,7 +1083,6 @@ const Products = () => {
                   placeholder="Select Product Category"
                   className="w-full rounded-xl"
                   onChange={onCategoryChange}
-                  suffixIcon={<span className="text-teal-500">▼</span>}
                 >
                   {categoryData
                     .filter(
@@ -1067,7 +1115,6 @@ const Products = () => {
                 <Select
                   placeholder="Select Product Sub Category"
                   className="w-full rounded-xl"
-                  suffixIcon={<span className="text-teal-500">▼</span>}
                   disabled={
                     !filterByProductCategory ||
                     subcategoryDataFilter.length === 0
@@ -1089,15 +1136,13 @@ const Products = () => {
                   >
                     Cancel
                   </Button>
-
-
                   <Button
                     type="primary"
                     htmlType="submit"
                     className="bg-teal-600 hover:bg-teal-700 border-none rounded-xl font-semibold px-6"
                     loading={loading}
                   >
-                    Cloned  Product
+                    Clone Product
                   </Button>
                 </div>
               </Form.Item>

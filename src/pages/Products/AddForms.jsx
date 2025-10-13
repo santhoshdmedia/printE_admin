@@ -228,7 +228,7 @@ const SortableImageList = ({ images, setImages, showDragLabel = true }) => {
 // Enhanced UploadHelper Component
 const EnhancedUploadHelper = ({ 
   multiple = true, 
-  max = 6,
+  max = 10,
   setImagePath, 
   image_path = [], 
   blog = false, 
@@ -1290,14 +1290,14 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
         ? await editProduct(values, id?._id)
         : await addproduct(values);
 
-      setFormStatus(false);
+      // setFormStatus(false);
       SUCCESS_NOTIFICATION(result);
-      form.resetFields();
+      // form.resetFields();
       setId("");
       setQuantityType("");
       setImagePath([]);
-      setFormStatus(false);
-      fetchData();
+      // setFormStatus(false);
+      // fetchData();
       setSEO_Datas(initial_seo_data);
       setPercentageDifferences({ customer: 0, dealer: 0, corporate: 0 });
     } catch (err) {
@@ -1823,7 +1823,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                   <Form.Item className="py-4" label="Product Image" name="images">
                     <EnhancedUploadHelper
                       multiple={true}
-                      max={6}
+                      max={10}
                       setImagePath={setImagePath}
                       image_path={image_path}
                       label="Upload Product Images (Minimum 6 images)"

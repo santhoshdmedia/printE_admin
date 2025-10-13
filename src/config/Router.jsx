@@ -26,6 +26,7 @@ import ProductDetails from "../pages/productdetails/ProductDetails";
 import AssignedOrder from "../pages/Orders/AssignedOrder";
 import UserPanel from "../pages/userPanel/UserPanel";
 import BulkEnquirey from "../pages/Enquries/BulkEnquirey";
+import AddForms from "../pages/Products/AddForms";
 
 export const router = createBrowserRouter([
   {
@@ -83,6 +84,11 @@ export const router = createBrowserRouter([
     path: "/order_explore",
     element: <Layout />,
     children: [{ path: "/order_explore", element: <OrderExplore /> }],
+  },
+  {
+    path: "/products/add",
+    element: <Layout />,
+    children: [{ path: "/products/add", element: <AddForms /> }],
   },
   {
     path: "/product-details",
