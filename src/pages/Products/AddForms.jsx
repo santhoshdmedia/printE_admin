@@ -1290,14 +1290,14 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
         ? await editProduct(values, id?._id)
         : await addproduct(values);
 
-      // setFormStatus(false);
+      setFormStatus(false);
       SUCCESS_NOTIFICATION(result);
-      // form.resetFields();
+      form.resetFields();
       setId("");
       setQuantityType("");
       setImagePath([]);
-      // setFormStatus(false);
-      // fetchData();
+      setFormStatus(false);
+      fetchData();
       setSEO_Datas(initial_seo_data);
       setPercentageDifferences({ customer: 0, dealer: 0, corporate: 0 });
     } catch (err) {
