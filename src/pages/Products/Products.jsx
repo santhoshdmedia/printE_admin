@@ -103,14 +103,31 @@ const Products = () => {
   const onCategoryChange = (value) => {
     setFilterByProductCategory(value);
     setFilterByProductSubcategory("");
+    
     if (value) {
-      const response = subcategoryData.filter(
-        (data) => data.select_main_category === value
+      // Filter subcategories based on the selected main category using select_main_category field
+      const filteredSubcategories = subcategoryData.filter(
+        (subcategory) => subcategory.select_main_category === value
       );
-      setSubcategoryDataFilter(response);
+      setSubcategoryDataFilter(filteredSubcategories);
     } else {
       setSubcategoryDataFilter([]);
     }
+  };
+
+  const onCloneCategoryChange = (value) => {
+    if (value) {
+      // Filter subcategories for clone modal based on the selected main category
+      const filteredSubcategories = subcategoryData.filter(
+        (subcategory) => subcategory.select_main_category === value
+      );
+      setSubcategoryDataFilter(filteredSubcategories);
+    } else {
+      setSubcategoryDataFilter([]);
+    }
+    
+    // Clear subcategory selection when main category changes
+    form.setFieldValue("sub_category_details", undefined);
   };
 
   const fetchCategories = async () => {
@@ -393,15 +410,6 @@ const Products = () => {
       });
     }
   }, [vendorClose, vendorNames, getVendorName]);
-
-  useEffect(() => {
-    const filteredSubcategories = mainCategory.find(
-      (category) => category._id === filterByProductCategory
-    );
-    setSubcategoryData(
-      _.get(filteredSubcategories, "sub_categories_details", [])
-    );
-  }, [filterByProductCategory, mainCategory]);
 
   const userRole = JSON.parse(localStorage.getItem("userprofile")) || {};
 
@@ -1082,7 +1090,7 @@ const Products = () => {
                 <Select
                   placeholder="Select Product Category"
                   className="w-full rounded-xl"
-                  onChange={onCategoryChange}
+                  onChange={onCloneCategoryChange}
                 >
                   {categoryData
                     .filter(
@@ -1116,7 +1124,7 @@ const Products = () => {
                   placeholder="Select Product Sub Category"
                   className="w-full rounded-xl"
                   disabled={
-                    !filterByProductCategory ||
+                    !form.getFieldValue("category_details") ||
                     subcategoryDataFilter.length === 0
                   }
                 >

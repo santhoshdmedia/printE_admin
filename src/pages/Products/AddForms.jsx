@@ -28,6 +28,8 @@ import {
   ReloadOutlined,
   ArrowUpOutlined,
   ArrowDownOutlined,
+  LockOutlined,
+  UnlockOutlined,
 } from "@ant-design/icons";
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -64,7 +66,7 @@ const createImageObject = (url, existingId = null) => ({
   _id: existingId || uuidv4(),
   path: url,
   url: url,
-  type: 'image', // Consistent type
+  type: 'image',
   uploadedAt: new Date().toISOString()
 });
 
@@ -73,14 +75,14 @@ const initialVariantOptionValue = {
   value: "",
   _id: Date.now() + 1,
   variant_type: "text_box_variant",
-  image_names: [], // Always array of image objects
+  image_names: [],
 };
 
 const initialVariantValue = {
   variant_name: "",
   variant_type: "text_box_variant",
   options: [initialVariantOptionValue],
-  variant_images: [], // Always array of image objects
+  variant_images: [],
   _id: Date.now(),
 };
 
@@ -261,7 +263,6 @@ const EnhancedUploadHelper = ({
 
       if (uploadedImages.length > 0) {
         if (blog && current_key && handleChange) {
-          // For blog, we only need the URL string
           handleChange(current_key, uploadedImages[0].url);
         } else {
           const currentImages = Array.isArray(image_path) ? image_path : [];
@@ -428,6 +429,257 @@ const VariantOptionImageUpload = ({
   );
 };
 
+// Discount Row Component - Fixed: Moved hooks to proper level
+const DiscountRow = ({ name, restField, remove, form, customerPrice, dealerPrice, corporatePrice }) => {
+  // Calculate Discounted Amount
+  const calculateDiscountedAmount = (basePrice, discountPercentage) => {
+    const price = parseFloat(basePrice) || 0;
+    const discount = parseFloat(discountPercentage) || 0;
+    return price - (price * discount / 100);
+  };
+
+  // Watch discount values for this field
+  const customerDiscount = Form.useWatch(['quantity_discount_splitup', name, 'Customer_discount'], form) || 0;
+  const dealerDiscount = Form.useWatch(['quantity_discount_splitup', name, 'Dealer_discount'], form) || 0;
+  const corporateDiscount = Form.useWatch(['quantity_discount_splitup', name, 'Corporate_discount'], form) || 0;
+
+  // Watch free delivery switches
+  const freeDeliveryCustomer = Form.useWatch(['quantity_discount_splitup', name, 'free_delivery_customer'], form) || false;
+  const freeDeliveryDealer = Form.useWatch(['quantity_discount_splitup', name, 'free_delivery_dealer'], form) || false;
+  const freeDeliveryCorporate = Form.useWatch(['quantity_discount_splitup', name, 'free_delivery_corporate'], form) || false;
+
+  return (
+    <Card size="small" key={name} className="relative">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+        {/* Quantity */}
+        <Form.Item
+          label="Quantity"
+          {...restField}
+          name={[name, "quantity"]}
+          rules={[formValidation("Enter a Quantity")]}
+          className="mb-0"
+        >
+          <Input
+            type="number"
+            placeholder="Enter Quantity"
+            className="h-10"
+          />
+        </Form.Item>
+
+        <Form.Item
+          hidden
+          initialValue={`${name}${Date.now()}`}
+          {...restField}
+          name={[name, "uniqe_id"]}
+          rules={[formValidation("Enter a Quantity")]}
+          className="mb-0"
+        >
+          <Input />
+        </Form.Item>
+
+        {/* Customer Discount */}
+        <Form.Item
+          label="Cus Dis %"
+          {...restField}
+          name={[name, "Customer_discount"]}
+          rules={[formValidation("Enter a Customer discount")]}
+          className="mb-0"
+        >
+          <Input
+            type="number"
+            placeholder="Customer Discount"
+            className="h-10"
+            suffix="%"
+          />
+        </Form.Item>
+
+        {/* Customer Discounted Price */}
+        <div className="flex flex-col">
+          <label className="text-xs text-gray-500 mb-1">Discounted Price</label>
+          <div className="h-10 px-3 border border-gray-300 rounded flex items-center bg-gray-50">
+            <span className="text-sm font-medium">
+              ₹{calculateDiscountedAmount(customerPrice, customerDiscount).toFixed(2)}
+            </span>
+          </div>
+        </div>
+
+        {/* Customer Free Delivery */}
+        <Form.Item
+          label="Free Delivery"
+          {...restField}
+          name={[name, "free_delivery_customer"]}
+          valuePropName="checked"
+          className="mb-0"
+        >
+          <Switch />
+        </Form.Item>
+
+        {/* Customer Delivery Charges */}
+        {!freeDeliveryCustomer && (
+          <Form.Item
+            label="Delivery Charges"
+            {...restField}
+            name={[name, "delivery_charges_customer"]}
+            className="mb-0"
+          >
+            <Input
+              type="number"
+              placeholder="Charges"
+              className="h-10"
+              prefix="₹"
+            />
+          </Form.Item>
+        )}
+
+        {/* Dealer Discount */}
+        <Form.Item
+          label="Dealer Dis %"
+          {...restField}
+          name={[name, "Dealer_discount"]}
+          rules={[formValidation("Enter a Dealer discount")]}
+          className="mb-0"
+        >
+          <Input
+            type="number"
+            placeholder="Dealer Discount"
+            className="h-10"
+            suffix="%"
+          />
+        </Form.Item>
+
+        {/* Dealer Discounted Price */}
+        <div className="flex flex-col">
+          <label className="text-xs text-gray-500 mb-1">Discounted Price</label>
+          <div className="h-10 px-3 border border-gray-300 rounded flex items-center bg-gray-50">
+            <span className="text-sm font-medium">
+              ₹{calculateDiscountedAmount(dealerPrice, dealerDiscount).toFixed(2)}
+            </span>
+          </div>
+        </div>
+
+        {/* Dealer Free Delivery */}
+        <Form.Item
+          label="Free Delivery"
+          {...restField}
+          name={[name, "free_delivery_dealer"]}
+          valuePropName="checked"
+          className="mb-0"
+        >
+          <Switch />
+        </Form.Item>
+
+        {/* Dealer Delivery Charges */}
+        {!freeDeliveryDealer && (
+          <Form.Item
+            label="Delivery Charges"
+            {...restField}
+            name={[name, "delivery_charges_dealer"]}
+            className="mb-0"
+          >
+            <Input
+              type="number"
+              placeholder="Charges"
+              className="h-10"
+              prefix="₹"
+            />
+          </Form.Item>
+        )}
+
+        {/* Corporate Discount */}
+        <Form.Item
+          label="Corp Dis %"
+          {...restField}
+          name={[name, "Corporate_discount"]}
+          rules={[formValidation("Enter a Corporate discount")]}
+          className="mb-0"
+        >
+          <Input
+            type="number"
+            placeholder="Corporate Discount"
+            className="h-10"
+            suffix="%"
+          />
+        </Form.Item>
+
+        {/* Corporate Discounted Price */}
+        <div className="flex flex-col">
+          <label className="text-xs text-gray-500 mb-1">Discounted Price</label>
+          <div className="h-10 px-3 border border-gray-300 rounded flex items-center bg-gray-50">
+            <span className="text-sm font-medium">
+              ₹{calculateDiscountedAmount(corporatePrice, corporateDiscount).toFixed(2)}
+            </span>
+          </div>
+        </div>
+
+        {/* Corporate Free Delivery */}
+        <Form.Item
+          label="Free Delivery"
+          {...restField}
+          name={[name, "free_delivery_corporate"]}
+          valuePropName="checked"
+          className="mb-0"
+        >
+          <Switch />
+        </Form.Item>
+
+        {/* Corporate Delivery Charges */}
+        {!freeDeliveryCorporate && (
+          <Form.Item
+            label="Delivery Charges"
+            {...restField}
+            name={[name, "delivery_charges_corporate"]}
+            className="mb-0"
+          >
+            <Input
+              type="number"
+              placeholder="Charges"
+              className="h-10"
+              prefix="₹"
+            />
+          </Form.Item>
+        )}
+
+        {/* Recommended Status */}
+        <Form.Item
+          label="Recommended"
+          initialValue={"No comments"}
+          {...restField}
+          name={[name, "recommended_stats"]}
+          rules={[formValidation("Enter a discount")]}
+          className="mb-0"
+        >
+          <Select
+            className="h-10"
+            defaultValue={"No comments"}
+          >
+            {[
+              "Recommended",
+              "Most Picked",
+              "High seller",
+              "Best seller",
+              "No comments",
+            ].map((res, index) => {
+              return (
+                <Select.Option key={index} value={res}>
+                  {res}
+                </Select.Option>
+              );
+            })}
+          </Select>
+        </Form.Item>
+
+        <Button
+          type="text"
+          danger
+          icon={<DeleteFilled />}
+          onClick={() => remove(name)}
+          className="absolute top-2 right-2"
+        />
+      </div>
+    </Card>
+  );
+};
+
 // Main Component
 const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   const [form] = Form.useForm();
@@ -443,6 +695,8 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   const [dummy, setDummy] = useState(false);
   const [modalUnitVisible, setModalUnitVisible] = useState(false);
   const [usedProductCodes, setUsedProductCodes] = useState(new Set());
+  const [isProductCodeLocked, setIsProductCodeLocked] = useState(false);
+  const [lockedProductCodes, setLockedProductCodes] = useState({});
   
   const [percentageDifferences, setPercentageDifferences] = useState({
     customer: 0,
@@ -452,6 +706,11 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
 
   const productTypeSelectedValue = Form.useWatch('type', form) || (id?.type || productType[0].value);
   const productStockSelectedValue = Form.useWatch('stocks_status', form) || (id?.stocks_status || PRODUTSTOCK_TYPE[1].value);
+
+  // Watch base prices for discount calculations - MOVED TO COMPONENT LEVEL
+  const customerPrice = Form.useWatch('customer_product_price', form) || 0;
+  const dealerPrice = Form.useWatch('Deler_product_price', form) || 0;
+  const corporatePrice = Form.useWatch('corporate_product_price', form) || 0;
 
   const initial_seo_data = {
     title: "",
@@ -818,6 +1077,23 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     return calculatePercentageDifference(mrp, price);
   };
 
+  // Product Code Lock Handlers
+  const handleLockProductCode = () => {
+    setIsProductCodeLocked(!isProductCodeLocked);
+    if (!isProductCodeLocked) {
+      message.success("Product code locked");
+    } else {
+      message.info("Product code unlocked");
+    }
+  };
+
+  const handleLockVariantProductCode = (recordKey) => {
+    setLockedProductCodes(prev => ({
+      ...prev,
+      [recordKey]: !prev[recordKey]
+    }));
+  };
+
   // Form Helpers
   const onCategoryChnge = (value) => {
     if (value) {
@@ -966,6 +1242,13 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
 
   const handleUnitCancel = () => {
     setModalUnitVisible(false);
+  };
+
+  // Calculate Discounted Amount
+  const calculateDiscountedAmount = (basePrice, discountPercentage) => {
+    const price = parseFloat(basePrice) || 0;
+    const discount = parseFloat(discountPercentage) || 0;
+    return price - (price * discount / 100);
   };
 
   // Generate table data from variants
@@ -1169,22 +1452,33 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
           key={index}
           value={record.product_code}
           onChange={(e) => handleProductCodeChange(record, e)}
+          readOnly={lockedProductCodes[record.key]}
           suffix={
-            <ReloadOutlined
-              onClick={() => {
-                const isVariable = productTypeSelectedValue === "Variable Product";
-                const code = generateProductCode(isVariable, record.variant_name);
-                if (code) {
-                  const updatedTableValue = tableValue.map((data) => {
-                    if (data.key === record.key) {
-                      return { ...data, product_code: code };
-                    }
-                    return data;
-                  });
-                  setTableValue(updatedTableValue);
-                }
-              }}
-              style={{ cursor: "pointer" }}
+            !lockedProductCodes[record.key] ? (
+              <ReloadOutlined
+                onClick={() => {
+                  const isVariable = productTypeSelectedValue === "Variable Product";
+                  const code = generateProductCode(isVariable, record.variant_name);
+                  if (code) {
+                    const updatedTableValue = tableValue.map((data) => {
+                      if (data.key === record.key) {
+                        return { ...data, product_code: code };
+                      }
+                      return data;
+                    });
+                    setTableValue(updatedTableValue);
+                  }
+                }}
+                style={{ cursor: "pointer" }}
+              />
+            ) : null
+          }
+          addonAfter={
+            <Button
+              type="text"
+              icon={lockedProductCodes[record.key] ? <LockOutlined /> : <UnlockOutlined />}
+              onClick={() => handleLockVariantProductCode(record.key)}
+              size="small"
             />
           }
         />
@@ -1192,7 +1486,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     },
   ];
 
-  // Form Submission - FIXED with consistent image structure
+  // Form Submission
   const handleFinish = async (values) => {
     try {
       console.log("Form Values:", values);
@@ -1237,7 +1531,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       );
       values.stock_count = Number(existingStockCount) + Number(newStock);
 
-      // FIXED: Handle ALL images as arrays of objects
+      // Handle ALL images as arrays of objects
       values.images = image_path.map(img => ({
         _id: img._id,
         path: img.path,
@@ -1273,17 +1567,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       values.variants_price = tableValue;
       values.seo_url = String(values.seo_url).trim();
 
-      // ADD DEBUG LOGS TO VERIFY IMAGE DATA
-      console.log("Processed Main Images:", values.images);
-      console.log("Processed Variants:", values.variants);
-      values.variants.forEach((variant, index) => {
-        console.log(`Variant ${index}:`, variant.variant_name);
-        variant.options.forEach((option, optIndex) => {
-          console.log(`  Option ${optIndex}:`, option.value);
-          console.log(`  Images:`, option.image_names);
-        });
-      });
-
       console.log("Final submission data:", values);
 
       let result = id
@@ -1300,6 +1583,8 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       fetchData();
       setSEO_Datas(initial_seo_data);
       setPercentageDifferences({ customer: 0, dealer: 0, corporate: 0 });
+      setIsProductCodeLocked(false);
+      setLockedProductCodes({});
     } catch (err) {
       console.log("Error in form submission:", err);
       ERROR_NOTIFICATION(err);
@@ -1485,7 +1770,8 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     />
                   </Form.Item>
 
-                 {productTypeSelectedValue === "Stand Alone Product" && <Form.Item
+                 {productTypeSelectedValue === "Stand Alone Product" && (
+                  <Form.Item
                     label="Product Code"
                     name="product_code"
                     rules={[
@@ -1495,19 +1781,31 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                   >
                     <Input
                       placeholder="Product code will be generated automatically"
+                      readOnly={isProductCodeLocked}
                       suffix={
-                        <ReloadOutlined
-                          onClick={() => {
-                            const code = generateProductCode(false);
-                            if (code)
-                              form.setFieldsValue({ product_code: code });
-                          }}
-                      className="h-10"
-                          style={{ cursor: "pointer" }}
+                        !isProductCodeLocked ? (
+                          <ReloadOutlined
+                            onClick={() => {
+                              const code = generateProductCode(false);
+                              if (code)
+                                form.setFieldsValue({ product_code: code });
+                            }}
+                            className="h-10"
+                            style={{ cursor: "pointer" }}
+                          />
+                        ) : null
+                      }
+                      addonAfter={
+                        <Button
+                          type="text"
+                          icon={isProductCodeLocked ? <LockOutlined /> : <UnlockOutlined />}
+                          onClick={handleLockProductCode}
+                          size="small"
                         />
                       }
                     />
-                  </Form.Item>}
+                  </Form.Item>
+                 )}
 
                   <Form.Item
                     name="name"
@@ -2137,7 +2435,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                 </div>
 
                 <div className="mt-4">
-                  <h2 className="font-medium mb-3">Quantity + Discount %</h2>
+                  <h2 className="font-medium mb-3">Quantity + Discount % + Delivery</h2>
                   <Form.List name="quantity_discount_splitup">
                     {(fields, { add, remove }) => (
                       <>
@@ -2153,120 +2451,16 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
 
                         <div className="grid grid-cols-1 gap-3">
                           {fields.map(({ key, name, ...restField }) => (
-                            <Card size="small" key={key} className="relative">
-                              <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
-                                <Form.Item
-                                  label="Quantity"
-                                  {...restField}
-                                  name={[name, "quantity"]}
-                                  rules={[formValidation("Enter a Quantity")]}
-                                  className="mb-0"
-                                >
-                                  <Input
-                                    type="number"
-                                    placeholder="Enter Quantity"
-                                    className="h-10"
-                                  />
-                                </Form.Item>
-
-                                <Form.Item
-                                  hidden
-                                  initialValue={`${key}${Date.now()}`}
-                                  {...restField}
-                                  name={[name, "uniqe_id"]}
-                                  rules={[formValidation("Enter a Quantity")]}
-                                  className="mb-0"
-                                >
-                                  <Input />
-                                </Form.Item>
-
-                                <Form.Item
-                                  label="Customer Discount %"
-                                  {...restField}
-                                  name={[name, "Customer_discount"]}
-                                  rules={[formValidation("Enter a Customer  discount")]}
-                                  className="mb-0"
-                                >
-                                  <Input
-                                    type="number"
-                                    placeholder="Enter Customer  Discount"
-                                    className="h-10"
-                                  />
-                                </Form.Item>
-                                <Form.Item
-                                  label="Dealer Discount %"
-                                  {...restField}
-                                  name={[name, "Dealer_discount"]}
-                                  rules={[formValidation("Enter a Dealer discount")]}
-                                  className="mb-0"
-                                >
-                                  <Input
-                                    type="number"
-                                    placeholder="Enter Dealer Discount"
-                                    className="h-10"
-                                  />
-                                </Form.Item>
-                                <Form.Item
-                                  label="Corporate Discount %"
-                                  {...restField}
-                                  name={[name, "Corporate_discount"]}
-                                  rules={[formValidation("Enter a Corporate discount")]}
-                                  className="mb-0"
-                                >
-                                  <Input
-                                    type="number"
-                                    placeholder="Enter Dealer Discount"
-                                    className="h-10"
-                                  />
-                                </Form.Item>
-                                
-
-                                <Form.Item
-                                  label="Free Deliverey"
-                                  {...restField}
-                                  name={[name, "Free_Deliverey"]}
-                                  className="mb-0 "
-                                  >
-                                  <Switch />
-                                </Form.Item>
-
-                                <Form.Item
-                                  label="Recommended"
-                                  initialValue={"No comments"}
-                                  {...restField}
-                                  name={[name, "recommended_stats"]}
-                                  rules={[formValidation("Enter a discount")]}
-                                  className="mb-0"
-                                >
-                                  <Select
-                                    className="h-10"
-                                    defaultValue={"No comments"}
-                                  >
-                                    {[
-                                      "Recommended",
-                                      "Most Picked",
-                                      "High seller",
-                                      "Best seller",
-                                      "No comments",
-                                    ].map((res, index) => {
-                                      return (
-                                        <Select.Option key={index} value={res}>
-                                          {res}
-                                        </Select.Option>
-                                      );
-                                    })}
-                                  </Select>
-                                </Form.Item>
-
-                                <Button
-                                  type="text"
-                                  danger
-                                  icon={<DeleteFilled />}
-                                  onClick={() => remove(name)}
-                                  className="absolute top-2 right-2"
-                                />
-                              </div>
-                            </Card>
+                            <DiscountRow
+                              key={key}
+                              name={name}
+                              restField={restField}
+                              remove={remove}
+                              form={form}
+                              customerPrice={customerPrice}
+                              dealerPrice={dealerPrice}
+                              corporatePrice={corporatePrice}
+                            />
                           ))}
                         </div>
                       </>
