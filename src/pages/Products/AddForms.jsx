@@ -429,7 +429,7 @@ const VariantOptionImageUpload = ({
   );
 };
 
-// Discount Row Component - Fixed: Moved hooks to proper level
+// Discount Row Component - Redesigned to single row layout
 const DiscountRow = ({ name, restField, remove, form, customerPrice, dealerPrice, corporatePrice }) => {
   // Calculate Discounted Amount
   const calculateDiscountedAmount = (basePrice, discountPercentage) => {
@@ -449,231 +449,231 @@ const DiscountRow = ({ name, restField, remove, form, customerPrice, dealerPrice
   const freeDeliveryCorporate = Form.useWatch(['quantity_discount_splitup', name, 'free_delivery_corporate'], form) || false;
 
   return (
-    <Card size="small" key={name} className="relative">
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-        {/* Quantity */}
-        <Form.Item
-          label="Quantity"
-          {...restField}
-          name={[name, "quantity"]}
-          rules={[formValidation("Enter a Quantity")]}
-          className="mb-0"
-        >
-          <Input
-            type="number"
-            placeholder="Enter Quantity"
-            className="h-10"
-          />
-        </Form.Item>
-
-        <Form.Item
-          hidden
-          initialValue={`${name}${Date.now()}`}
-          {...restField}
-          name={[name, "uniqe_id"]}
-          rules={[formValidation("Enter a Quantity")]}
-          className="mb-0"
-        >
-          <Input />
-        </Form.Item>
-
-        {/* Customer Discount */}
-        <Form.Item
-          label="Cus Dis %"
-          {...restField}
-          name={[name, "Customer_discount"]}
-          rules={[formValidation("Enter a Customer discount")]}
-          className="mb-0"
-        >
-          <Input
-            type="number"
-            placeholder="Customer Discount"
-            className="h-10"
-            suffix="%"
-          />
-        </Form.Item>
-
-        {/* Customer Discounted Price */}
-        <div className="flex flex-col">
-          <label className="text-xs text-gray-500 mb-1">Discounted Price</label>
-          <div className="h-10 px-3 border border-gray-300 rounded flex items-center bg-gray-50">
-            <span className="text-sm font-medium">
-              ₹{calculateDiscountedAmount(customerPrice, customerDiscount).toFixed(2)}
-            </span>
-          </div>
-        </div>
-
-        {/* Customer Free Delivery */}
-        <Form.Item
-          label="Free Delivery"
-          {...restField}
-          name={[name, "free_delivery_customer"]}
-          valuePropName="checked"
-          className="mb-0"
-        >
-          <Switch />
-        </Form.Item>
-
-        {/* Customer Delivery Charges */}
-        {!freeDeliveryCustomer && (
+    <Card size="small" key={name} className="relative mb-3">
+      <div className="flex flex-nowrap items-start gap-3 overflow-x-auto pb-2">
+        
+        {/* Quantity & Unique ID */}
+        <div className="flex flex-col gap-2 min-w-[120px]">
           <Form.Item
-            label="Delivery Charges"
+            label="Quantity"
             {...restField}
-            name={[name, "delivery_charges_customer"]}
+            name={[name, "quantity"]}
+            rules={[formValidation("Enter a Quantity")]}
             className="mb-0"
           >
             <Input
               type="number"
-              placeholder="Charges"
-              className="h-10"
-              prefix="₹"
+              placeholder="Qty"
+              className="h-9"
             />
           </Form.Item>
-        )}
-
-        {/* Dealer Discount */}
-        <Form.Item
-          label="Dealer Dis %"
-          {...restField}
-          name={[name, "Dealer_discount"]}
-          rules={[formValidation("Enter a Dealer discount")]}
-          className="mb-0"
-        >
-          <Input
-            type="number"
-            placeholder="Dealer Discount"
-            className="h-10"
-            suffix="%"
-          />
-        </Form.Item>
-
-        {/* Dealer Discounted Price */}
-        <div className="flex flex-col">
-          <label className="text-xs text-gray-500 mb-1">Discounted Price</label>
-          <div className="h-10 px-3 border border-gray-300 rounded flex items-center bg-gray-50">
-            <span className="text-sm font-medium">
-              ₹{calculateDiscountedAmount(dealerPrice, dealerDiscount).toFixed(2)}
-            </span>
-          </div>
-        </div>
-
-        {/* Dealer Free Delivery */}
-        <Form.Item
-          label="Free Delivery"
-          {...restField}
-          name={[name, "free_delivery_dealer"]}
-          valuePropName="checked"
-          className="mb-0"
-        >
-          <Switch />
-        </Form.Item>
-
-        {/* Dealer Delivery Charges */}
-        {!freeDeliveryDealer && (
+          
           <Form.Item
-            label="Delivery Charges"
+            hidden
+            initialValue={`${name}${Date.now()}`}
             {...restField}
-            name={[name, "delivery_charges_dealer"]}
+            name={[name, "uniqe_id"]}
             className="mb-0"
           >
-            <Input
-              type="number"
-              placeholder="Charges"
-              className="h-10"
-              prefix="₹"
-            />
+            <Input />
           </Form.Item>
-        )}
-
-        {/* Corporate Discount */}
-        <Form.Item
-          label="Corp Dis %"
-          {...restField}
-          name={[name, "Corporate_discount"]}
-          rules={[formValidation("Enter a Corporate discount")]}
-          className="mb-0"
-        >
-          <Input
-            type="number"
-            placeholder="Corporate Discount"
-            className="h-10"
-            suffix="%"
-          />
-        </Form.Item>
-
-        {/* Corporate Discounted Price */}
-        <div className="flex flex-col">
-          <label className="text-xs text-gray-500 mb-1">Discounted Price</label>
-          <div className="h-10 px-3 border border-gray-300 rounded flex items-center bg-gray-50">
-            <span className="text-sm font-medium">
-              ₹{calculateDiscountedAmount(corporatePrice, corporateDiscount).toFixed(2)}
-            </span>
-          </div>
         </div>
 
-        {/* Corporate Free Delivery */}
-        <Form.Item
-          label="Free Delivery"
-          {...restField}
-          name={[name, "free_delivery_corporate"]}
-          valuePropName="checked"
-          className="mb-0"
-        >
-          <Switch />
-        </Form.Item>
+        {/* Customer Section */}
+        <div className="flex flex-col gap-2 min-w-[280px]">
+          <div className="flex items-end gap-2">
+            <Form.Item
+              label="Cus Dis%"
+              {...restField}
+              name={[name, "Customer_discount"]}
+              rules={[formValidation("Enter Customer discount")]}
+              className="mb-0 flex-1"
+            >
+              <Input
+                type="number"
+                placeholder="%"
+                className="h-9"
+                suffix="%"
+              />
+            </Form.Item>
 
-        {/* Corporate Delivery Charges */}
-        {!freeDeliveryCorporate && (
-          <Form.Item
-            label="Delivery Charges"
-            {...restField}
-            name={[name, "delivery_charges_corporate"]}
-            className="mb-0"
-          >
-            <Input
-              type="number"
-              placeholder="Charges"
-              className="h-10"
-              prefix="₹"
-            />
-          </Form.Item>
-        )}
+            <div className="flex flex-col min-w-[100px]">
+              <label className="text-xs text-gray-500 mb-1">Cus dis Price</label>
+              <div className="h-9 px-2 border border-gray-300 rounded flex items-center bg-gray-50 text-sm">
+                ₹{calculateDiscountedAmount(customerPrice, customerDiscount).toFixed(2)}
+              </div>
+            </div>
+
+            <Form.Item
+              label="Free Delivery"
+              {...restField}
+              name={[name, "free_delivery_customer"]}
+              valuePropName="checked"
+              className="mb-0"
+            >
+              <Switch size="small" />
+            </Form.Item>
+          </div>
+
+          {!freeDeliveryCustomer && (
+            <Form.Item
+              label="Cus Delivery charges"
+              {...restField}
+              name={[name, "delivery_charges_customer"]}
+              className="mb-0"
+            >
+              <Input
+                type="number"
+                placeholder="Charges"
+                className="h-9"
+                prefix="₹"
+              />
+            </Form.Item>
+          )}
+        </div>
+
+        {/* Dealer Section */}
+        <div className="flex flex-col gap-2 min-w-[280px]">
+          <div className="flex items-end gap-2">
+            <Form.Item
+              label="Dealer Dis%"
+              {...restField}
+              name={[name, "Dealer_discount"]}
+              rules={[formValidation("Enter Dealer discount")]}
+              className="mb-0 flex-1"
+            >
+              <Input
+                type="number"
+                placeholder="%"
+                className="h-9"
+                suffix="%"
+              />
+            </Form.Item>
+
+            <div className="flex flex-col min-w-[100px]">
+              <label className="text-xs text-gray-500 mb-1">Dealer dis Price</label>
+              <div className="h-9 px-2 border border-gray-300 rounded flex items-center bg-gray-50 text-sm">
+                ₹{calculateDiscountedAmount(dealerPrice, dealerDiscount).toFixed(2)}
+              </div>
+            </div>
+
+            <Form.Item
+              label="Free Delivery"
+              {...restField}
+              name={[name, "free_delivery_dealer"]}
+              valuePropName="checked"
+              className="mb-0"
+            >
+              <Switch size="small" />
+            </Form.Item>
+          </div>
+
+          {!freeDeliveryDealer && (
+            <Form.Item
+              label="Dealer Delivery charges"
+              {...restField}
+              name={[name, "delivery_charges_dealer"]}
+              className="mb-0"
+            >
+              <Input
+                type="number"
+                placeholder="Charges"
+                className="h-9"
+                prefix="₹"
+              />
+            </Form.Item>
+          )}
+        </div>
+
+        {/* Corporate Section */}
+        <div className="flex flex-col gap-2 min-w-[280px]">
+          <div className="flex items-end gap-2">
+            <Form.Item
+              label="Corp Dis%"
+              {...restField}
+              name={[name, "Corporate_discount"]}
+              rules={[formValidation("Enter Corporate discount")]}
+              className="mb-0 flex-1"
+            >
+              <Input
+                type="number"
+                placeholder="%"
+                className="h-9"
+                suffix="%"
+              />
+            </Form.Item>
+
+            <div className="flex flex-col min-w-[100px]">
+              <label className="text-xs text-gray-500 mb-1">Corp dis Price</label>
+              <div className="h-9 px-2 border border-gray-300 rounded flex items-center bg-gray-50 text-sm">
+                ₹{calculateDiscountedAmount(corporatePrice, corporateDiscount).toFixed(2)}
+              </div>
+            </div>
+
+            <Form.Item
+              label="Free Delivery"
+              {...restField}
+              name={[name, "free_delivery_corporate"]}
+              valuePropName="checked"
+              className="mb-0"
+            >
+              <Switch size="small" />
+            </Form.Item>
+          </div>
+
+          {!freeDeliveryCorporate && (
+            <Form.Item
+              label="Corp Delivery charges"
+              {...restField}
+              name={[name, "delivery_charges_corporate"]}
+              className="mb-0"
+            >
+              <Input
+                type="number"
+                placeholder="Charges"
+                className="h-9"
+                prefix="₹"
+              />
+            </Form.Item>
+          )}
+        </div>
 
         {/* Recommended Status */}
-        <Form.Item
-          label="Recommended"
-          initialValue={"No comments"}
-          {...restField}
-          name={[name, "recommended_stats"]}
-          rules={[formValidation("Enter a discount")]}
-          className="mb-0"
-        >
-          <Select
-            className="h-10"
-            defaultValue={"No comments"}
+        <div className="flex flex-col gap-2 min-w-[150px]">
+          <Form.Item
+            label="Recommended"
+            initialValue={"No comments"}
+            {...restField}
+            name={[name, "recommended_stats"]}
+            className="mb-0"
           >
-            {[
-              "Recommended",
-              "Most Picked",
-              "High seller",
-              "Best seller",
-              "No comments",
-            ].map((res, index) => {
-              return (
+            <Select
+              className="h-9 text-sm"
+              defaultValue={"No comments"}
+            >
+              {[
+                "Recommended",
+                "Most Picked",
+                "High seller",
+                "Best seller",
+                "No comments",
+              ].map((res, index) => (
                 <Select.Option key={index} value={res}>
                   {res}
                 </Select.Option>
-              );
-            })}
-          </Select>
-        </Form.Item>
+              ))}
+            </Select>
+          </Form.Item>
+        </div>
 
+        {/* Delete Button */}
         <Button
           type="text"
           danger
+          size="small"
           icon={<DeleteFilled />}
           onClick={() => remove(name)}
-          className="absolute top-2 right-2"
+          className="mt-1"
         />
       </div>
     </Card>
