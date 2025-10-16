@@ -31,7 +31,7 @@ import {
   LockOutlined,
   UnlockOutlined,
 } from "@ant-design/icons";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
 import JoditEditor from "jodit-react";
@@ -61,7 +61,56 @@ import { ICON_HELPER } from "../../helper/iconhelper";
 const { Title, Text } = Typography;
 const { Panel } = Collapse;
 
-// Image structure definition
+// Constants
+const PRODUCT_TYPE = [
+  { value: "Stand Alone Product" },
+  { value: "Variable Product" },
+];
+
+const TAX_PREFERENCE = [
+  { value: "Taxable" },
+  { value: "Non-Taxable" },
+  { value: "Out of Scope" },
+  { value: "Non-GST Apply" },
+];
+
+const GST_PREFERENCE = [
+  { value: "5" },
+  { value: "12" },
+  { value: "18" },
+  { value: "28" },
+];
+
+const PRODUCT_STOCK_TYPE = [{ value: "Limited" }, { value: "Unlimited" }];
+const UNIT_TYPE = [
+  { value: "pcs" }, { value: "Box" }, { value: "cm" }, { value: "dozen" },
+  { value: "gm" }, { value: "kg" }, { value: "lbs" }, { value: "meter" },
+  { value: "inches" }, { value: "ft" }, { value: "Nos" }, { value: "Sqft" },
+];
+
+const INITIAL_VARIANT_OPTION = {
+  value: "",
+  _id: Date.now() + 1,
+  variant_type: "text_box_variant",
+  image_names: [],
+};
+
+const INITIAL_VARIANT = {
+  variant_name: "",
+  variant_type: "text_box_variant",
+  options: [{ ...INITIAL_VARIANT_OPTION }],
+  variant_images: [],
+  _id: Date.now(),
+};
+
+const INITIAL_SEO_DATA = {
+  title: "",
+  keywords: "",
+  description: "",
+  url: "",
+};
+
+// Helper Functions
 const createImageObject = (url, existingId = null) => ({
   _id: existingId || uuidv4(),
   path: url,
@@ -70,47 +119,42 @@ const createImageObject = (url, existingId = null) => ({
   uploadedAt: new Date().toISOString()
 });
 
-// Constants
-const initialVariantOptionValue = {
-  value: "",
-  _id: Date.now() + 1,
-  variant_type: "text_box_variant",
-  image_names: [],
+const normalizeImages = (images) => {
+  if (!images) return [];
+  
+  return images.map(img => {
+    if (typeof img === 'string') {
+      return createImageObject(img);
+    } else if (typeof img === 'object') {
+      return {
+        _id: img._id || uuidv4(),
+        path: img.path || img.url || img.image_url || '',
+        url: img.url || img.path || img.image_url || '',
+        type: img.type || 'image',
+        uploadedAt: img.uploadedAt || new Date().toISOString()
+      };
+    }
+    return img;
+  }).filter(img => img.path || img.url);
 };
 
-const initialVariantValue = {
-  variant_name: "",
-  variant_type: "text_box_variant",
-  options: [initialVariantOptionValue],
-  variant_images: [],
-  _id: Date.now(),
+const calculatePercentageDifference = (mrp, price) => {
+  const mrpValue = parseFloat(mrp) || 0;
+  const priceValue = parseFloat(price) || 0;
+  
+  if (mrpValue === 0 || priceValue === 0) return 0;
+  
+  const difference = priceValue - mrpValue;
+  const percentage = (difference / mrpValue) * 100;
+  
+  return Math.round(percentage * 100) / 100;
 };
 
-const productType = [
-  { value: "Stand Alone Product" },
-  { value: "Variable Product" },
-];
-
-const TaxPreference = [
-  { value: "Taxable" },
-  { value: "Non-Taxable" },
-  { value: "Out of Scope" },
-  { value: "Non-GST Apply" },
-];
-
-const GST_preference = [
-  { value: "5" },
-  { value: "12" },
-  { value: "18" },
-  { value: "28" },
-];
-
-const PRODUTSTOCK_TYPE = [{ value: "Limited" }, { value: "Unliimted" }];
-const Unit_type = [
-  { value: "pcs" }, { value: "Box" }, { value: "cm" }, { value: "dozen" },
-  { value: "gm" }, { value: "kg" }, { value: "lbs" }, { value: "meter" },
-  { value: "inches" }, { value: "ft" }, { value: "Nos" }, { value: "Sqft" },
-];
+const calculateDiscountedAmount = (basePrice, discountPercentage) => {
+  const price = parseFloat(basePrice) || 0;
+  const discount = parseFloat(discountPercentage) || 0;
+  return price - (price * discount / 100);
+};
 
 // Sortable Image Component
 const SortableImage = ({ id, image, onRemove, showDragLabel = true }) => {
@@ -132,6 +176,7 @@ const SortableImage = ({ id, image, onRemove, showDragLabel = true }) => {
 
   const handleRemove = (e) => {
     e.stopPropagation();
+    e.preventDefault();
     onRemove(id);
   };
 
@@ -155,16 +200,13 @@ const SortableImage = ({ id, image, onRemove, showDragLabel = true }) => {
           ),
         }}
       />
-      <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <Button
-          type="primary"
-          danger
-          size="small"
-          icon={<DeleteFilled />}
-          onClick={handleRemove}
-          className="!w-6 !h-6 !min-w-0 !p-0 flex items-center justify-center"
-        />
-      </div>
+      <button
+        type="button"
+        className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-red-500 text-white rounded-full !w-6 !h-6 flex items-center justify-center border-0 cursor-pointer z-10"
+        onClick={handleRemove}
+      >
+        <DeleteFilled className="!text-xs" />
+      </button>
       {showDragLabel && (
         <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs text-center py-1">
           Drag to reorder
@@ -178,10 +220,6 @@ const SortableImage = ({ id, image, onRemove, showDragLabel = true }) => {
 const SortableImageList = ({ images, setImages, showDragLabel = true }) => {
   const getImageId = (image) => {
     return image._id || image.path || image;
-  };
-
-  const getImageUrl = (image) => {
-    return image.url || image.path || image;
   };
 
   const handleDragEnd = (event) => {
@@ -227,7 +265,7 @@ const SortableImageList = ({ images, setImages, showDragLabel = true }) => {
   );
 };
 
-// Enhanced UploadHelper Component
+// Upload Helper Component
 const EnhancedUploadHelper = ({ 
   multiple = true, 
   max = 10,
@@ -318,7 +356,7 @@ const EnhancedUploadHelper = ({
         <div className="flex flex-col items-center gap-2">
           <PlusOutlined className="text-2xl text-gray-400" />
           <span className="text-gray-600">{label}</span>
-          <span className="text-sm text-gray-500">Minimum {max} images recommended</span>
+          <span className="text-sm text-gray-500">Max {max} images recommended</span>
           {loading && <Spin size="small" />}
         </div>
       </label>
@@ -429,21 +467,12 @@ const VariantOptionImageUpload = ({
   );
 };
 
-// Discount Row Component - Redesigned to single row layout
+// Discount Row Component
 const DiscountRow = ({ name, restField, remove, form, customerPrice, dealerPrice, corporatePrice }) => {
-  // Calculate Discounted Amount
-  const calculateDiscountedAmount = (basePrice, discountPercentage) => {
-    const price = parseFloat(basePrice) || 0;
-    const discount = parseFloat(discountPercentage) || 0;
-    return price - (price * discount / 100);
-  };
-
-  // Watch discount values for this field
   const customerDiscount = Form.useWatch(['quantity_discount_splitup', name, 'Customer_discount'], form) || 0;
   const dealerDiscount = Form.useWatch(['quantity_discount_splitup', name, 'Dealer_discount'], form) || 0;
   const corporateDiscount = Form.useWatch(['quantity_discount_splitup', name, 'Corporate_discount'], form) || 0;
 
-  // Watch free delivery switches
   const freeDeliveryCustomer = Form.useWatch(['quantity_discount_splitup', name, 'free_delivery_customer'], form) || false;
   const freeDeliveryDealer = Form.useWatch(['quantity_discount_splitup', name, 'free_delivery_dealer'], form) || false;
   const freeDeliveryCorporate = Form.useWatch(['quantity_discount_splitup', name, 'free_delivery_corporate'], form) || false;
@@ -480,7 +509,7 @@ const DiscountRow = ({ name, restField, remove, form, customerPrice, dealerPrice
         </div>
 
         {/* Customer Section */}
-        <div className="flex flex-col gap-2 min-w-[280px]">
+        <div className="flex flex-col gap-2 min-w-[280px] bg-blue-50 p-2 rounded border">
           <div className="flex items-end gap-2">
             <Form.Item
               label="Cus Dis%"
@@ -533,7 +562,7 @@ const DiscountRow = ({ name, restField, remove, form, customerPrice, dealerPrice
         </div>
 
         {/* Dealer Section */}
-        <div className="flex flex-col gap-2 min-w-[280px]">
+        <div className="flex flex-col gap-2 min-w-[280px] bg-gray-50 p-2 rounded border">
           <div className="flex items-end gap-2">
             <Form.Item
               label="Dealer Dis%"
@@ -586,7 +615,7 @@ const DiscountRow = ({ name, restField, remove, form, customerPrice, dealerPrice
         </div>
 
         {/* Corporate Section */}
-        <div className="flex flex-col gap-2 min-w-[280px]">
+        <div className="flex flex-col gap-2 min-w-[280px] bg-green-50 p-2 rounded border">
           <div className="flex items-end gap-2">
             <Form.Item
               label="Corp Dis%"
@@ -687,7 +716,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   const [categoryData, setCategoryData] = useState([]);
   const [subcategory_data, setSubcategory_data] = useState([]);
   const [filter_subcategory_data, setFilterSubcategory_data] = useState([]);
-  const [variants, setVariants] = useState([{ ...initialVariantValue, _id: Date.now() }]);
+  const [variants, setVariants] = useState([{ ...INITIAL_VARIANT, _id: Date.now() }]);
   const [tableValue, setTableValue] = useState([]);
   const [allVendors, setAllVendors] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -695,6 +724,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   const [dummy, setDummy] = useState(false);
   const [modalUnitVisible, setModalUnitVisible] = useState(false);
   const [usedProductCodes, setUsedProductCodes] = useState(new Set());
+  
   const [isProductCodeLocked, setIsProductCodeLocked] = useState(false);
   const [lockedProductCodes, setLockedProductCodes] = useState({});
   
@@ -704,47 +734,16 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     corporate: 0
   });
 
-  const productTypeSelectedValue = Form.useWatch('type', form) || (id?.type || productType[0].value);
-  const productStockSelectedValue = Form.useWatch('stocks_status', form) || (id?.stocks_status || PRODUTSTOCK_TYPE[1].value);
+  const [seo_datas, setSEO_Datas] = useState(INITIAL_SEO_DATA);
 
-  // Watch base prices for discount calculations - MOVED TO COMPONENT LEVEL
+  // Watched values
+  const productTypeSelectedValue = Form.useWatch('type', form) || (id?.type || PRODUCT_TYPE[0].value);
   const customerPrice = Form.useWatch('customer_product_price', form) || 0;
   const dealerPrice = Form.useWatch('Deler_product_price', form) || 0;
   const corporatePrice = Form.useWatch('corporate_product_price', form) || 0;
 
-  const initial_seo_data = {
-    title: "",
-    keywords: "",
-    description: "",
-    url: "",
-  };
-
-  const [seo_datas, setSEO_Datas] = useState(initial_seo_data);
-
-  // Check if any variant is image variant
-  const hasImageVariant = variants.some(variant => 
-    variant.variant_type === "image_variant"
-  );
-
-  // Helper function to normalize images to array of objects
-  const normalizeImages = (images) => {
-    if (!images) return [];
-    
-    return images.map(img => {
-      if (typeof img === 'string') {
-        return createImageObject(img);
-      } else if (typeof img === 'object') {
-        return {
-          _id: img._id || uuidv4(),
-          path: img.path || img.url || img.image_url || '',
-          url: img.url || img.path || img.image_url || '',
-          type: img.type || 'image',
-          uploadedAt: img.uploadedAt || new Date().toISOString()
-        };
-      }
-      return img;
-    }).filter(img => img.path || img.url);
-  };
+  const userRole = JSON.parse(localStorage.getItem("userprofile") || '{"role": "user"}');
+  const hasImageVariant = variants.some(variant => variant.variant_type === "image_variant");
 
   // API Functions
   const productCategory = async () => {
@@ -782,7 +781,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       setLoading(true);
       onCategoryChnge(_.get(id, "category_details._id", ""));
       
-      // Set form values
       const formValues = {
         ...id,
         vendor_details: _.get(id, "vendor_details", []).map((res) => res._id),
@@ -800,15 +798,31 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
         url: _.get(id, "seo_url", ""),
       });
 
-      setTableValue(_.get(id, "variants_price", []));
+      // Initialize tableValue with proper prices
+      const initialTableValue = _.get(id, "variants_price", []).map(item => ({
+        ...item,
+        MRP_price: item.MRP_price || 0,
+        customer_product_price: item.customer_product_price || 0,
+        Deler_product_price: item.Deler_product_price || 0,
+        corporate_product_price: item.corporate_product_price || 0,
+      }));
+      setTableValue(initialTableValue);
       
-      // Normalize main product images to array of objects
+      setIsProductCodeLocked(_.get(id, "product_Lock", false));
+      
+      const initialLockedCodes = {};
+      _.get(id, "variants_price", []).forEach(variant => {
+        if (variant.key && variant.isLocked) {
+          initialLockedCodes[variant.key] = true;
+        }
+      });
+      setLockedProductCodes(initialLockedCodes);
+      
       const productImages = _.get(id, "images", []);
       const normalizedImages = normalizeImages(productImages);
       setImagePath(normalizedImages);
       
-      // Normalize variants with proper image structure
-      const initialVariants = _.get(id, "variants", [initialVariantValue]);
+      const initialVariants = _.get(id, "variants", [INITIAL_VARIANT]);
       const updatedVariants = initialVariants.map(variant => ({
         ...variant,
         _id: variant._id || Date.now() + Math.random(),
@@ -820,27 +834,14 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
         }))
       }));
       
-      console.log("Loaded variants with normalized images:", updatedVariants);
       setVariants(updatedVariants);
       setDummy(!dummy);
       setLoading(false);
     }
   }, [id, form]);
 
-  // Helper Functions
-  const calculatePercentageDifference = (mrp, price) => {
-    const mrpValue = parseFloat(mrp) || 0;
-    const priceValue = parseFloat(price) || 0;
-    
-    if (mrpValue === 0) return 0;
-    
-    const difference = priceValue - mrpValue;
-    const percentage = (difference / mrpValue) * 100;
-    
-    return Math.round(percentage * 100) / 100;
-  };
-
-  const updatePercentageDifferences = (mrp, customerPrice, dealerPrice, corporatePrice) => {
+  // Price Handlers
+  const updatePercentageDifferences = useCallback((mrp, customerPrice, dealerPrice, corporatePrice) => {
     const mrpValue = parseFloat(mrp) || 0;
     
     const newPercentages = {
@@ -850,9 +851,8 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     };
     
     setPercentageDifferences(newPercentages);
-  };
+  }, []);
 
-  // Price Handlers
   const handleMRPChange = (value) => {
     const mrp = parseFloat(value) || 0;
     const customerPrice = parseFloat(form.getFieldValue('customer_product_price') || 0);
@@ -893,10 +893,10 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   const handleAddVariant = () => {
     const newVariantId = Date.now() + Math.random();
     const newVariant = { 
-      ...initialVariantValue, 
+      ...INITIAL_VARIANT, 
       _id: newVariantId,
       options: [{
-        ...initialVariantOptionValue,
+        ...INITIAL_VARIANT_OPTION,
         _id: Date.now() + Math.random()
       }]
     };
@@ -911,7 +911,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
           options: [
             ...data.options,
             {
-              ...initialVariantOptionValue,
+              ...INITIAL_VARIANT_OPTION,
               _id: Date.now() + Math.random(),
               variant_type: data.variant_type,
             },
@@ -964,11 +964,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     );
   };
 
-  const handleOnChangeVariantOptionName = async (
-    event,
-    VariantId,
-    OptionId
-  ) => {
+  const handleOnChangeVariantOptionName = async (event, VariantId, OptionId) => {
     try {
       let { value } = event.target;
       const changeVariantOptionName = variants.map((data) => {
@@ -1027,7 +1023,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     );
   };
 
-  // Table Handlers
+  // FIXED: Table Handlers with proper price initialization
   const handlePriceChange = (record, e, priceType) => {
     const { value } = e.target;
     const numericValue = parseFloat(value) || 0;
@@ -1049,6 +1045,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     }
 
     setTableValue(updatedTableValue);
+    setDummy(!dummy); // Force re-render to update percentages
   };
 
   const handleProductCodeChange = (record, e) => {
@@ -1071,14 +1068,30 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     setTableValue(updatedTableValue);
   };
 
-  const getVariantPercentageDifference = (record, priceType) => {
-    const mrp = record.MRP_price || 0;
-    const price = record[priceType] || 0;
-    return calculatePercentageDifference(mrp, price);
-  };
+  // FIXED: Proper variant percentage calculation
+  const getVariantPercentageDifference = useCallback((record, priceType) => {
+    if (!record) return 0;
+    
+    const mrp = parseFloat(record.MRP_price) || 0;
+    const price = parseFloat(record[priceType]) || 0;
+    
+    console.log(`Variant calculation: MRP=${mrp}, ${priceType}=${price}`);
+    
+    if (mrp === 0 || price === 0) return 0;
+    
+    const difference = price - mrp;
+    const percentage = (difference / mrp) * 100;
+    
+    return Math.round(percentage * 100) / 100;
+  }, []);
 
-  // Product Code Lock Handlers
+  // Lock Handlers
   const handleLockProductCode = () => {
+    if (isProductCodeLocked && userRole.role !== "super admin") {
+      message.error("Only super admin can unlock product code");
+      return;
+    }
+    
     setIsProductCodeLocked(!isProductCodeLocked);
     if (!isProductCodeLocked) {
       message.success("Product code locked");
@@ -1088,10 +1101,23 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   };
 
   const handleLockVariantProductCode = (recordKey) => {
+    if (lockedProductCodes[recordKey] && userRole.role !== "super admin") {
+      message.error("Only super admin can unlock variant product code");
+      return;
+    }
+    
     setLockedProductCodes(prev => ({
       ...prev,
       [recordKey]: !prev[recordKey]
     }));
+
+    const updatedTableValue = tableValue.map(item => {
+      if (item.key === recordKey) {
+        return { ...item, isLocked: !lockedProductCodes[recordKey] };
+      }
+      return item;
+    });
+    setTableValue(updatedTableValue);
   };
 
   // Form Helpers
@@ -1244,41 +1270,49 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     setModalUnitVisible(false);
   };
 
-  // Calculate Discounted Amount
-  const calculateDiscountedAmount = (basePrice, discountPercentage) => {
-    const price = parseFloat(basePrice) || 0;
-    const discount = parseFloat(discountPercentage) || 0;
-    return price - (price * discount / 100);
-  };
+  // FIXED: Generate table data from variants with proper price initialization
+  const combinations = useMemo(() => {
+    if (!variants || variants.length === 0) return [[]];
+    
+    return variants.reduce(
+      (acc, variant) =>      
+        acc.flatMap((combination) =>
+          variant.options.map((option) => [...combination, option])
+        ),
+      [[]]
+    );
+  }, [variants]);
 
-  // Generate table data from variants
-  const combinations = variants.reduce(
-    (acc, variant) =>      
-      acc.flatMap((combination) =>
-        variant.options.map((option) => [...combination, option])
-      ),
-    [[]]
-  );
+  const tableData = useMemo(() => {
+    if (!combinations || combinations.length === 0) return [];
+    
+    return combinations.map((combination) => {
+      const row = combination.reduce((acc, data, i) => {
+        const variantName = variants[i]?.variant_name || `Variant ${i + 1}`;
+        return {
+          ...acc,
+          [variantName]: data.value,
+        };
+      }, {});
 
-  const tableData = combinations.map((combination) => {
-    const row = combination.reduce((acc, data, i) => {
-      const variantName = variants[i]?.variant_name || `Variant ${i + 1}`;
-      return {
-        ...acc,
-        [variantName]: data.value,
-      };
-    }, {});
+      const keyId = combination.map((opt) => opt.value).join("-");
+      const existingData = tableValue.find((data) => data.key === keyId);
 
-    const keyId = combination.map((opt) => opt.value).join("-");
-    const existingData = tableValue.find((data) => data.key === keyId);
-
-    return (
-      existingData || {
+      // Initialize with proper prices to avoid NaN calculations
+      const baseRecord = {
         ...row,
         key: keyId,
-      }
-    );
-  });
+        isLocked: lockedProductCodes[keyId] || false,
+        MRP_price: 0,
+        customer_product_price: 0,
+        Deler_product_price: 0,
+        corporate_product_price: 0,
+        product_code: ""
+      };
+
+      return existingData ? { ...baseRecord, ...existingData } : baseRecord;
+    });
+  }, [combinations, tableValue, variants, lockedProductCodes]);
 
   // Stock Info Data
   const stockInfoData = (form.getFieldValue("stock_info") || []).map(
@@ -1334,8 +1368,35 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     },
   ];
 
-  // Variant Table Columns
-  const columns = [
+  // FIXED: Variant Table Columns with proper percentage calculation
+  const PriceColumn = ({ title, dataIndex, record, onPriceChange }) => {
+    const percentage = getVariantPercentageDifference(record, dataIndex);
+    
+    return (
+      <div>
+        <Input
+          type="number"
+          required
+          placeholder={title}
+          value={record[dataIndex] || ""}
+          onChange={(e) => onPriceChange(record, e, dataIndex)}
+        />
+        {record.MRP_price > 0 && record[dataIndex] > 0 && (
+          <div className="text-xs mt-1">
+            <Tag 
+              color={percentage > 0 ? "green" : percentage < 0 ? "red" : "default"}
+              icon={percentage > 0 ? <ArrowUpOutlined /> : percentage < 0 ? <ArrowDownOutlined /> : null}
+            >
+              {percentage > 0 ? '+' : ''}
+              {percentage.toFixed(2)}%
+            </Tag>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const columns = useMemo(() => [
     ...variants.map((variant) => ({
       title: variant.variant_name || `Variant ${variant._id}`,
       dataIndex: variant.variant_name,
@@ -1343,16 +1404,15 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       render: (text) => text || "-",
     })),
     {
-      title: "MRP price",
+      title: "Cost",
       dataIndex: "MRP_price",
       key: "MRP_price",
-      render: (text, record, index) => (
+      render: (text, record) => (
         <Input
           type="number"
-          key={index}
           required
-          placeholder="MRP price"
-          value={record.MRP_price}
+          placeholder="Cost"
+          value={record.MRP_price || ""}
           onChange={(e) => handlePriceChange(record, e, "MRP_price")}
         />
       ),
@@ -1361,96 +1421,50 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       title: "Customer Price",
       dataIndex: "customer_product_price",
       key: "customer_product_price",
-      render: (text, record, index) => (
-        <div>
-          <Input
-            type="number"
-            key={index}
-            required
-            placeholder="Customer Price"
-            value={record.customer_product_price}
-            onChange={(e) => handlePriceChange(record, e, "customer_product_price")}
-          />
-          {record.MRP_price && record.customer_product_price && (
-            <div className="text-xs mt-1">
-              <Tag 
-                color={getVariantPercentageDifference(record, "customer_product_price") > 0 ? "green" : "red"}
-                icon={getVariantPercentageDifference(record, "customer_product_price") > 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
-              >
-                {getVariantPercentageDifference(record, "customer_product_price") > 0 ? '+' : ''}
-                {getVariantPercentageDifference(record, "customer_product_price").toFixed(2)}%
-              </Tag>
-            </div>
-          )}
-        </div>
+      render: (text, record) => (
+        <PriceColumn
+          title="Customer Price"
+          dataIndex="customer_product_price"
+          record={record}
+          onPriceChange={handlePriceChange}
+        />
       ),
     },
     {
       title: "Dealer Price",
       dataIndex: "Deler_product_price",
       key: "Deler_product_price",
-      render: (text, record, index) => (
-        <div>
-          <Input
-            type="number"
-            key={index}
-            required
-            placeholder="Dealer Price"
-            value={record.Deler_product_price}
-            onChange={(e) => handlePriceChange(record, e, "Deler_product_price")}
-          />
-          {record.MRP_price && record.Deler_product_price && (
-            <div className="text-xs mt-1">
-              <Tag 
-                color={getVariantPercentageDifference(record, "Deler_product_price") > 0 ? "green" : "red"}
-                icon={getVariantPercentageDifference(record, "Deler_product_price") > 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
-              >
-                {getVariantPercentageDifference(record, "Deler_product_price") > 0 ? '+' : ''}
-                {getVariantPercentageDifference(record, "Deler_product_price").toFixed(2)}%
-              </Tag>
-            </div>
-          )}
-        </div>
+      render: (text, record) => (
+        <PriceColumn
+          title="Dealer Price"
+          dataIndex="Deler_product_price"
+          record={record}
+          onPriceChange={handlePriceChange}
+        />
       ),
     },
     {
       title: "Corporate Price",
       dataIndex: "corporate_product_price",
       key: "corporate_product_price",
-      render: (text, record, index) => (
-        <div>
-          <Input
-            type="number"
-            key={index}
-            required
-            placeholder="Corporate Price"
-            value={record.corporate_product_price}
-            onChange={(e) => handlePriceChange(record, e, "corporate_product_price")}
-          />
-          {record.MRP_price && record.corporate_product_price && (
-            <div className="text-xs mt-1">
-              <Tag 
-                color={getVariantPercentageDifference(record, "corporate_product_price") > 0 ? "green" : "red"}
-                icon={getVariantPercentageDifference(record, "corporate_product_price") > 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
-              >
-                {getVariantPercentageDifference(record, "corporate_product_price") > 0 ? '+' : ''}
-                {getVariantPercentageDifference(record, "corporate_product_price").toFixed(2)}%
-              </Tag>
-            </div>
-          )}
-        </div>
+      render: (text, record) => (
+        <PriceColumn
+          title="Corporate Price"
+          dataIndex="corporate_product_price"
+          record={record}
+          onPriceChange={handlePriceChange}
+        />
       ),
     },
     {
       title: "Product Code",
       dataIndex: "product_code",
       key: "product_code",
-      render: (text, record, index) => (
+      render: (text, record) => (
         <Input
           placeholder="Product Code"
           required
-          key={index}
-          value={record.product_code}
+          value={record.product_code || ""}
           onChange={(e) => handleProductCodeChange(record, e)}
           readOnly={lockedProductCodes[record.key]}
           suffix={
@@ -1479,19 +1493,18 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
               icon={lockedProductCodes[record.key] ? <LockOutlined /> : <UnlockOutlined />}
               onClick={() => handleLockVariantProductCode(record.key)}
               size="small"
+              disabled={lockedProductCodes[record.key] && userRole.role !== "super admin"}
             />
           }
         />
       ),
     },
-  ];
+  ], [variants, tableValue, lockedProductCodes, productTypeSelectedValue, userRole.role, getVariantPercentageDifference]);
 
   // Form Submission
   const handleFinish = async (values) => {
     try {
       console.log("Form Values:", values);
-      console.log("Variants:", variants);
-      console.log("Has Image Variant:", hasImageVariant);
       
       setLoading(true);
       
@@ -1564,7 +1577,13 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
         }))
       }));
 
-      values.variants_price = tableValue;
+      // Include lock status in submission
+      values.product_Lock = isProductCodeLocked;
+      values.variants_price = tableValue.map(item => ({
+        ...item,
+        isLocked: lockedProductCodes[item.key] || false
+      }));
+
       values.seo_url = String(values.seo_url).trim();
 
       console.log("Final submission data:", values);
@@ -1581,10 +1600,13 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       setImagePath([]);
       setFormStatus(false);
       fetchData();
-      setSEO_Datas(initial_seo_data);
+      setSEO_Datas(INITIAL_SEO_DATA);
       setPercentageDifferences({ customer: 0, dealer: 0, corporate: 0 });
-      setIsProductCodeLocked(false);
-      setLockedProductCodes({});
+      
+      if (!id) {
+        setIsProductCodeLocked(false);
+        setLockedProductCodes({});
+      }
     } catch (err) {
       console.log("Error in form submission:", err);
       ERROR_NOTIFICATION(err);
@@ -1592,8 +1614,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       setLoading(false);
     }
   };
-
-  const userRole = JSON.parse(localStorage.getItem("userprofile"));
 
   return (
     <Spin spinning={loading}>
@@ -1639,7 +1659,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
               >
                 <div className={`grid grid-cols-1 md:grid-cols-2 ${userRole.role == "super admin"?"lg:grid-cols-4":"lg:grid-cols-3"} gap-4`}>
                   {userRole.role == "super admin" && (
-                  <div className="p-2 bg-blue-200 rounded-lg !text-lg">
+                  <div className="p-2 bg-blue-50 rounded-lg border">
                     <Form.Item
                       name="is_visible"
                       label="Visibility"
@@ -1652,7 +1672,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     </Form.Item>
                     </div>
                   )}
-                  <div className="p-2 bg-gray-100 rounded-lg !text-lg">
+                  <div className="p-2 bg-gray-50 rounded-lg border">
                     <Form.Item
                       name="is_customer"
                       label="Customer product"
@@ -1661,7 +1681,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                       <Switch />
                     </Form.Item>
                   </div>
-                  <div className="p-2 bg-gray-100 rounded-lg !text-lg">
+                  <div className="p-2 bg-gray-50 rounded-lg border">
                     <Form.Item
                       name="is_dealer"
                       label="Dealer product"
@@ -1670,7 +1690,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                       <Switch />
                     </Form.Item>
                   </div>
-                  <div className="p-2 bg-gray-100 rounded-lg !text-lg">
+                  <div className="p-2 bg-gray-50 rounded-lg border">
                   <Form.Item
                     name="is_corporate"
                     label="Corporate product"
@@ -1681,6 +1701,28 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <Form.Item
+                    name="product_codeS_NO"
+                    label="Product Code(S.No)"
+                    rules={[formValidation("Enter Product Code(S.No)")]}
+                  >
+                    <Input
+                      placeholder="Enter Product Code(S.No)"
+                      type="text"
+                      className="h-12"
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    name="Vendor_Code"
+                    label="Vendor Code"
+                    rules={[formValidation("Enter Vendor Code")]}
+                  >
+                    <Input
+                      placeholder="Enter Vendor Code"
+                      type="text"
+                      className="h-12"
+                    />
+                  </Form.Item>
                   <Form.Item
                     label="Product Type"
                     name="type"
@@ -1694,7 +1736,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     <Select
                       placeholder="Select type"
                       className="h-12"
-                      options={productType}
+                      options={PRODUCT_TYPE}
                     />
                   </Form.Item>
 
@@ -1766,7 +1808,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     <Select
                       placeholder="Select Stocks Type"
                       className="h-12"
-                      options={PRODUTSTOCK_TYPE}
+                      options={PRODUCT_STOCK_TYPE}
                     />
                   </Form.Item>
 
@@ -1781,7 +1823,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                   >
                     <Input
                       placeholder="Product code will be generated automatically"
-                      readOnly={isProductCodeLocked}
+                      readOnly={isProductCodeLocked||id}
                       suffix={
                         !isProductCodeLocked ? (
                           <ReloadOutlined
@@ -1801,6 +1843,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                           icon={isProductCodeLocked ? <LockOutlined /> : <UnlockOutlined />}
                           onClick={handleLockProductCode}
                           size="small"
+                          disabled={isProductCodeLocked && userRole.role !== "super admin"}
                         />
                       }
                     />
@@ -1870,7 +1913,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     <Select
                       placeholder="Select Unit Type"
                       className="h-12"
-                      options={Unit_type}
+                      options={UNIT_TYPE}
                     />
                   </Form.Item>
 
@@ -1911,7 +1954,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     <Select
                       placeholder="Select type"
                       className="h-12"
-                      options={TaxPreference}
+                      options={TAX_PREFERENCE}
                     />
                   </Form.Item>
                   <Form.Item
@@ -1927,7 +1970,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     <Select
                       placeholder="Select type"
                       className="h-12"
-                      options={GST_preference}
+                      options={GST_PREFERENCE}
                     />
                   </Form.Item>
                 </div>
@@ -2124,7 +2167,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                       max={10}
                       setImagePath={setImagePath}
                       image_path={image_path}
-                      label="Upload Product Images (Minimum 6 images)"
+                      label="Upload Product Images "
                     />
                   </Form.Item>
                 </Panel>
@@ -2142,12 +2185,12 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                 {productTypeSelectedValue === "Stand Alone Product" ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Form.Item
-                      rules={[formValidation("Enter MRP Price")]}
-                      label="MRP Price"
+                      rules={[formValidation("Enter Cost")]}
+                      label="Cost"
                       name="MRP_price"
                     >
                       <Input
-                        placeholder="Enter MRP Price"
+                        placeholder="Enter Cost"
                         type="Number"
                         className="h-12"
                         onChange={(e) => handleMRPChange(e.target.value)}
