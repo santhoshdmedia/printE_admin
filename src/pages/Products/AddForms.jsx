@@ -467,7 +467,7 @@ const VariantOptionImageUpload = ({
   );
 };
 
-// Discount Row Component - FIXED for variable products
+// Updated Discount Row Component with individual quantities and recommended status
 const DiscountRow = ({ 
   name, 
   restField, 
@@ -490,7 +490,6 @@ const DiscountRow = ({
   // For variable products, use the first variant's prices as reference
   const getEffectivePrice = (priceType) => {
     if (productType === "Variable Product") {
-      // Use the first variant price or average of all variants
       const variants = Object.values(variantPrices);
       if (variants.length > 0) {
         const firstVariant = variants[0];
@@ -499,7 +498,6 @@ const DiscountRow = ({
       return 0;
     }
     
-    // For standalone products, use the main form prices
     switch (priceType) {
       case 'customer_product_price': return customerPrice;
       case 'Deler_product_price': return dealerPrice;
@@ -515,37 +513,23 @@ const DiscountRow = ({
   return (
     <Card size="small" key={name} className="relative mb-3">
       <div className="flex flex-nowrap items-start gap-3 overflow-x-auto pb-2">
-        
-        {/* Quantity & Unique ID */}
-        <div className="flex flex-col gap-2 min-w-[120px]">
-          <Form.Item
-            label="Quantity"
-            {...restField}
-            name={[name, "quantity"]}
-            rules={[formValidation("Enter a Quantity")]}
-            className="mb-0"
-          >
-            <Input
-              type="number"
-              placeholder="Qty"
-              className="h-9"
-            />
-          </Form.Item>
-          
-          <Form.Item
-            hidden
-            initialValue={`${name}${Date.now()}`}
-            {...restField}
-            name={[name, "uniqe_id"]}
-            className="mb-0"
-          >
-            <Input />
-          </Form.Item>
-        </div>
-
         {/* Customer Section */}
-        <div className="flex flex-col gap-2 min-w-[280px] bg-blue-50 p-2 rounded border">
+        <div className="flex flex-col gap-2 min-w-[300px] bg-blue-50 p-3 rounded border">
           <div className="flex items-end gap-2">
+            <Form.Item
+              label="Cus Qty"
+              {...restField}
+              name={[name, "Customer_quantity"]}
+              rules={[formValidation("Enter Customer Quantity")]}
+              className="mb-0 flex-1"
+            >
+              <Input
+                type="number"
+                placeholder="Qty"
+                className="h-9"
+              />
+            </Form.Item>
+
             <Form.Item
               label="Cus Dis%"
               {...restField}
@@ -562,12 +546,14 @@ const DiscountRow = ({
             </Form.Item>
 
             <div className="flex flex-col min-w-[100px]">
-              <label className="text-xs text-gray-500 mb-1">Cus dis Price</label>
+              <label className="text-xs text-gray-500 mb-1">Cus Price</label>
               <div className="h-9 px-2 border border-gray-300 rounded flex items-center bg-gray-50 text-sm">
                 ₹{calculateDiscountedAmount(effectiveCustomerPrice, customerDiscount).toFixed(2)}
               </div>
             </div>
+          </div>
 
+          <div className="flex items-center gap-2">
             <Form.Item
               label="Free Delivery"
               {...restField}
@@ -577,28 +563,66 @@ const DiscountRow = ({
             >
               <Switch size="small" />
             </Form.Item>
+
+            {!freeDeliveryCustomer && (
+              <Form.Item
+                label="Delivery Charges"
+                {...restField}
+                name={[name, "delivery_charges_customer"]}
+                className="mb-0 flex-1"
+              >
+                <Input
+                  type="number"
+                  placeholder="Charges"
+                  className="h-9"
+                  prefix="₹"
+                />
+              </Form.Item>
+            )}
           </div>
 
-          {!freeDeliveryCustomer && (
-            <Form.Item
-              label="Cus Delivery charges"
-              {...restField}
-              name={[name, "delivery_charges_customer"]}
-              className="mb-0"
+          <Form.Item
+            label="Recommended"
+            {...restField}
+            name={[name, "recommended_stats_customer"]}
+            className="mb-0"
+          >
+            <Select
+              className="h-9 text-sm"
+              placeholder="Select status"
             >
-              <Input
-                type="number"
-                placeholder="Charges"
-                className="h-9"
-                prefix="₹"
-              />
-            </Form.Item>
-          )}
+              {[
+                "Recommended",
+                "Most Picked",
+                "High seller",
+                "Best seller",
+                "No comments",
+              ].map((res, index) => (
+                <Select.Option key={index} value={res}>
+                  {res}
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
         </div>
 
         {/* Dealer Section */}
-        <div className="flex flex-col gap-2 min-w-[280px] bg-gray-50 p-2 rounded border">
+        <div className="flex flex-col gap-2 min-w-[300px] bg-gray-50 p-3 rounded border">
           <div className="flex items-end gap-2">
+            <Form.Item
+              label="Dealer Qty"
+              {...restField}
+              name={[name, "Dealer_quantity"]}
+              rules={[formValidation("Enter Dealer Quantity")]}
+              className="mb-0 flex-1"
+            >
+              <Input
+                type="number"
+                placeholder="Qty"
+                className="h-9"
+              />
+            </Form.Item>
+
             <Form.Item
               label="Dealer Dis%"
               {...restField}
@@ -615,12 +639,14 @@ const DiscountRow = ({
             </Form.Item>
 
             <div className="flex flex-col min-w-[100px]">
-              <label className="text-xs text-gray-500 mb-1">Dealer dis Price</label>
+              <label className="text-xs text-gray-500 mb-1">Dealer Price</label>
               <div className="h-9 px-2 border border-gray-300 rounded flex items-center bg-gray-50 text-sm">
                 ₹{calculateDiscountedAmount(effectiveDealerPrice, dealerDiscount).toFixed(2)}
               </div>
             </div>
+          </div>
 
+          <div className="flex items-center gap-2">
             <Form.Item
               label="Free Delivery"
               {...restField}
@@ -630,28 +656,66 @@ const DiscountRow = ({
             >
               <Switch size="small" />
             </Form.Item>
+
+            {!freeDeliveryDealer && (
+              <Form.Item
+                label="Delivery Charges"
+                {...restField}
+                name={[name, "delivery_charges_dealer"]}
+                className="mb-0 flex-1"
+              >
+                <Input
+                  type="number"
+                  placeholder="Charges"
+                  className="h-9"
+                  prefix="₹"
+                />
+              </Form.Item>
+            )}
           </div>
 
-          {!freeDeliveryDealer && (
-            <Form.Item
-              label="Dealer Delivery charges"
-              {...restField}
-              name={[name, "delivery_charges_dealer"]}
-              className="mb-0"
+          <Form.Item
+            label="Recommended"
+            {...restField}
+            name={[name, "recommended_stats_dealer"]}
+            className="mb-0"
+          >
+            <Select
+              className="h-9 text-sm"
+              placeholder="Select status"
             >
-              <Input
-                type="number"
-                placeholder="Charges"
-                className="h-9"
-                prefix="₹"
-              />
-            </Form.Item>
-          )}
+              {[
+                "Recommended",
+                "Most Picked",
+                "High seller",
+                "Best seller",
+                "No comments",
+              ].map((res, index) => (
+                <Select.Option key={index} value={res}>
+                  {res}
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
         </div>
 
         {/* Corporate Section */}
-        <div className="flex flex-col gap-2 min-w-[280px] bg-green-50 p-2 rounded border">
+        <div className="flex flex-col gap-2 min-w-[300px] bg-green-50 p-3 rounded border">
           <div className="flex items-end gap-2">
+            <Form.Item
+              label="Corp Qty"
+              {...restField}
+              name={[name, "Corporate_quantity"]}
+              rules={[formValidation("Enter Corporate Quantity")]}
+              className="mb-0 flex-1"
+            >
+              <Input
+                type="number"
+                placeholder="Qty"
+                className="h-9"
+              />
+            </Form.Item>
+
             <Form.Item
               label="Corp Dis%"
               {...restField}
@@ -668,12 +732,14 @@ const DiscountRow = ({
             </Form.Item>
 
             <div className="flex flex-col min-w-[100px]">
-              <label className="text-xs text-gray-500 mb-1">Corp dis Price</label>
+              <label className="text-xs text-gray-500 mb-1">Corp Price</label>
               <div className="h-9 px-2 border border-gray-300 rounded flex items-center bg-gray-50 text-sm">
                 ₹{calculateDiscountedAmount(effectiveCorporatePrice, corporateDiscount).toFixed(2)}
               </div>
             </div>
+          </div>
 
+          <div className="flex items-center gap-2">
             <Form.Item
               label="Free Delivery"
               {...restField}
@@ -683,37 +749,33 @@ const DiscountRow = ({
             >
               <Switch size="small" />
             </Form.Item>
+
+            {!freeDeliveryCorporate && (
+              <Form.Item
+                label="Delivery Charges"
+                {...restField}
+                name={[name, "delivery_charges_corporate"]}
+                className="mb-0 flex-1"
+              >
+                <Input
+                  type="number"
+                  placeholder="Charges"
+                  className="h-9"
+                  prefix="₹"
+                />
+              </Form.Item>
+            )}
           </div>
 
-          {!freeDeliveryCorporate && (
-            <Form.Item
-              label="Corp Delivery charges"
-              {...restField}
-              name={[name, "delivery_charges_corporate"]}
-              className="mb-0"
-            >
-              <Input
-                type="number"
-                placeholder="Charges"
-                className="h-9"
-                prefix="₹"
-              />
-            </Form.Item>
-          )}
-        </div>
-
-        {/* Recommended Status */}
-        <div className="flex flex-col gap-2 min-w-[150px]">
           <Form.Item
             label="Recommended"
-            initialValue={"No comments"}
             {...restField}
-            name={[name, "recommended_stats"]}
+            name={[name, "recommended_stats_corporate"]}
             className="mb-0"
           >
             <Select
               className="h-9 text-sm"
-              defaultValue={"No comments"}
+              placeholder="Select status"
             >
               {[
                 "Recommended",
@@ -774,6 +836,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   // Refs for input fields to prevent cursor jumping
   const productionTimeRef = useRef(null);
   const stockArrangementTimeRef = useRef(null);
+  const variantPriceRefs = useRef({});
 
   // Watched values
   const productTypeSelectedValue = Form.useWatch('type', form) || (id?.type || PRODUCT_TYPE[0].value);
@@ -819,15 +882,24 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     collectVendors();
   }, []);
 
-    useEffect(() => {
-    if (id) {
+  // FIXED: Subcategory initialization with proper data loading
+  useEffect(() => {
+    if (id && categoryData.length > 0 && subcategory_data.length > 0) {
       setLoading(true);
-      onCategoryChnge(_.get(id, "category_details._id", ""));
+      const categoryId = _.get(id, "category_details._id", "");
+      
+      // Set filter subcategory data based on the category
+      if (categoryId) {
+        const filteredSubcategories = subcategory_data.filter(
+          (data) => data.select_main_category === categoryId
+        );
+        setFilterSubcategory_data(filteredSubcategories);
+      }
       
       const formValues = {
         ...id,
         vendor_details: _.get(id, "vendor_details", []).map((res) => res._id),
-        category_details: _.get(id, "category_details._id", ""),
+        category_details: categoryId,
         sub_category_details: _.get(id, "sub_category_details._id", ""),
         stock_info: [],
       };
@@ -881,7 +953,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       setDummy(!dummy);
       setLoading(false);
     }
-  }, [id, form]);
+  }, [id, form, categoryData, subcategory_data]);
 
   // Price Handlers
   const updatePercentageDifferences = useCallback((mrp, customerPrice, dealerPrice, corporatePrice) => {
@@ -937,7 +1009,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     const value = e.target.value;
     form.setFieldsValue({ Production_time: value });
     
-    // Preserve cursor position
     if (productionTimeRef.current) {
       const cursorPosition = e.target.selectionStart;
       setTimeout(() => {
@@ -950,13 +1021,65 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     const value = e.target.value;
     form.setFieldsValue({ Stock_Arrangement_time: value });
     
-    // Preserve cursor position
     if (stockArrangementTimeRef.current) {
       const cursorPosition = e.target.selectionStart;
       setTimeout(() => {
         stockArrangementTimeRef.current.setSelectionRange(cursorPosition, cursorPosition);
       }, 0);
     }
+  };
+
+  // FIXED: Variant price handlers with cursor preservation
+  const handlePriceChange = (record, e, priceType) => {
+    const { value } = e.target;
+    const numericValue = parseFloat(value) || 0;
+
+    const updatedRecord = {
+      ...record,
+      [priceType]: numericValue,
+    };
+
+    const updatedTableValue = tableValue.map((data) => {
+      if (data.key === record.key) {
+        return updatedRecord;
+      }
+      return data;
+    });
+
+    if (!updatedTableValue.some((data) => data.key === record.key)) {
+      updatedTableValue.push(updatedRecord);
+    }
+
+    setTableValue(updatedTableValue);
+    
+    // Preserve cursor position
+    const inputRef = variantPriceRefs.current[`${record.key}-${priceType}`];
+    if (inputRef) {
+      const cursorPosition = e.target.selectionStart;
+      setTimeout(() => {
+        inputRef.setSelectionRange(cursorPosition, cursorPosition);
+      }, 0);
+    }
+  };
+
+  const handleProductCodeChange = (record, e) => {
+    const { value } = e.target;
+    const updatedTableValue = tableValue.map((data) => {
+      if (data.key === record.key) {
+        return {
+          ...data,
+          product_code: value,
+          product_unique_code: uuidv4() + Date.now(),
+        };
+      }
+      return data;
+    });
+
+    if (!updatedTableValue.some((data) => data.key === record.key)) {
+      updatedTableValue.push({ ...record, product_code: value });
+    }
+
+    setTableValue(updatedTableValue);
   };
 
   // Variant Handlers
@@ -1093,51 +1216,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     );
   };
 
-  // Table Handlers with proper price initialization
-  const handlePriceChange = (record, e, priceType) => {
-    const { value } = e.target;
-    const numericValue = parseFloat(value) || 0;
-
-    const updatedRecord = {
-      ...record,
-      [priceType]: numericValue,
-    };
-
-    const updatedTableValue = tableValue.map((data) => {
-      if (data.key === record.key) {
-        return updatedRecord;
-      }
-      return data;
-    });
-
-    if (!updatedTableValue.some((data) => data.key === record.key)) {
-      updatedTableValue.push(updatedRecord);
-    }
-
-    setTableValue(updatedTableValue);
-    setDummy(!dummy);
-  };
-
-  const handleProductCodeChange = (record, e) => {
-    const { value } = e.target;
-    const updatedTableValue = tableValue.map((data) => {
-      if (data.key === record.key) {
-        return {
-          ...data,
-          product_code: value,
-          product_unique_code: uuidv4() + Date.now(),
-        };
-      }
-      return data;
-    });
-
-    if (!updatedTableValue.some((data) => data.key === record.key)) {
-      updatedTableValue.push({ ...record, product_code: value });
-    }
-
-    setTableValue(updatedTableValue);
-  };
-
   // Proper variant percentage calculation
   const getVariantPercentageDifference = useCallback((record, priceType) => {
     if (!record) return 0;
@@ -1189,16 +1267,20 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   };
 
   // Form Helpers
-  // Support multiple categories
-const onCategoryChnge = (value) => {
+  // FIXED: Subcategory handling with proper initialization
+  const onCategoryChnge = (value) => {
     if (value) {
-      let response = subcategory_data.filter((data) => {
+      const response = subcategory_data.filter((data) => {
         return data.select_main_category === value;
       });
       setFilterSubcategory_data(response);
+      
+      // Clear subcategory when main category changes
+      form.setFieldsValue({ sub_category_details: undefined });
+    } else {
+      setFilterSubcategory_data([]);
     }
   };
-
 
   const handleChnge = (e, location) => {
     setSEO_Datas((pre) => ({ ...pre, [location]: e.target.value }));
@@ -1275,8 +1357,8 @@ const onCategoryChnge = (value) => {
     }
   };
 
-  // Generate Product Code - UPDATED for multiple categories
- const generateProductCode = (isVariableProduct = false, variantName = "") => {
+  // Generate Product Code
+  const generateProductCode = (isVariableProduct = false, variantName = "") => {
     const categoryId = form.getFieldValue("category_details");
     const subCategoryId = form.getFieldValue("sub_category_details");
 
@@ -1373,14 +1455,14 @@ const onCategoryChnge = (value) => {
         ...row,
         key: keyId,
         isLocked: lockedProductCodes[keyId] || false,
-        MRP_price: 0,
-        customer_product_price: 0,
-        Deler_product_price: 0,
-        corporate_product_price: 0,
-        product_code: ""
+        MRP_price: existingData?.MRP_price || 0,
+        customer_product_price: existingData?.customer_product_price || 0,
+        Deler_product_price: existingData?.Deler_product_price || 0,
+        corporate_product_price: existingData?.corporate_product_price || 0,
+        product_code: existingData?.product_code || ""
       };
 
-      return existingData ? { ...baseRecord, ...existingData } : baseRecord;
+      return baseRecord;
     });
   }, [combinations, tableValue, variants, lockedProductCodes]);
 
@@ -1438,18 +1520,29 @@ const onCategoryChnge = (value) => {
     },
   ];
 
-  // Variant Table Columns with proper percentage calculation
+  // FIXED: Variant Table Columns with cursor preservation
   const PriceColumn = ({ title, dataIndex, record, onPriceChange }) => {
     const percentage = getVariantPercentageDifference(record, dataIndex);
+    const inputRef = useRef(null);
     
+    // Store the ref for cursor preservation
+    useEffect(() => {
+      variantPriceRefs.current[`${record.key}-${dataIndex}`] = inputRef.current;
+    }, [record.key, dataIndex]);
+
+    const handleChange = (e) => {
+      onPriceChange(record, e, dataIndex);
+    };
+
     return (
       <div>
         <Input
+          ref={inputRef}
           type="number"
           required
           placeholder={title}
           value={record[dataIndex] || ""}
-          onChange={(e) => onPriceChange(record, e, dataIndex)}
+          onChange={handleChange}
         />
         {record.MRP_price > 0 && record[dataIndex] > 0 && (
           <div className="text-xs mt-1">
@@ -1478,12 +1571,11 @@ const onCategoryChnge = (value) => {
       dataIndex: "MRP_price",
       key: "MRP_price",
       render: (text, record) => (
-        <Input
-          type="number"
-          required
-          placeholder="Cost"
-          value={record.MRP_price || ""}
-          onChange={(e) => handlePriceChange(record, e, "MRP_price")}
+        <PriceColumn
+          title="Cost"
+          dataIndex="MRP_price"
+          record={record}
+          onPriceChange={handlePriceChange}
         />
       ),
     },
@@ -1571,8 +1663,8 @@ const onCategoryChnge = (value) => {
     },
   ], [variants, tableValue, lockedProductCodes, productTypeSelectedValue, userRole.role, getVariantPercentageDifference]);
 
-  // Form Submission - UPDATED for multiple categories
-    const handleFinish = async (values) => {
+  // Form Submission
+  const handleFinish = async (values) => {
     try {
       console.log("Form Values:", values);
       
@@ -1810,7 +1902,6 @@ const onCategoryChnge = (value) => {
                     />
                   </Form.Item>
 
-                  {/* Multiple categories */}
                   <Form.Item
                     label="Main Category"
                     name="category_details"
@@ -2555,7 +2646,7 @@ const onCategoryChnge = (value) => {
                 </div>
 
                 <div className="mt-4">
-                  <h2 className="font-medium mb-3">Quantity + Discount % + Delivery</h2>
+                  <h2 className="font-medium mb-3">Quantity + Discount % + Delivery + Recommended Status</h2>
                   <Form.List name="quantity_discount_splitup">
                     {(fields, { add, remove }) => (
                       <>
@@ -2582,7 +2673,6 @@ const onCategoryChnge = (value) => {
                               corporatePrice={corporatePrice}
                               productType={productTypeSelectedValue}
                               variantPrices={tableValue.reduce((acc, variant) => {
-                                // Create a map of variant prices for reference
                                 acc[variant.key] = {
                                   customer_product_price: variant.customer_product_price || 0,
                                   Deler_product_price: variant.Deler_product_price || 0,
