@@ -31,7 +31,7 @@ import {
   LockOutlined,
   UnlockOutlined,
 } from "@ant-design/icons";
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
 import JoditEditor from "jodit-react";
@@ -467,8 +467,18 @@ const VariantOptionImageUpload = ({
   );
 };
 
-// Discount Row Component
-const DiscountRow = ({ name, restField, remove, form, customerPrice, dealerPrice, corporatePrice }) => {
+// Discount Row Component - FIXED for variable products
+const DiscountRow = ({ 
+  name, 
+  restField, 
+  remove, 
+  form, 
+  customerPrice, 
+  dealerPrice, 
+  corporatePrice,
+  productType,
+  variantPrices = {}
+}) => {
   const customerDiscount = Form.useWatch(['quantity_discount_splitup', name, 'Customer_discount'], form) || 0;
   const dealerDiscount = Form.useWatch(['quantity_discount_splitup', name, 'Dealer_discount'], form) || 0;
   const corporateDiscount = Form.useWatch(['quantity_discount_splitup', name, 'Corporate_discount'], form) || 0;
@@ -476,6 +486,31 @@ const DiscountRow = ({ name, restField, remove, form, customerPrice, dealerPrice
   const freeDeliveryCustomer = Form.useWatch(['quantity_discount_splitup', name, 'free_delivery_customer'], form) || false;
   const freeDeliveryDealer = Form.useWatch(['quantity_discount_splitup', name, 'free_delivery_dealer'], form) || false;
   const freeDeliveryCorporate = Form.useWatch(['quantity_discount_splitup', name, 'free_delivery_corporate'], form) || false;
+
+  // For variable products, use the first variant's prices as reference
+  const getEffectivePrice = (priceType) => {
+    if (productType === "Variable Product") {
+      // Use the first variant price or average of all variants
+      const variants = Object.values(variantPrices);
+      if (variants.length > 0) {
+        const firstVariant = variants[0];
+        return firstVariant[priceType] || 0;
+      }
+      return 0;
+    }
+    
+    // For standalone products, use the main form prices
+    switch (priceType) {
+      case 'customer_product_price': return customerPrice;
+      case 'Deler_product_price': return dealerPrice;
+      case 'corporate_product_price': return corporatePrice;
+      default: return 0;
+    }
+  };
+
+  const effectiveCustomerPrice = getEffectivePrice('customer_product_price');
+  const effectiveDealerPrice = getEffectivePrice('Deler_product_price');
+  const effectiveCorporatePrice = getEffectivePrice('corporate_product_price');
 
   return (
     <Card size="small" key={name} className="relative mb-3">
@@ -529,7 +564,7 @@ const DiscountRow = ({ name, restField, remove, form, customerPrice, dealerPrice
             <div className="flex flex-col min-w-[100px]">
               <label className="text-xs text-gray-500 mb-1">Cus dis Price</label>
               <div className="h-9 px-2 border border-gray-300 rounded flex items-center bg-gray-50 text-sm">
-                ₹{calculateDiscountedAmount(customerPrice, customerDiscount).toFixed(2)}
+                ₹{calculateDiscountedAmount(effectiveCustomerPrice, customerDiscount).toFixed(2)}
               </div>
             </div>
 
@@ -582,7 +617,7 @@ const DiscountRow = ({ name, restField, remove, form, customerPrice, dealerPrice
             <div className="flex flex-col min-w-[100px]">
               <label className="text-xs text-gray-500 mb-1">Dealer dis Price</label>
               <div className="h-9 px-2 border border-gray-300 rounded flex items-center bg-gray-50 text-sm">
-                ₹{calculateDiscountedAmount(dealerPrice, dealerDiscount).toFixed(2)}
+                ₹{calculateDiscountedAmount(effectiveDealerPrice, dealerDiscount).toFixed(2)}
               </div>
             </div>
 
@@ -635,7 +670,7 @@ const DiscountRow = ({ name, restField, remove, form, customerPrice, dealerPrice
             <div className="flex flex-col min-w-[100px]">
               <label className="text-xs text-gray-500 mb-1">Corp dis Price</label>
               <div className="h-9 px-2 border border-gray-300 rounded flex items-center bg-gray-50 text-sm">
-                ₹{calculateDiscountedAmount(corporatePrice, corporateDiscount).toFixed(2)}
+                ₹{calculateDiscountedAmount(effectiveCorporatePrice, corporateDiscount).toFixed(2)}
               </div>
             </div>
 
@@ -736,11 +771,19 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
 
   const [seo_datas, setSEO_Datas] = useState(INITIAL_SEO_DATA);
 
+  // Refs for input fields to prevent cursor jumping
+  const productionTimeRef = useRef(null);
+  const stockArrangementTimeRef = useRef(null);
+
   // Watched values
   const productTypeSelectedValue = Form.useWatch('type', form) || (id?.type || PRODUCT_TYPE[0].value);
   const customerPrice = Form.useWatch('customer_product_price', form) || 0;
   const dealerPrice = Form.useWatch('Deler_product_price', form) || 0;
   const corporatePrice = Form.useWatch('corporate_product_price', form) || 0;
+  
+  // Watch variant prices for real-time calculations
+  const variantPrices = Form.useWatch('variants_price', form) || [];
+  const watchedMRP = Form.useWatch('MRP_price', form) || 0;
 
   const userRole = JSON.parse(localStorage.getItem("userprofile") || '{"role": "user"}');
   const hasImageVariant = variants.some(variant => variant.variant_type === "image_variant");
@@ -776,7 +819,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     collectVendors();
   }, []);
 
-  useEffect(() => {
+    useEffect(() => {
     if (id) {
       setLoading(true);
       onCategoryChnge(_.get(id, "category_details._id", ""));
@@ -887,6 +930,33 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     const dealerPrice = parseFloat(form.getFieldValue('Deler_product_price') || 0);
     
     updatePercentageDifferences(mrp, customerPrice, dealerPrice, corporatePrice);
+  };
+
+  // FIXED: Input handlers to prevent cursor jumping
+  const handleProductionTimeChange = (e) => {
+    const value = e.target.value;
+    form.setFieldsValue({ Production_time: value });
+    
+    // Preserve cursor position
+    if (productionTimeRef.current) {
+      const cursorPosition = e.target.selectionStart;
+      setTimeout(() => {
+        productionTimeRef.current.setSelectionRange(cursorPosition, cursorPosition);
+      }, 0);
+    }
+  };
+
+  const handleStockArrangementTimeChange = (e) => {
+    const value = e.target.value;
+    form.setFieldsValue({ Stock_Arrangement_time: value });
+    
+    // Preserve cursor position
+    if (stockArrangementTimeRef.current) {
+      const cursorPosition = e.target.selectionStart;
+      setTimeout(() => {
+        stockArrangementTimeRef.current.setSelectionRange(cursorPosition, cursorPosition);
+      }, 0);
+    }
   };
 
   // Variant Handlers
@@ -1023,7 +1093,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     );
   };
 
-  // FIXED: Table Handlers with proper price initialization
+  // Table Handlers with proper price initialization
   const handlePriceChange = (record, e, priceType) => {
     const { value } = e.target;
     const numericValue = parseFloat(value) || 0;
@@ -1045,7 +1115,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     }
 
     setTableValue(updatedTableValue);
-    setDummy(!dummy); // Force re-render to update percentages
+    setDummy(!dummy);
   };
 
   const handleProductCodeChange = (record, e) => {
@@ -1068,14 +1138,12 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     setTableValue(updatedTableValue);
   };
 
-  // FIXED: Proper variant percentage calculation
+  // Proper variant percentage calculation
   const getVariantPercentageDifference = useCallback((record, priceType) => {
     if (!record) return 0;
     
     const mrp = parseFloat(record.MRP_price) || 0;
     const price = parseFloat(record[priceType]) || 0;
-    
-    console.log(`Variant calculation: MRP=${mrp}, ${priceType}=${price}`);
     
     if (mrp === 0 || price === 0) return 0;
     
@@ -1121,7 +1189,8 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   };
 
   // Form Helpers
-  const onCategoryChnge = (value) => {
+  // Support multiple categories
+const onCategoryChnge = (value) => {
     if (value) {
       let response = subcategory_data.filter((data) => {
         return data.select_main_category === value;
@@ -1129,6 +1198,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       setFilterSubcategory_data(response);
     }
   };
+
 
   const handleChnge = (e, location) => {
     setSEO_Datas((pre) => ({ ...pre, [location]: e.target.value }));
@@ -1205,8 +1275,8 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     }
   };
 
-  // Generate Product Code
-  const generateProductCode = (isVariableProduct = false, variantName = "") => {
+  // Generate Product Code - UPDATED for multiple categories
+ const generateProductCode = (isVariableProduct = false, variantName = "") => {
     const categoryId = form.getFieldValue("category_details");
     const subCategoryId = form.getFieldValue("sub_category_details");
 
@@ -1270,7 +1340,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     setModalUnitVisible(false);
   };
 
-  // FIXED: Generate table data from variants with proper price initialization
+  // Generate table data from variants with proper price initialization
   const combinations = useMemo(() => {
     if (!variants || variants.length === 0) return [[]];
     
@@ -1368,7 +1438,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     },
   ];
 
-  // FIXED: Variant Table Columns with proper percentage calculation
+  // Variant Table Columns with proper percentage calculation
   const PriceColumn = ({ title, dataIndex, record, onPriceChange }) => {
     const percentage = getVariantPercentageDifference(record, dataIndex);
     
@@ -1501,8 +1571,8 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     },
   ], [variants, tableValue, lockedProductCodes, productTypeSelectedValue, userRole.role, getVariantPercentageDifference]);
 
-  // Form Submission
-  const handleFinish = async (values) => {
+  // Form Submission - UPDATED for multiple categories
+    const handleFinish = async (values) => {
     try {
       console.log("Form Values:", values);
       
@@ -1740,6 +1810,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     />
                   </Form.Item>
 
+                  {/* Multiple categories */}
                   <Form.Item
                     label="Main Category"
                     name="category_details"
@@ -1917,27 +1988,33 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     />
                   </Form.Item>
 
+                  {/* FIXED: Production Time with cursor preservation */}
                   <Form.Item
                     rules={[formValidation("Enter Production Time")]}
                     label="Production Time"
                     name="Production_time"
                   >
                     <Input
+                      ref={productionTimeRef}
                       placeholder="Enter Production Time"
-                      type="Number"
+                      type="number"
                       className="h-12"
+                      onChange={handleProductionTimeChange}
                     />
                   </Form.Item>
 
+                  {/* FIXED: Stock Arrangement Time with cursor preservation */}
                   <Form.Item
                     rules={[formValidation("Enter Stock Arrangement Time")]}
                     label="Stock Arrangement Time"
                     name="Stock_Arrangement_time"
                   >
                     <Input
+                      ref={stockArrangementTimeRef}
                       placeholder="Enter Stock Arrangement Time"
-                      type="Number"
+                      type="number"
                       className="h-12"
+                      onChange={handleStockArrangementTimeChange}
                     />
                   </Form.Item>
 
@@ -2503,6 +2580,16 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                               customerPrice={customerPrice}
                               dealerPrice={dealerPrice}
                               corporatePrice={corporatePrice}
+                              productType={productTypeSelectedValue}
+                              variantPrices={tableValue.reduce((acc, variant) => {
+                                // Create a map of variant prices for reference
+                                acc[variant.key] = {
+                                  customer_product_price: variant.customer_product_price || 0,
+                                  Deler_product_price: variant.Deler_product_price || 0,
+                                  corporate_product_price: variant.corporate_product_price || 0
+                                };
+                                return acc;
+                              }, {})}
                             />
                           ))}
                         </div>
