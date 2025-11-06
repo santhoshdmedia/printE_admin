@@ -7,6 +7,7 @@ import {
   MdStar,
   MdNewReleases,
   MdThumbUp,
+  MdFileDownload,
 } from "react-icons/md";
 import {
   Button,
@@ -26,6 +27,7 @@ import {
   Typography,
   Dropdown,
   Menu,
+  message,
 } from "antd";
 import { FaEdit, FaEye, FaFilter } from "react-icons/fa";
 import _ from "lodash";
@@ -75,7 +77,397 @@ const Products = () => {
   const [vendorNames, setVendorNames] = useState({});
   const [vendorsLoading, setVendorsLoading] = useState({});
   const [cloneProductDetails, setCloneProductDetails] = useState([]);
+  const [exportLoading, setExportLoading] = useState(false);
   const [form] = useForm();
+
+const exportToCSV = () => {
+  try {
+    setExportLoading(true);
+    
+    // Create CSV content
+    let csvContent = "data:text/csv;charset=utf-8,";
+
+    // Define columns for products
+    const columns = [
+      "S.No",
+      "Product Name",
+      "PRODUCT S.NO",
+      "VENDOR CODE",
+      "Product Code",
+      "Category",
+      "Sub Category",
+      "MRP Price",
+    ];
+
+    // Add header row
+    csvContent += columns.join(",") + "\r\n";
+
+    // Add data rows
+    provideProductContent().forEach((row) => {
+      const values = columns.map((col) => {
+        // Map column headers to correct keys in the data
+        const keyMap = {
+          "S.No": "s_no",
+          "Product Name": "product_name",
+          "PRODUCT S.NO": "product_serial_no",
+          "VENDOR CODE": "vendor_code",
+          "Product Code": "product_code",
+          "Category": "category",
+          "Sub Category": "sub_category",
+          "MRP Price": "mrp_price",
+        };
+        const key = keyMap[col];
+        return `"${row[key] || ""}"`; // Wrap in quotes to handle commas
+      });
+      csvContent += values.join(",") + "\r\n";
+    });
+
+    // Create download link
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `products_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+
+    // Trigger download
+    link.click();
+    document.body.removeChild(link);
+
+    message.success("CSV file downloaded successfully");
+  } catch (err) {
+    console.error("Error exporting data:", err);
+    message.error("Failed to export data");
+  } finally {
+    setExportLoading(false);
+  }
+};
+
+// Export filtered products only
+const exportFilteredToCSV = () => {
+  try {
+    setExportLoading(true);
+    
+    if (tableData.length === 0) {
+      message.warning("No products available for export");
+      return;
+    }
+
+    // Create CSV content
+    let csvContent = "data:text/csv;charset=utf-8,";
+
+    // Define columns for filtered products
+    const columns = [
+      "S.No",
+      "Product Name",
+      "PRODUCT S.NO",
+      "VENDOR CODE",
+      "Product Code",
+      "Product Type",
+      "Category",
+      "Sub Category",
+      "Total Stock",
+      "Stock Status",
+      "Customer Price",
+      "Dealer Price",
+      "Corporate Price",
+      "Vendors",
+      "Visibility",
+      "New Product",
+      "Popular Product",
+      "Recommended Product",
+      "Cloned Product",
+    ];
+
+    // Add header row
+    csvContent += columns.join(",") + "\r\n";
+
+    // Add data rows from current filtered data
+    provideFilteredProductContent().forEach((row) => {
+      const values = columns.map((col) => {
+        // Map column headers to correct keys in the data
+        const keyMap = {
+          "S.No": "s_no",
+          "Product Name": "product_name",
+          "PRODUCT S.NO": "product_serial_no",
+          "VENDOR CODE": "vendor_code",
+          "Product Code": "product_code",
+          "Product Type": "product_type",
+          "Category": "category",
+          "Sub Category": "sub_category",
+          "Total Stock": "total_stock",
+          "Stock Status": "stock_status",
+          "Customer Price": "customer_price",
+          "Dealer Price": "dealer_price",
+          "Corporate Price": "corporate_price",
+          "Vendors": "vendors",
+          "Visibility": "visibility",
+          "New Product": "new_product",
+          "Popular Product": "popular_product",
+          "Recommended Product": "recommended_product",
+          "Cloned Product": "cloned_product",
+        };
+        const key = keyMap[col];
+        return `"${row[key] || ""}"`;
+      });
+      csvContent += values.join(",") + "\r\n";
+    });
+
+    // Create download link
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `filtered_products_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+
+    // Trigger download
+    link.click();
+    document.body.removeChild(link);
+
+    message.success(`CSV file with ${tableData.length} products downloaded successfully`);
+  } catch (err) {
+    console.error("Error exporting filtered data:", err);
+    message.error("Failed to export filtered data");
+  } finally {
+    setExportLoading(false);
+  }
+};
+
+// Function to provide product content for CSV
+const provideProductContent = () => {
+  return tableData.map((product, index) => {
+    const productImage = getProductImage(product);
+    const totalStock = getTotalStock(product);
+    const customerPrice = getProductPrice(product, 'customer');
+    const dealerPrice = getProductPrice(product, 'dealer');
+    const corporatePrice = getProductPrice(product, 'corporate');
+    
+    const vendorNames = product.vendor_details && product.vendor_details.length > 0 
+      ? product.vendor_details.map(vendor => vendor.business_name || vendor.vendor_name || "Unknown Vendor").join(', ')
+      : 'No Vendor';
+
+    // Extract vendor codes from vendor_details array
+    const vendorCodes = product.Vendor_Code // Fallback to root level Vendor_Code
+
+    const categoryName = _.get(product, "category_details.main_category_name", "N/A");
+    const subCategoryName = _.get(product, "sub_category_details.sub_category_name", "N/A");
+
+    return {
+      s_no: index + 1,
+      product_name: product.name || 'N/A',
+      product_serial_no: product.product_codeS_NO  || 'N/A',
+      vendor_code: vendorCodes,
+      product_code: product.product_code || 'N/A',
+      product_type: product.type || product.product_type || 'N/A',
+      category: categoryName,
+      sub_category: subCategoryName,
+      mrp_price: product.MRP_price || 'N/A',
+      created_date: product.createdAt ? new Date(product.createdAt).toLocaleDateString('en-IN') : 'N/A',
+    };
+  });
+};
+
+// Function to provide filtered product content for CSV
+const provideFilteredProductContent = () => {
+  return tableData.map((product, index) => {
+    const totalStock = getTotalStock(product);
+    const customerPrice = getProductPrice(product, 'customer');
+    const dealerPrice = getProductPrice(product, 'dealer');
+    const corporatePrice = getProductPrice(product, 'corporate');
+    
+    const vendorNames = product.vendor_details && product.vendor_details.length > 0 
+      ? product.vendor_details.map(vendor => vendor.business_name || vendor.vendor_name || "Unknown Vendor").join(', ')
+      : 'No Vendor';
+
+    // Extract vendor codes from vendor_details array
+    const vendorCodes = product.vendor_details && product.vendor_details.length > 0 
+      ? product.vendor_details.map(vendor => vendor.vendor_code || vendor.Vendor_Code || vendor.code || "N/A").join(', ')
+      : product.Vendor_Code || 'N/A'; // Fallback to root level Vendor_Code
+
+    const categoryName = _.get(product, "category_details.main_category_name", "N/A");
+    const subCategoryName = _.get(product, "sub_category_details.sub_category_name", "N/A");
+
+    return {
+      s_no: index + 1,
+      product_name: product.name || 'N/A',
+      product_serial_no: product.product_codeS_NO || product.product_serial_no || product.product_code || 'N/A',
+      vendor_code: vendorCodes,
+      product_code: product.product_code || 'N/A',
+      product_type: product.type || product.product_type || 'N/A',
+      category: categoryName,
+      sub_category: subCategoryName,
+      total_stock: totalStock || 'N/A',
+      stock_status: product.stocks_status || product.stock_status || 'N/A',
+      customer_price: customerPrice !== "N/A" ? `₹${customerPrice}` : 'N/A',
+      dealer_price: dealerPrice !== "N/A" ? `₹${dealerPrice}` : 'N/A',
+      corporate_price: corporatePrice !== "N/A" ? `₹${corporatePrice}` : 'N/A',
+      vendors: vendorNames,
+      visibility: product.is_visible ? 'Visible' : 'Hidden',
+      new_product: product.new_product ? 'Yes' : 'No',
+      popular_product: product.popular_product ? 'Yes' : 'No',
+      recommended_product: product.recommended_product ? 'Yes' : 'No',
+      cloned_product: product.is_cloned ? 'Yes' : 'No',
+    };
+  });
+};
+
+// Export all products (fetch complete data)
+const exportAllToCSV = async () => {
+  try {
+    setExportLoading(true);
+    
+    // Fetch all products without filters
+    const result = await getProduct("", "", false, "", "", "", "");
+    const allProducts = _.get(result, "data.data", []);
+    
+    if (allProducts.length === 0) {
+      message.warning("No products available for export");
+      return;
+    }
+
+    // Create CSV content
+    let csvContent = "data:text/csv;charset=utf-8,";
+
+    // Define columns for complete product data
+    const columns = [
+      "S.No",
+      "Product ID",
+      "Product Name",
+      "PRODUCT S.NO",
+      "VENDOR CODE",
+      "Product Code",
+      "Product Type",
+      "Category",
+      "Sub Category",
+      "Total Stock",
+      "Stock Status",
+      "Customer Price",
+      "Dealer Price",
+      "Corporate Price",
+      "MRP Price",
+      "Vendors",
+      "Visibility",
+      "New Product",
+      "Popular Product",
+      "Recommended Product",
+      "Cloned Product",
+      "Parent Product ID",
+      "Image URL",
+      "Product Description",
+      "SEO URL",
+      "Created Date",
+      "Last Updated",
+    ];
+
+    // Add header row
+    csvContent += columns.join(",") + "\r\n";
+
+    // Add data rows
+    allProducts.forEach((product, index) => {
+      const productImage = getProductImage(product);
+      const totalStock = getTotalStock(product);
+      const customerPrice = getProductPrice(product, 'customer');
+      const dealerPrice = getProductPrice(product, 'dealer');
+      const corporatePrice = getProductPrice(product, 'corporate');
+      
+      const vendorNames = product.vendor_details && product.vendor_details.length > 0 
+        ? product.vendor_details.map(vendor => vendor.business_name || vendor.vendor_name || "Unknown Vendor").join(', ')
+        : 'No Vendor';
+
+      // Extract vendor codes from vendor_details array
+      const vendorCodes = product.vendor_details && product.vendor_details.length > 0 
+        ? product.vendor_details.map(vendor => vendor.vendor_code || vendor.Vendor_Code || vendor.code || "N/A").join(', ')
+        : product.Vendor_Code || 'N/A'; // Fallback to root level Vendor_Code
+
+      const categoryName = _.get(product, "category_details.main_category_name", "N/A");
+      const subCategoryName = _.get(product, "sub_category_details.sub_category_name", "N/A");
+
+      const row = {
+        s_no: index + 1,
+        product_id: product._id || 'N/A',
+        product_name: product.name || 'N/A',
+        product_serial_no: product.product_codeS_NO || product.product_serial_no || product.product_code || 'N/A',
+        vendor_code: vendorCodes,
+        product_code: product.product_code || 'N/A',
+        product_type: product.type || product.product_type || 'N/A',
+        category: categoryName,
+        sub_category: subCategoryName,
+        total_stock: totalStock,
+        stock_status: product.stocks_status || product.stock_status || 'In Stock',
+        customer_price: customerPrice !== "N/A" ? `₹${customerPrice}` : 'N/A',
+        dealer_price: dealerPrice !== "N/A" ? `₹${dealerPrice}` : 'N/A',
+        corporate_price: corporatePrice !== "N/A" ? `₹${corporatePrice}` : 'N/A',
+        mrp_price: product.MRP_price ? `₹${product.MRP_price}` : 'N/A',
+        vendors: vendorNames,
+        visibility: product.is_visible ? 'Visible' : 'Hidden',
+        new_product: product.new_product ? 'Yes' : 'No',
+        popular_product: product.popular_product ? 'Yes' : 'No',
+        recommended_product: product.recommended_product ? 'Yes' : 'No',
+        cloned_product: product.is_cloned ? 'Yes' : 'No',
+        parent_product_id: product.parent_product_id || 'Original',
+        image_url: productImage || 'No Image',
+        product_description: product.product_description_tittle || product.description ? 
+          (product.product_description_tittle || product.description.replace(/(<([^>]+)>)/gi, "").substring(0, 100) + '...') : 'N/A',
+        seo_url: product.seo_url || 'N/A',
+        created_date: product.createdAt ? new Date(product.createdAt).toLocaleDateString('en-IN') : 'N/A',
+        last_updated: product.updatedAt ? new Date(product.updatedAt).toLocaleDateString('en-IN') : 'N/A',
+      };
+
+      const values = columns.map((col) => {
+        const keyMap = {
+          "S.No": "s_no",
+          "Product ID": "product_id",
+          "Product Name": "product_name",
+          "PRODUCT S.NO": "product_serial_no",
+          "VENDOR CODE": "vendor_code",
+          "Product Code": "product_code",
+          "Product Type": "product_type",
+          "Category": "category",
+          "Sub Category": "sub_category",
+          "Total Stock": "total_stock",
+          "Stock Status": "stock_status",
+          "Customer Price": "customer_price",
+          "Dealer Price": "dealer_price",
+          "Corporate Price": "corporate_price",
+          "MRP Price": "mrp_price",
+          "Vendors": "vendors",
+          "Visibility": "visibility",
+          "New Product": "new_product",
+          "Popular Product": "popular_product",
+          "Recommended Product": "recommended_product",
+          "Cloned Product": "cloned_product",
+          "Parent Product ID": "parent_product_id",
+          "Image URL": "image_url",
+          "Product Description": "product_description",
+          "SEO URL": "seo_url",
+          "Created Date": "created_date",
+          "Last Updated": "last_updated",
+        };
+        const key = keyMap[col];
+        return `"${row[key] || ""}"`;
+      });
+      
+      csvContent += values.join(",") + "\r\n";
+    });
+
+    // Create download link
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `all_products_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+
+    // Trigger download
+    link.click();
+    document.body.removeChild(link);
+
+    message.success(`All ${allProducts.length} products exported successfully`);
+  } catch (err) {
+    console.error("Error exporting all data:", err);
+    message.error("Failed to export all products");
+  } finally {
+    setExportLoading(false);
+  }
+};
 
   const handleOpenModal = (productData) => {
     const product = { ...productData };
@@ -105,7 +497,6 @@ const Products = () => {
     setFilterByProductSubcategory("");
     
     if (value) {
-      // Filter subcategories based on the selected main category using select_main_category field
       const filteredSubcategories = subcategoryData.filter(
         (subcategory) => subcategory.select_main_category === value
       );
@@ -117,7 +508,6 @@ const Products = () => {
 
   const onCloneCategoryChange = (value) => {
     if (value) {
-      // Filter subcategories for clone modal based on the selected main category
       const filteredSubcategories = subcategoryData.filter(
         (subcategory) => subcategory.select_main_category === value
       );
@@ -126,7 +516,6 @@ const Products = () => {
       setSubcategoryDataFilter([]);
     }
     
-    // Clear subcategory selection when main category changes
     form.setFieldValue("sub_category_details", undefined);
   };
 
@@ -284,7 +673,6 @@ const Products = () => {
       if (variantGroup.variant_type === "image_variant" && variantGroup.options) {
         variantGroup.options.forEach((option) => {
           if (option.image_names && Array.isArray(option.image_names) && option.image_names.length > 0) {
-            // Handle both object format and string format for images
             const images = option.image_names.map(img => 
               typeof img === 'object' ? _.get(img, "url", _.get(img, "path", "")) : img
             ).filter(img => img);
@@ -319,7 +707,6 @@ const Products = () => {
 
   // Enhanced helper function to display product image with proper URL handling
   const getProductImage = (product) => {
-    // First check if there are main product images
     if (product.images && Array.isArray(product.images) && product.images.length > 0) {
       const firstImage = product.images[0];
       if (typeof firstImage === 'object') {
@@ -328,7 +715,6 @@ const Products = () => {
       return firstImage;
     }
     
-    // Then check for variant images
     const variantImage = getFirstVariantImage(product);
     if (variantImage) {
       return variantImage;
@@ -449,6 +835,32 @@ const Products = () => {
         <span className="text-gray-700 font-semibold">{serialNumber}</span>
       ),
     },
+    {
+    title: "Product S.No",
+    dataIndex: "product_codeS_NO",
+    align: "center",
+    width: 120,
+    render: (productCodeSNo) => (
+      <Tooltip title={productCodeSNo || "N/A"}>
+        <Tag className="max-w-full truncate font-semibold bg-blue-100 text-blue-800 border-blue-200 rounded-full px-3 py-1 text-xs">
+          {productCodeSNo || "N/A"}
+        </Tag>
+      </Tooltip>
+    ),
+  },
+  {
+    title: "Vendor Code",
+    dataIndex: "Vendor_Code",
+    align: "center",
+    width: 120,
+    render: (vendorCode) => (
+      <Tooltip title={vendorCode || "N/A"}>
+        <Tag className="max-w-full truncate font-semibold bg-purple-100 text-purple-800 border-purple-200 rounded-full px-3 py-1 text-xs">
+          {vendorCode || "N/A"}
+        </Tag>
+      </Tooltip>
+    ),
+  },
     {
       title: "Clone",
       align: "center",
@@ -802,6 +1214,59 @@ const Products = () => {
         search={true}
         setSearch={setSearch}
         className="bg-white shadow-2xl rounded-3xl p-6 md:p-8 mb-6 md:mb-8 border border-teal-100"
+        extra={
+          <Dropdown
+            overlay={
+              <Menu className="rounded-xl shadow-2xl bg-white border border-gray-100 p-2 min-w-[200px]">
+                <Menu.Item key="all">
+                  <Button
+                    type="text"
+                    icon={<MdFileDownload className="text-green-600" />}
+                    onClick={exportAllToCSV}
+                    loading={exportLoading}
+                    className="flex items-center text-green-600 hover:bg-green-50 w-full text-left px-3 py-2 rounded-lg font-medium text-sm"
+                  >
+                    Export All Products (CSV)
+                  </Button>
+                </Menu.Item>
+                <Menu.Item key="filtered">
+                  <Button
+                    type="text"
+                    icon={<MdFileDownload className="text-blue-600" />}
+                    onClick={exportFilteredToCSV}
+                    loading={exportLoading}
+                    disabled={tableData.length === 0}
+                    className="flex items-center text-blue-600 hover:bg-blue-50 w-full text-left px-3 py-2 rounded-lg font-medium text-sm"
+                  >
+                    Export Filtered Products (CSV)
+                  </Button>
+                </Menu.Item>
+                <Menu.Item key="current">
+                  <Button
+                    type="text"
+                    icon={<MdFileDownload className="text-teal-600" />}
+                    onClick={exportToCSV}
+                    loading={exportLoading}
+                    className="flex items-center text-teal-600 hover:bg-teal-50 w-full text-left px-3 py-2 rounded-lg font-medium text-sm"
+                  >
+                    Export Current View (CSV)
+                  </Button>
+                </Menu.Item>
+              </Menu>
+            }
+            trigger={["click"]}
+            placement="bottomRight"
+          >
+            <Button
+              type="primary"
+              icon={<MdFileDownload className="text-white" />}
+              loading={exportLoading}
+              className="bg-teal-600 hover:bg-teal-700 border-none rounded-xl font-semibold px-4 flex items-center shadow-lg"
+            >
+              Export CSV
+            </Button>
+          </Dropdown>
+        }
       />
 
       {formStatus ? (
@@ -867,7 +1332,7 @@ const Products = () => {
                     ))}
                   </Select>
                 </div>
-
+               
                 <div>
                   <Text className="text-sm font-semibold text-gray-700 mb-2 block">
                     Sub Category
@@ -938,6 +1403,13 @@ const Products = () => {
             </div>
           </Card>
 
+          <div className="">
+             <button onClick={exportToCSV} className="bg-white text-gray-800 hover:bg-gray-300 border-none rounded-xl font-semibold px-6 mb-4 py-2">
+                  Export as CSV
+                </button>
+
+          </div>
+
           <Card
             className="bg-white shadow-2xl rounded-3xl border-none overflow-hidden"
             bodyStyle={{ padding: 0 }}
@@ -1005,6 +1477,7 @@ const Products = () => {
                     />
                   ),
                 },
+               
               ]}
             />
           </Card>

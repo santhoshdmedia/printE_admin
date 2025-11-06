@@ -100,6 +100,14 @@ export const MENU_DATA = [
       },
     ],
   },
+  {
+    id: 15,
+    name: "Coupons",
+    icon: ICON_HELPER.COUPON_ICON,
+    to: "/coupons",
+    special: ["coupons"],
+    for: ["super admin"],
+  },
 
   {
     id: 6,

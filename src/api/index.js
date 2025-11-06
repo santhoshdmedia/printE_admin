@@ -248,3 +248,16 @@ export const updateDesign = async (formdata) =>
   await custom_request.put(`${BASE_URL}/order/update-design`, formdata); 
 export const assignVendorToOrder = async (formdata) =>
   await custom_request.put(`${BASE_URL}/order/update-vendor`, formdata); 
+
+// coupen
+export const addCoupen = async (formdata) =>
+  await custom_request.post(`${BASE_URL}/coupen`, formdata);
+export const getAllCoupens = async () =>
+  await custom_request.get(`${BASE_URL}/coupen`);
+export const getSingleCoupen = async (id) =>
+  await custom_request.get(`${BASE_URL}/coupen/${id}`);
+export const editCoupen = async (formdata, id) =>
+  await custom_request.put(`${BASE_URL}/coupen/${id}`, formdata);
+export const deleteCoupen = async (id) =>
+  await custom_request.delete(`${BASE_URL}/coupen/${id}`);
+

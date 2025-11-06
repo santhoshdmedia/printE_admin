@@ -27,6 +27,7 @@ import AssignedOrder from "../pages/Orders/AssignedOrder";
 import UserPanel from "../pages/userPanel/UserPanel";
 import BulkEnquirey from "../pages/Enquries/BulkEnquirey";
 import AddForms from "../pages/Products/AddForms";
+import Coupen from "../pages/coupen/Coupen";
 
 export const router = createBrowserRouter([
   {
@@ -94,6 +95,11 @@ export const router = createBrowserRouter([
     path: "/product-details",
     element: <Layout />,
     children: [{ path: "/product-details", element: <Products /> }],
+  },
+  {
+    path: "/coupons",
+    element: <Layout />,
+    children: [{ path: "/coupons", element: <Coupen /> }],
   },
   {
     path: "/products/product-description",

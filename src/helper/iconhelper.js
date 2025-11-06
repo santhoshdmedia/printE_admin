@@ -16,6 +16,7 @@ import { GiQuillInk } from "react-icons/gi";
 import { LiaExternalLinkAltSolid, LiaMoneyBillWaveSolid } from "react-icons/lia";
 import { TbTruckDelivery } from "react-icons/tb";
 import { AiOutlineFileExcel } from "react-icons/ai";
+import { RiCoupon2Line } from "react-icons/ri";
 
 export const ICON_HELPER = {
   HOME_ICON: MdOutlineHomeWork,
@@ -54,5 +55,6 @@ export const ICON_HELPER = {
   EXCELICON: AiOutlineFileExcel,
 
   PLUS_ICON: FaPlusCircle,
+  COUPON_ICON: RiCoupon2Line,
 
 };
