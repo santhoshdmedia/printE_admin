@@ -19,6 +19,7 @@ import {
   Modal,
   Switch,
   DatePicker,
+  ColorPicker,
 } from "antd";
 import {
   EyeOutlined,
@@ -88,11 +89,18 @@ const UNIT_TYPE = [
   { value: "inches" }, { value: "ft" }, { value: "Nos" }, { value: "Sqft" },
 ];
 
+const VARIANT_TYPES = [
+  { value: "text_box_variant", label: "Text Box Variant" },
+  { value: "image_variant", label: "Image Variant (Upload 6 images per option)" },
+  { value: "color_variant", label: "Color Variant (With Color Picker)" },
+];
+
 const INITIAL_VARIANT_OPTION = {
   value: "",
   _id: Date.now() + 1,
   variant_type: "text_box_variant",
   image_names: [],
+  color_code: "#000000",
 };
 
 const INITIAL_VARIANT = {
@@ -156,7 +164,7 @@ const calculateDiscountedAmount = (basePrice, discountPercentage) => {
   return price - (price * discount / 100);
 };
 
-// Sortable Image Component
+// Enhanced Sortable Image Component
 const SortableImage = ({ id, image, onRemove, showDragLabel = true }) => {
   const {
     attributes,
@@ -171,7 +179,6 @@ const SortableImage = ({ id, image, onRemove, showDragLabel = true }) => {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-    cursor: isDragging ? 'grabbing' : 'grab',
   };
 
   const handleRemove = (e) => {
@@ -180,33 +187,49 @@ const SortableImage = ({ id, image, onRemove, showDragLabel = true }) => {
     onRemove(id);
   };
 
+  const imageUrl = image.url || image.path || image;
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
       className="relative group"
     >
+      <div
+        {...attributes}
+        {...listeners}
+        className="absolute top-1 left-1 z-20 bg-blue-500 bg-opacity-80 text-white p-1 rounded cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
+        style={{ width: '24px', height: '24px' }}
+      >
+        <div className="flex items-center justify-center w-full h-full">
+          ⠿
+        </div>
+      </div>
+      
       <Image
-        src={image.url || image.path || image}
+        src={imageUrl}
         alt="Product"
-        className="!w-20 !h-20 object-cover rounded border-2 border-dashed border-gray-300"
+        width={80}
+        height={80}
+        className="object-cover rounded border-2 border-dashed border-gray-300 cursor-pointer"
         preview={{
           mask: (
-            <div className="flex items-center justify-center">
+            <div className="flex items-center justify-center gap-1">
               <EyeOutlined className="text-white" />
+              <span className="text-white text-xs">Preview</span>
             </div>
           ),
         }}
       />
+
       <button
         type="button"
-        className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-red-500 text-white rounded-full !w-6 !h-6 flex items-center justify-center border-0 cursor-pointer z-10"
+        className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center border-0 cursor-pointer z-20"
         onClick={handleRemove}
       >
-        <DeleteFilled className="!text-xs" />
+        <DeleteFilled className="text-xs" />
       </button>
+
       {showDragLabel && (
         <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs text-center py-1">
           Drag to reorder
@@ -216,8 +239,8 @@ const SortableImage = ({ id, image, onRemove, showDragLabel = true }) => {
   );
 };
 
-// Sortable Image List Component
-const SortableImageList = ({ images, setImages, showDragLabel = true }) => {
+// Enhanced Sortable Image List Component
+const SortableImageList = ({ images, setImages, showDragLabel = true, title = "" }) => {
   const getImageId = (image) => {
     return image._id || image.path || image;
   };
@@ -242,30 +265,84 @@ const SortableImageList = ({ images, setImages, showDragLabel = true }) => {
   };
 
   return (
-    <DndContext onDragEnd={handleDragEnd}>
-      <SortableContext items={images.map(img => getImageId(img))}>
-        <div className="flex flex-wrap gap-4 p-4 bg-gray-50 rounded-lg !min-h-32">
-          {images.map((image, index) => (
-            <SortableImage
-              key={getImageId(image)}
-              id={getImageId(image)}
-              image={image}
-              onRemove={handleRemove}
-              showDragLabel={showDragLabel}
-            />
-          ))}
-          {images.length === 0 && (
-            <div className="flex items-center justify-center w-full h-32 text-gray-500">
-              No images uploaded yet
-            </div>
-          )}
-        </div>
-      </SortableContext>
-    </DndContext>
+    <div className="space-y-3">
+      {title && (
+        <label className="text-gray-600 text-sm font-medium block">
+          {title} ({images.length} images) - Drag to reorder
+        </label>
+      )}
+      <DndContext onDragEnd={handleDragEnd}>
+        <SortableContext items={images.map(img => getImageId(img))}>
+          <div className="flex flex-wrap gap-4 p-4 bg-gray-50 rounded-lg !min-h-32 border border-dashed border-gray-300">
+            {images.map((image, index) => (
+              <SortableImage
+                key={getImageId(image)}
+                id={getImageId(image)}
+                image={image}
+                onRemove={handleRemove}
+                showDragLabel={showDragLabel}
+              />
+            ))}
+            {images.length === 0 && (
+              <div className="flex items-center justify-center w-full h-32 text-gray-500">
+                No images uploaded yet. Click upload to add images.
+              </div>
+            )}
+          </div>
+        </SortableContext>
+      </DndContext>
+    </div>
   );
 };
 
-// Upload Helper Component
+// Color Picker Component for Variant Options
+const ColorPickerOption = ({ 
+  color, 
+  onChange, 
+  variantId, 
+  optionId 
+}) => {
+  const [selectedColor, setSelectedColor] = useState(color || '#000000');
+
+  const handleColorChange = (color, hex) => {
+    setSelectedColor(hex);
+    onChange(variantId, optionId, hex);
+  };
+
+  const presetColors = [
+    '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF',
+    '#FFA500', '#800080', '#FFC0CB', '#A52A2A', '#000000', '#FFFFFF',
+    '#808080', '#FFD700', '#008000', '#000080', '#800000', '#FF4500'
+  ];
+
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="text-sm text-gray-600">Color Picker</label>
+      <div className="flex items-center gap-3">
+        <div 
+          className="w-8 h-8 rounded border border-gray-300 shadow-sm cursor-pointer"
+          style={{ backgroundColor: selectedColor }}
+          onClick={() => {
+            message.info(`Selected color: ${selectedColor}`);
+          }}
+        />
+        <ColorPicker
+          value={selectedColor}
+          onChange={handleColorChange}
+          presets={[
+            {
+              label: 'Recommended',
+              colors: presetColors,
+            },
+          ]}
+          showText
+        />
+      </div>
+    </div>
+  );
+};
+
+// Enhanced Upload Helper Component
 const EnhancedUploadHelper = ({ 
   multiple = true, 
   max = 10,
@@ -288,6 +365,17 @@ const EnhancedUploadHelper = ({
       
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
+        
+        if (!file.type.startsWith('image/')) {
+          message.warning(`File ${file.name} is not an image`);
+          continue;
+        }
+        
+        if (file.size > 5 * 1024 * 1024) {
+          message.warning(`File ${file.name} is too large (max 5MB)`);
+          continue;
+        }
+
         const formData = new FormData();
         formData.append("image", file);
         
@@ -351,24 +439,29 @@ const EnhancedUploadHelper = ({
       />
       <label
         htmlFor={`upload-${current_key || 'product'}`}
-        className="cursor-pointer border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors"
+        className="cursor-pointer border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors bg-gray-50"
       >
         <div className="flex flex-col items-center gap-2">
           <PlusOutlined className="text-2xl text-gray-400" />
-          <span className="text-gray-600">{label}</span>
-          <span className="text-sm text-gray-500">Max {max} images recommended</span>
-          {loading && <Spin size="small" />}
+          <span className="text-gray-600 font-medium">{label}</span>
+          <span className="text-sm text-gray-500">
+            Max {max} images • PNG, JPG, JPEG • Max 5MB each
+          </span>
+          {loading && (
+            <div className="flex items-center gap-2 mt-2">
+              <Spin size="small" />
+              <span className="text-sm text-gray-500">Uploading...</span>
+            </div>
+          )}
         </div>
       </label>
       
       {image_path && image_path.length > 0 && (
         <div className="mt-4">
-          <label className="text-gray-600 text-sm mb-2 block">
-            Uploaded Images ({image_path.length}/{max}) - Drag to reorder
-          </label>
           <SortableImageList
             images={image_path}
             setImages={setImagePath}
+            title="Uploaded Images"
           />
         </div>
       )}
@@ -396,6 +489,17 @@ const VariantOptionImageUpload = ({
       
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
+        
+        if (!file.type.startsWith('image/')) {
+          message.warning(`File ${file.name} is not an image`);
+          continue;
+        }
+        
+        if (file.size > 5 * 1024 * 1024) {
+          message.warning(`File ${file.name} is too large (max 5MB)`);
+          continue;
+        }
+
         const formData = new FormData();
         formData.append("image", file);
         
@@ -435,11 +539,11 @@ const VariantOptionImageUpload = ({
       
       <label
         htmlFor={`variant-option-upload-${variantId}-${optionId}`}
-        className="cursor-pointer border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-500 transition-colors"
+        className="cursor-pointer border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-500 transition-colors bg-gray-50"
       >
         <div className="flex flex-col items-center gap-2">
           <PlusOutlined className="text-xl text-gray-400" />
-          <span className="text-gray-600">
+          <span className="text-gray-600 font-medium">
             {image_names && image_names.length > 0 ? 'Add More' : 'Upload'} {optionValue} Images
           </span>
           <span className="text-sm text-gray-500">
@@ -448,18 +552,21 @@ const VariantOptionImageUpload = ({
               : `Upload 6 images for ${optionValue}`
             }
           </span>
-          {loading && <Spin size="small" />}
+          {loading && (
+            <div className="flex items-center gap-2 mt-1">
+              <Spin size="small" />
+              <span className="text-xs text-gray-500">Uploading...</span>
+            </div>
+          )}
         </div>
       </label>
       
       {(image_names && image_names.length > 0) && (
         <div className="mt-4">
-          <label className="text-gray-600 text-sm mb-2 block">
-            {optionValue} Images ({image_names.length}/6) - Drag to reorder
-          </label>
           <SortableImageList
             images={image_names}
             setImages={(newImages) => onImageUpload(variantId, optionId, newImages)}
+            title={`${optionValue} Images`}
           />
         </div>
       )}
@@ -467,8 +574,74 @@ const VariantOptionImageUpload = ({
   );
 };
 
-// Updated Discount Row Component with individual quantities and recommended status
-const DiscountRow = ({ 
+// Fixed Variant Option Component
+const VariantOption = React.memo(({ 
+  variant, 
+  option, 
+  onOptionChange, 
+  onOptionDelete,
+  onColorChange,
+  onImageUpload 
+}) => {
+  const inputRef = useRef(null);
+
+  const handleInputChange = (e) => {
+    onOptionChange(variant._id, option._id, e.target.value);
+  };
+
+  const handleDelete = () => {
+    onOptionDelete(variant._id, option._id);
+  };
+
+  const handleColorChange = (color) => {
+    onColorChange(variant._id, option._id, color);
+  };
+
+  return (
+    <div className="flex flex-col gap-3 p-4 border rounded-lg bg-gray-50">
+      <div className="flex items-center gap-2">
+        <Input
+          ref={inputRef}
+          placeholder="eg. White, Large, etc."
+          value={option.value}
+          onChange={handleInputChange}
+          className="flex-1"
+          size="middle"
+        />
+        <Button
+          type="text"
+          danger
+          icon={<DeleteFilled />}
+          onClick={handleDelete}
+          size="small"
+          className="flex-shrink-0"
+        />
+      </div>
+      
+      {variant.variant_type === "color_variant" && (
+        <ColorPickerOption
+          color={option.color_code}
+          onChange={onColorChange}
+          variantId={variant._id}
+          optionId={option._id}
+        />
+      )}
+      
+      {variant.variant_type === "image_variant" && (
+        <VariantOptionImageUpload
+          variantId={variant._id}
+          optionId={option._id}
+          optionValue={option.value}
+          image_names={option.image_names || []}
+          onImageUpload={onImageUpload}
+        />
+      )}
+    </div>
+  );
+});
+
+// Discount Row Component
+const DiscountRow = React.memo(({ 
   name, 
   restField, 
   remove, 
@@ -487,7 +660,6 @@ const DiscountRow = ({
   const freeDeliveryDealer = Form.useWatch(['quantity_discount_splitup', name, 'free_delivery_dealer'], form) || false;
   const freeDeliveryCorporate = Form.useWatch(['quantity_discount_splitup', name, 'free_delivery_corporate'], form) || false;
 
-  // For variable products, use the first variant's prices as reference
   const getEffectivePrice = (priceType) => {
     if (productType === "Variable Product") {
       const variants = Object.values(variantPrices);
@@ -513,7 +685,6 @@ const DiscountRow = ({
   return (
     <Card size="small" key={name} className="relative mb-3">
       <div className="flex flex-nowrap items-start gap-3 overflow-x-auto pb-2">
-        {/* Customer Section */}
         <div className="flex flex-col gap-2 min-w-[300px] bg-blue-50 p-3 rounded border">
           <div className="flex items-end gap-2">
             <Form.Item
@@ -606,7 +777,6 @@ const DiscountRow = ({
           </Form.Item>
         </div>
 
-        {/* Dealer Section */}
         <div className="flex flex-col gap-2 min-w-[300px] bg-gray-50 p-3 rounded border">
           <div className="flex items-end gap-2">
             <Form.Item
@@ -699,7 +869,6 @@ const DiscountRow = ({
           </Form.Item>
         </div>
 
-        {/* Corporate Section */}
         <div className="flex flex-col gap-2 min-w-[300px] bg-green-50 p-3 rounded border">
           <div className="flex items-end gap-2">
             <Form.Item
@@ -792,7 +961,6 @@ const DiscountRow = ({
           </Form.Item>
         </div>
 
-        {/* Delete Button */}
         <Button
           type="text"
           danger
@@ -804,7 +972,50 @@ const DiscountRow = ({
       </div>
     </Card>
   );
-};
+});
+
+// Fixed PriceColumn Component - No cursor jumping
+const PriceColumn = React.memo(({ title, dataIndex, record, onPriceChange }) => {
+  const percentage = calculatePercentageDifference(record.MRP_price || 0, record[dataIndex] || 0);
+  
+  const handleChange = (e) => {
+    const { value } = e.target;
+    const numericValue = parseFloat(value) || 0;
+    
+    // Create updated record and call parent handler
+    const updatedRecord = {
+      ...record,
+      [dataIndex]: numericValue,
+    };
+    
+    onPriceChange(updatedRecord);
+  };
+
+  return (
+    <div>
+      <Input
+        type="number"
+        required
+        placeholder={title}
+        value={record[dataIndex] || ""}
+        onChange={handleChange}
+        step="0.01"
+        min="0"
+      />
+      {record.MRP_price > 0 && record[dataIndex] > 0 && (
+        <div className="text-xs mt-1">
+          <Tag 
+            color={percentage > 0 ? "green" : percentage < 0 ? "red" : "default"}
+            icon={percentage > 0 ? <ArrowUpOutlined /> : percentage < 0 ? <ArrowDownOutlined /> : null}
+          >
+            {percentage > 0 ? '+' : ''}
+            {percentage.toFixed(2)}%
+          </Tag>
+        </div>
+      )}
+    </div>
+  );
+});
 
 // Main Component
 const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
@@ -833,23 +1044,19 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
 
   const [seo_datas, setSEO_Datas] = useState(INITIAL_SEO_DATA);
 
-  // Refs for input fields to prevent cursor jumping
-  const productionTimeRef = useRef(null);
-  const stockArrangementTimeRef = useRef(null);
-  const variantPriceRefs = useRef({});
-
   // Watched values
   const productTypeSelectedValue = Form.useWatch('type', form) || (id?.type || PRODUCT_TYPE[0].value);
   const customerPrice = Form.useWatch('customer_product_price', form) || 0;
   const dealerPrice = Form.useWatch('Deler_product_price', form) || 0;
   const corporatePrice = Form.useWatch('corporate_product_price', form) || 0;
   
-  // Watch variant prices for real-time calculations
   const variantPrices = Form.useWatch('variants_price', form) || [];
   const watchedMRP = Form.useWatch('MRP_price', form) || 0;
 
   const userRole = JSON.parse(localStorage.getItem("userprofile") || '{"role": "user"}');
-  const hasImageVariant = variants.some(variant => variant.variant_type === "image_variant");
+  const hasImageVariant = variants.some(variant => 
+    variant.variant_type === "image_variant" || variant.variant_type === "color_variant"
+  );
 
   // API Functions
   const productCategory = async () => {
@@ -882,13 +1089,11 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     collectVendors();
   }, []);
 
-  // FIXED: Subcategory initialization with proper data loading
   useEffect(() => {
     if (id && categoryData.length > 0 && subcategory_data.length > 0) {
       setLoading(true);
       const categoryId = _.get(id, "category_details._id", "");
       
-      // Set filter subcategory data based on the category
       if (categoryId) {
         const filteredSubcategories = subcategory_data.filter(
           (data) => data.select_main_category === categoryId
@@ -913,7 +1118,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
         url: _.get(id, "seo_url", ""),
       });
 
-      // Initialize tableValue with proper prices
       const initialTableValue = _.get(id, "variants_price", []).map(item => ({
         ...item,
         MRP_price: item.MRP_price || 0,
@@ -945,7 +1149,8 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
         options: variant.options.map(option => ({
           ...option,
           _id: option._id || Date.now() + Math.random(),
-          image_names: normalizeImages(option.image_names || [])
+          image_names: normalizeImages(option.image_names || []),
+          color_code: option.color_code || "#000000"
         }))
       }));
       
@@ -1004,86 +1209,42 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     updatePercentageDifferences(mrp, customerPrice, dealerPrice, corporatePrice);
   };
 
-  // FIXED: Input handlers to prevent cursor jumping
-  const handleProductionTimeChange = (e) => {
-    const value = e.target.value;
-    form.setFieldsValue({ Production_time: value });
-    
-    if (productionTimeRef.current) {
-      const cursorPosition = e.target.selectionStart;
-      setTimeout(() => {
-        productionTimeRef.current.setSelectionRange(cursorPosition, cursorPosition);
-      }, 0);
-    }
-  };
+  // FIXED: Variant price handlers - No cursor jumping
+  const handlePriceChange = useCallback((updatedRecord) => {
+    setTableValue(prevTableValue => {
+      const updatedTableValue = prevTableValue.map((data) => {
+        if (data.key === updatedRecord.key) {
+          return updatedRecord;
+        }
+        return data;
+      });
 
-  const handleStockArrangementTimeChange = (e) => {
-    const value = e.target.value;
-    form.setFieldsValue({ Stock_Arrangement_time: value });
-    
-    if (stockArrangementTimeRef.current) {
-      const cursorPosition = e.target.selectionStart;
-      setTimeout(() => {
-        stockArrangementTimeRef.current.setSelectionRange(cursorPosition, cursorPosition);
-      }, 0);
-    }
-  };
-
-  // FIXED: Variant price handlers with cursor preservation
-  const handlePriceChange = (record, e, priceType) => {
-    const { value } = e.target;
-    const numericValue = parseFloat(value) || 0;
-
-    const updatedRecord = {
-      ...record,
-      [priceType]: numericValue,
-    };
-
-    const updatedTableValue = tableValue.map((data) => {
-      if (data.key === record.key) {
-        return updatedRecord;
+      if (!updatedTableValue.some((data) => data.key === updatedRecord.key)) {
+        updatedTableValue.push(updatedRecord);
       }
-      return data;
+
+      return updatedTableValue;
     });
+  }, []);
 
-    if (!updatedTableValue.some((data) => data.key === record.key)) {
-      updatedTableValue.push(updatedRecord);
-    }
-
-    setTableValue(updatedTableValue);
-    
-    // Preserve cursor position
-    const inputRef = variantPriceRefs.current[`${record.key}-${priceType}`];
-    if (inputRef) {
-      const cursorPosition = e.target.selectionStart;
-      setTimeout(() => {
-        inputRef.setSelectionRange(cursorPosition, cursorPosition);
-      }, 0);
-    }
-  };
-
-  const handleProductCodeChange = (record, e) => {
+  const handleProductCodeChange = useCallback((record, e) => {
     const { value } = e.target;
-    const updatedTableValue = tableValue.map((data) => {
-      if (data.key === record.key) {
-        return {
-          ...data,
-          product_code: value,
-          product_unique_code: uuidv4() + Date.now(),
-        };
-      }
-      return data;
-    });
+    setTableValue(prevTableValue => 
+      prevTableValue.map((data) => {
+        if (data.key === record.key) {
+          return {
+            ...data,
+            product_code: value,
+            product_unique_code: uuidv4() + Date.now(),
+          };
+        }
+        return data;
+      })
+    );
+  }, []);
 
-    if (!updatedTableValue.some((data) => data.key === record.key)) {
-      updatedTableValue.push({ ...record, product_code: value });
-    }
-
-    setTableValue(updatedTableValue);
-  };
-
-  // Variant Handlers
-  const handleAddVariant = () => {
+  // Fixed Variant Handlers
+  const handleAddVariant = useCallback(() => {
     const newVariantId = Date.now() + Math.random();
     const newVariant = { 
       ...INITIAL_VARIANT, 
@@ -1093,40 +1254,42 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
         _id: Date.now() + Math.random()
       }]
     };
-    setVariants([...variants, newVariant]);
-  };
+    setVariants(prev => [...prev, newVariant]);
+  }, []);
 
-  const handleAddVariantOption = (id) => {
-    const newVariant = variants.map((data) => {
-      if (data._id === id) {
-        return {
-          ...data,
-          options: [
-            ...data.options,
-            {
-              ...INITIAL_VARIANT_OPTION,
-              _id: Date.now() + Math.random(),
-              variant_type: data.variant_type,
-            },
-          ],
-        };
-      }
-      return data;
-    });
-    setVariants(newVariant);
-  };
+  const handleAddVariantOption = useCallback((id) => {
+    setVariants(prevVariants => 
+      prevVariants.map((data) => {
+        if (data._id === id) {
+          return {
+            ...data,
+            options: [
+              ...data.options,
+              {
+                ...INITIAL_VARIANT_OPTION,
+                _id: Date.now() + Math.random(),
+                variant_type: data.variant_type,
+                color_code: data.variant_type === "color_variant" ? "#000000" : undefined,
+              },
+            ],
+          };
+        }
+        return data;
+      })
+    );
+  }, []);
 
-  const handleOnChangeVariantName = (event, id) => {
+  const handleOnChangeVariantName = useCallback((event, id) => {
     const { value } = event.target;
-    setVariants((prevVariants) =>
+    setVariants(prevVariants =>
       prevVariants.map((variant) =>
         variant._id === id ? { ...variant, variant_name: value } : variant
       )
     );
-  };
+  }, []);
 
-  const handleOnChangeVariantType = (event, id) => {
-    setVariants((prevVariants) =>
+  const handleOnChangeVariantType = useCallback((event, id) => {
+    setVariants(prevVariants =>
       prevVariants.map((variant) =>
         variant._id === id
           ? {
@@ -1135,15 +1298,16 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
               options: variant.options.map(option => ({
                 ...option,
                 variant_type: event,
-                image_names: event === "image_variant" ? (option.image_names || []) : []
+                image_names: event === "image_variant" ? (option.image_names || []) : [],
+                color_code: event === "color_variant" ? (option.color_code || "#000000") : undefined
               }))
             }
           : variant
       )
     );
-  };
+  }, []);
 
-  const handleOnDeleteVariantName = (variant_details) => {
+  const handleOnDeleteVariantName = useCallback((variant_details) => {
     if (variants.length <= 1) {
       return CUSTOM_ERROR_NOTIFICATION("At least one variant is required");
     }
@@ -1152,15 +1316,15 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       return CUSTOM_ERROR_NOTIFICATION("Please delete variant options first");
     }
     
-    setVariants((prevVariants) =>
+    setVariants(prevVariants =>
       prevVariants.filter((variant) => variant._id !== variant_details._id)
     );
-  };
+  }, [variants]);
 
-  const handleOnChangeVariantOptionName = async (event, VariantId, OptionId) => {
-    try {
-      let { value } = event.target;
-      const changeVariantOptionName = variants.map((data) => {
+  // FIXED: Variant option change handler
+  const handleOnChangeVariantOptionName = useCallback((VariantId, OptionId, value) => {
+    setVariants(prevVariants => 
+      prevVariants.map((data) => {
         if (data._id === VariantId) {
           const optionChange = data.options.map((option) =>
             option._id === OptionId ? { ...option, value } : option
@@ -1168,21 +1332,18 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
           return { ...data, options: optionChange };
         }
         return data;
-      });
-      setVariants(changeVariantOptionName);
-    } catch (err) {
-      console.error(err);
+      })
+    );
+  }, []);
+
+  const handleOnDeleteVariantOptionName = useCallback((VariantId, OptionId) => {
+    const variant = variants.find(v => v._id === VariantId);
+    if (variant && variant.options.length <= 1) {
+      return CUSTOM_ERROR_NOTIFICATION("At least one option is required");
     }
-  };
 
-  const handleOnDeleteVariantOptionName = (VariantId, OptionId) => {
-    try {
-      const variant = variants.find(v => v._id === VariantId);
-      if (variant && variant.options.length <= 1) {
-        return CUSTOM_ERROR_NOTIFICATION("At least one option is required");
-      }
-
-      const deleteVariantOptionName = variants.map((data) => {
+    setVariants(prevVariants => 
+      prevVariants.map((data) => {
         if (data._id === VariantId) {
           const optionChange = data.options.filter(
             (option) => option._id !== OptionId
@@ -1190,16 +1351,30 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
           return { ...data, options: optionChange };
         }
         return data;
-      });
+      })
+    );
+  }, [variants]);
 
-      setVariants(deleteVariantOptionName);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  // Color Picker Handler
+  const handleColorChange = useCallback((variantId, optionId, color) => {
+    setVariants(prevVariants =>
+      prevVariants.map(variant =>
+        variant._id === variantId
+          ? {
+              ...variant,
+              options: variant.options.map(option =>
+                option._id === optionId
+                  ? { ...option, color_code: color }
+                  : option
+              )
+            }
+          : variant
+      )
+    );
+  }, []);
 
   // Variant Option Image Handlers
-  const handleVariantOptionImageUpload = (variantId, optionId, images) => {
+  const handleVariantOptionImageUpload = useCallback((variantId, optionId, images) => {
     setVariants(prevVariants =>
       prevVariants.map(variant =>
         variant._id === variantId
@@ -1214,25 +1389,10 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
           : variant
       )
     );
-  };
-
-  // Proper variant percentage calculation
-  const getVariantPercentageDifference = useCallback((record, priceType) => {
-    if (!record) return 0;
-    
-    const mrp = parseFloat(record.MRP_price) || 0;
-    const price = parseFloat(record[priceType]) || 0;
-    
-    if (mrp === 0 || price === 0) return 0;
-    
-    const difference = price - mrp;
-    const percentage = (difference / mrp) * 100;
-    
-    return Math.round(percentage * 100) / 100;
   }, []);
 
   // Lock Handlers
-  const handleLockProductCode = () => {
+  const handleLockProductCode = useCallback(() => {
     if (isProductCodeLocked && userRole.role !== "super admin") {
       message.error("Only super admin can unlock product code");
       return;
@@ -1244,9 +1404,9 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     } else {
       message.info("Product code unlocked");
     }
-  };
+  }, [isProductCodeLocked, userRole.role]);
 
-  const handleLockVariantProductCode = (recordKey) => {
+  const handleLockVariantProductCode = useCallback((recordKey) => {
     if (lockedProductCodes[recordKey] && userRole.role !== "super admin") {
       message.error("Only super admin can unlock variant product code");
       return;
@@ -1257,36 +1417,35 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       [recordKey]: !prev[recordKey]
     }));
 
-    const updatedTableValue = tableValue.map(item => {
-      if (item.key === recordKey) {
-        return { ...item, isLocked: !lockedProductCodes[recordKey] };
-      }
-      return item;
-    });
-    setTableValue(updatedTableValue);
-  };
+    setTableValue(prevTableValue => 
+      prevTableValue.map(item => {
+        if (item.key === recordKey) {
+          return { ...item, isLocked: !lockedProductCodes[recordKey] };
+        }
+        return item;
+      })
+    );
+  }, [lockedProductCodes, userRole.role]);
 
   // Form Helpers
-  // FIXED: Subcategory handling with proper initialization
-  const onCategoryChnge = (value) => {
+  const onCategoryChnge = useCallback((value) => {
     if (value) {
       const response = subcategory_data.filter((data) => {
         return data.select_main_category === value;
       });
       setFilterSubcategory_data(response);
       
-      // Clear subcategory when main category changes
       form.setFieldsValue({ sub_category_details: undefined });
     } else {
       setFilterSubcategory_data([]);
     }
-  };
+  }, [subcategory_data, form]);
 
-  const handleChnge = (e, location) => {
+  const handleChnge = useCallback((e, location) => {
     setSEO_Datas((pre) => ({ ...pre, [location]: e.target.value }));
-  };
+  }, []);
 
-  const GET_TABLE_TYPE = (key) => {
+  const GET_TABLE_TYPE = useCallback((key) => {
     try {
       return _.get(
         form.getFieldValue("description_tabs"),
@@ -1296,9 +1455,9 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     } catch (err) {
       return "";
     }
-  };
+  }, [form]);
 
-  const handleChange = (id, url) => {
+  const handleChange = useCallback((id, url) => {
     setDummy(!dummy);
     let firstFieldKey = Number(id.split("-")[1]);
     let imageFieldKey = Number(id.split("-")[0]);
@@ -1314,9 +1473,9 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     let initial = _.get(currentObject, "[0].images", []);
     initial.push(url);
     currentObject[0].images = initial;
-  };
+  }, [dummy, form]);
 
-  const GETCURRENT_SETOF_IMAGES = (id) => {
+  const GETCURRENT_SETOF_IMAGES = useCallback((id) => {
     try {
       let firstFieldKey = Number(id.split("-")[1]);
       let imageFieldKey = Number(id.split("-")[0]);
@@ -1332,9 +1491,9 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     } catch (err) {
       return [];
     }
-  };
+  }, [form]);
 
-  const REMOVE_IMAGES = (id, delete_url) => {
+  const REMOVE_IMAGES = useCallback((id, delete_url) => {
     try {
       setDummy(!dummy);
       let firstFieldKey = Number(id.split("-")[1]);
@@ -1355,10 +1514,10 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     } finally {
       setDummy(!dummy);
     }
-  };
+  }, [dummy, form]);
 
   // Generate Product Code
-  const generateProductCode = (isVariableProduct = false, variantName = "") => {
+  const generateProductCode = useCallback((isVariableProduct = false, variantName = "") => {
     const categoryId = form.getFieldValue("category_details");
     const subCategoryId = form.getFieldValue("sub_category_details");
 
@@ -1407,20 +1566,20 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     }
 
     return productCode;
-  };
+  }, [categoryData, filter_subcategory_data, form, usedProductCodes]);
 
   // Modal Handlers
-  const showUnitModal = () => {
+  const showUnitModal = useCallback(() => {
     setModalUnitVisible(true);
-  };
+  }, []);
 
-  const handleUnitOk = () => {
+  const handleUnitOk = useCallback(() => {
     setModalUnitVisible(false);
-  };
+  }, []);
 
-  const handleUnitCancel = () => {
+  const handleUnitCancel = useCallback(() => {
     setModalUnitVisible(false);
-  };
+  }, []);
 
   // Generate table data from variants with proper price initialization
   const combinations = useMemo(() => {
@@ -1439,22 +1598,31 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     if (!combinations || combinations.length === 0) return [];
     
     return combinations.map((combination) => {
-      const row = combination.reduce((acc, data, i) => {
+      const row = {
+        key: combination.map((opt) => opt.value).join("-"),
+        variantData: {}
+      };
+
+      combination.forEach((data, i) => {
         const variantName = variants[i]?.variant_name || `Variant ${i + 1}`;
-        return {
-          ...acc,
-          [variantName]: data.value,
-        };
-      }, {});
+        
+        if (variants[i]?.variant_type === "color_variant") {
+          row.variantData[variantName] = {
+            value: data.value,
+            color: data.color_code || "#000000"
+          };
+        } else {
+          row.variantData[variantName] = {
+            value: data.value
+          };
+        }
+      });
 
-      const keyId = combination.map((opt) => opt.value).join("-");
-      const existingData = tableValue.find((data) => data.key === keyId);
+      const existingData = tableValue.find((data) => data.key === row.key);
 
-      // Initialize with proper prices to avoid NaN calculations
       const baseRecord = {
         ...row,
-        key: keyId,
-        isLocked: lockedProductCodes[keyId] || false,
+        isLocked: lockedProductCodes[row.key] || false,
         MRP_price: existingData?.MRP_price || 0,
         customer_product_price: existingData?.customer_product_price || 0,
         Deler_product_price: existingData?.Deler_product_price || 0,
@@ -1520,52 +1688,39 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
     },
   ];
 
-  // FIXED: Variant Table Columns with cursor preservation
-  const PriceColumn = ({ title, dataIndex, record, onPriceChange }) => {
-    const percentage = getVariantPercentageDifference(record, dataIndex);
-    const inputRef = useRef(null);
-    
-    // Store the ref for cursor preservation
-    useEffect(() => {
-      variantPriceRefs.current[`${record.key}-${dataIndex}`] = inputRef.current;
-    }, [record.key, dataIndex]);
-
-    const handleChange = (e) => {
-      onPriceChange(record, e, dataIndex);
-    };
-
-    return (
-      <div>
-        <Input
-          ref={inputRef}
-          type="number"
-          required
-          placeholder={title}
-          value={record[dataIndex] || ""}
-          onChange={handleChange}
-        />
-        {record.MRP_price > 0 && record[dataIndex] > 0 && (
-          <div className="text-xs mt-1">
-            <Tag 
-              color={percentage > 0 ? "green" : percentage < 0 ? "red" : "default"}
-              icon={percentage > 0 ? <ArrowUpOutlined /> : percentage < 0 ? <ArrowDownOutlined /> : null}
-            >
-              {percentage > 0 ? '+' : ''}
-              {percentage.toFixed(2)}%
-            </Tag>
-          </div>
-        )}
-      </div>
-    );
-  };
-
+  // FIXED: Columns definition with stable handlers
   const columns = useMemo(() => [
-    ...variants.map((variant) => ({
-      title: variant.variant_name || `Variant ${variant._id}`,
-      dataIndex: variant.variant_name,
-      key: variant.variant_name,
-      render: (text) => text || "-",
-    })),
+    ...variants.map((variant) => {
+      const variantName = variant.variant_name || `Variant ${variant._id}`;
+      
+      return {
+        title: variantName,
+        dataIndex: ['variantData', variantName, 'value'],
+        key: variantName,
+        render: (text, record) => {
+          const variantData = record.variantData[variantName];
+          
+          if (!variantData) return "-";
+          
+          if (variant.variant_type === "color_variant") {
+            const colorCode = variantData.color || "#000000";
+            return (
+              <div className="flex items-center gap-2">
+                <div 
+                  className="w-6 h-6 rounded border border-gray-300 shadow-sm cursor-pointer"
+                  style={{ backgroundColor: colorCode }}
+                  title={colorCode}
+                  onClick={() => message.info(`Color: ${colorCode}`)}
+                />
+                <span>{variantData.value || "-"}</span>
+              </div>
+            );
+          }
+          
+          return variantData.value || "-";
+        },
+      };
+    }),
     {
       title: "Cost",
       dataIndex: "MRP_price",
@@ -1636,13 +1791,14 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                   const isVariable = productTypeSelectedValue === "Variable Product";
                   const code = generateProductCode(isVariable, record.variant_name);
                   if (code) {
-                    const updatedTableValue = tableValue.map((data) => {
-                      if (data.key === record.key) {
-                        return { ...data, product_code: code };
-                      }
-                      return data;
-                    });
-                    setTableValue(updatedTableValue);
+                    setTableValue(prevTableValue => 
+                      prevTableValue.map((data) => {
+                        if (data.key === record.key) {
+                          return { ...data, product_code: code };
+                        }
+                        return data;
+                      })
+                    );
                   }
                 }}
                 style={{ cursor: "pointer" }}
@@ -1661,7 +1817,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
         />
       ),
     },
-  ], [variants, tableValue, lockedProductCodes, productTypeSelectedValue, userRole.role, getVariantPercentageDifference]);
+  ], [variants, tableValue, lockedProductCodes, productTypeSelectedValue, userRole.role, handlePriceChange, handleProductCodeChange, generateProductCode, handleLockVariantProductCode]);
 
   // Form Submission
   const handleFinish = async (values) => {
@@ -1670,7 +1826,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       
       setLoading(true);
       
-      // Handle stock info
       const existingStockInfo = (id ? _.get(id, "stock_info", []) : []).map(
         (item) => ({
           ...item,
@@ -1698,7 +1853,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
 
       values.stock_info = uniqueStockInfo;
 
-      // Calculate total stock
       const existingStockCount = id ? Number(_.get(id, "stock_count", 0)) : 0;
       const newStock = newStockInfo.reduce(
         (sum, item) => sum + (Number(item.add_stock) || 0),
@@ -1706,7 +1860,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       );
       values.stock_count = Number(existingStockCount) + Number(newStock);
 
-      // Handle ALL images as arrays of objects
       values.images = image_path.map(img => ({
         _id: img._id,
         path: img.path,
@@ -1715,7 +1868,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
         uploadedAt: img.uploadedAt
       }));
 
-      // Process variants with consistent image structure
       values.variants = variants.map(variant => ({
         variant_name: variant.variant_name,
         variant_type: variant.variant_type,
@@ -1729,22 +1881,36 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
         options: variant.options.map(option => ({
           value: option.value,
           variant_type: option.variant_type,
-          image_names: option.image_names.map(img => ({
+          color_code: option.color_code,
+          image_names: option.image_names ? option.image_names.map(img => ({
             _id: img._id,
             path: img.path,
             url: img.url,
             type: img.type || 'image',
             uploadedAt: img.uploadedAt
-          }))
+          })) : []
         }))
       }));
 
-      // Include lock status in submission
       values.product_Lock = isProductCodeLocked;
-      values.variants_price = tableValue.map(item => ({
-        ...item,
-        isLocked: lockedProductCodes[item.key] || false
-      }));
+      values.variants_price = tableValue.map(item => {
+        const { variantData, ...rest } = item;
+        
+        const flatItem = { ...rest };
+        if (variantData) {
+          Object.keys(variantData).forEach(variantName => {
+            flatItem[variantName] = variantData[variantName].value;
+            if (variantData[variantName].color) {
+              flatItem[`${variantName}_color`] = variantData[variantName].color;
+            }
+          });
+        }
+        
+        return {
+          ...flatItem,
+          isLocked: lockedProductCodes[item.key] || false
+        };
+      });
 
       values.seo_url = String(values.seo_url).trim();
 
@@ -2079,33 +2245,27 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     />
                   </Form.Item>
 
-                  {/* FIXED: Production Time with cursor preservation */}
                   <Form.Item
                     rules={[formValidation("Enter Production Time")]}
                     label="Production Time"
                     name="Production_time"
                   >
                     <Input
-                      ref={productionTimeRef}
                       placeholder="Enter Production Time"
                       type="number"
                       className="h-12"
-                      onChange={handleProductionTimeChange}
                     />
                   </Form.Item>
 
-                  {/* FIXED: Stock Arrangement Time with cursor preservation */}
                   <Form.Item
                     rules={[formValidation("Enter Stock Arrangement Time")]}
                     label="Stock Arrangement Time"
                     name="Stock_Arrangement_time"
                   >
                     <Input
-                      ref={stockArrangementTimeRef}
                       placeholder="Enter Stock Arrangement Time"
                       type="number"
                       className="h-12"
-                      onChange={handleStockArrangementTimeChange}
                     />
                   </Form.Item>
 
@@ -2302,7 +2462,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                           ))}
                         </div>
 
-                        {/* Display unique stock entries in the table */}
                         {combinedStockInfoData.length > 1 && (
                           <div className="mt-6">
                             <Table
@@ -2513,12 +2672,11 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                                       handleOnChangeVariantType(e, data._id)
                                     }
                                   >
-                                    <Select.Option value="text_box_variant">
-                                      Text Box Variant
-                                    </Select.Option>
-                                    <Select.Option value="image_variant">
-                                      Image Variant (Upload 6 images per option)
-                                    </Select.Option>
+                                    {VARIANT_TYPES.map(type => (
+                                      <Select.Option key={type.value} value={type.value}>
+                                        {type.label}
+                                      </Select.Option>
+                                    ))}
                                   </Select>
                                 </div>
 
@@ -2540,48 +2698,15 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                                   </div>
 
                                   {data.options.map((option) => (
-                                    <div
+                                    <VariantOption
                                       key={option._id}
-                                      className="flex flex-col gap-3 p-3 border rounded-lg"
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        <Input
-                                          placeholder="eg. White"
-                                          value={option.value}
-                                          onChange={(e) =>
-                                            handleOnChangeVariantOptionName(
-                                              e,
-                                              data._id,
-                                              option._id
-                                            )
-                                          }
-                                          className="flex-1"
-                                        />
-                                        <Button
-                                          type="text"
-                                          danger
-                                          icon={<DeleteFilled />}
-                                          onClick={() =>
-                                            handleOnDeleteVariantOptionName(
-                                              data._id,
-                                              option._id
-                                            )
-                                          }
-                                          size="small"
-                                        />
-                                      </div>
-                                      
-                                      {/* Image Upload for Image Variants */}
-                                      {data.variant_type === "image_variant" && (
-                                        <VariantOptionImageUpload
-                                          variantId={data._id}
-                                          optionId={option._id}
-                                          optionValue={option.value}
-                                          image_names={option.image_names || []}
-                                          onImageUpload={handleVariantOptionImageUpload}
-                                        />
-                                      )}
-                                    </div>
+                                      variant={data}
+                                      option={option}
+                                      onOptionChange={handleOnChangeVariantOptionName}
+                                      onOptionDelete={handleOnDeleteVariantOptionName}
+                                      onColorChange={handleColorChange}
+                                      onImageUpload={handleVariantOptionImageUpload}
+                                    />
                                   ))}
                                 </div>
                               </div>
@@ -2943,8 +3068,16 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                                                         <Image
                                                           height={50}
                                                           key={index}
-                                                          className="!h-[50px] !w-[50px] !rounded-lg !border"
+                                                          className="!h-[50px] !w-[50px] !rounded-lg !border cursor-pointer"
                                                           src={res}
+                                                          preview={{
+                                                            mask: (
+                                                              <div className="flex items-center justify-center gap-1">
+                                                                <EyeOutlined className="text-white" />
+                                                                <span className="text-white text-xs">Preview</span>
+                                                              </div>
+                                                            ),
+                                                          }}
                                                         />
                                                         <div
                                                           onClick={() => {
@@ -3086,7 +3219,6 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
         </Card>
       </div>
 
-      {/* Unit Configuration Modal */}
       <Modal
         title="Unit Configuration"
         visible={modalUnitVisible}
@@ -3174,6 +3306,15 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
         :global(.custom-table .ant-table-thead > tr > th) {
           background-color: #fafafa;
           font-weight: 600;
+        }
+
+        :global(.image-preview-modal .ant-modal-body) {
+          padding: 0;
+        }
+
+        :global(.image-preview-modal .ant-modal-close) {
+          top: 10px;
+          right: 10px;
         }
       `}</style>
     </Spin>

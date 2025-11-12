@@ -89,18 +89,18 @@ const CustomerPage = () => {
       };
 
       // Validate required fields based on section type
-      if (
-        sectionType === "banner" &&
-        (!payload.banner_count || _.isEmpty(payload.banner_images))
-      ) {
-        return CUSTOM_ERROR_NOTIFICATION(
-          "Please provide banner count and upload at least one image"
-        );
-      }
+      // if (
+      //   sectionType === "banner" &&
+      //   (!payload.banner_count || _.isEmpty(payload.banner_images))
+      // ) {
+      //   return CUSTOM_ERROR_NOTIFICATION(
+      //     "Please provide banner count and upload at least one image"
+      //   );
+      // }
 
-      if (sectionType === "floating product" && (!coverImage || !singleImage)) {
-        return CUSTOM_ERROR_NOTIFICATION("Please upload both product images");
-      }
+      // if (sectionType === "floating product" && (!coverImage || !singleImage)) {
+      //   return CUSTOM_ERROR_NOTIFICATION("Please upload both product images");
+      // }
 
       // API call
       const result = sectionId
@@ -132,6 +132,7 @@ const CustomerPage = () => {
     setSectionId(section._id);
     setSectionType(section.section_type);
 
+    // Set image states based on section type
     if (section.section_type === "banner") {
       setBannerImages(section.banner_images?.map((img) => img.path) || []);
     } else {
@@ -139,15 +140,22 @@ const CustomerPage = () => {
       setSingleImage(section.Product_single_img || "");
     }
 
+    // Set form fields - ensure section_products contains the IDs
+    const productIds = section.section_products?.map((p) => 
+      typeof p === 'object' ? p._id : p
+    ) || [];
+
     form.setFieldsValue({
       section_name: section.section_name,
       sub_title: section.sub_title,
-      section_products: section.section_products?.map((p) => p._id) || [],
+      section_products: productIds,
       product_display: section.product_display,
       ...(section.section_type === "banner" && {
         banner_count: section.banner_count,
       }),
+      section_type: section.section_type, // Add this line to set section type in form
     });
+    
     setModalStatus(true);
   };
 
@@ -161,6 +169,18 @@ const CustomerPage = () => {
       ERROR_NOTIFICATION(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle section type change
+  const handleSectionTypeChange = (value) => {
+    setSectionType(value);
+    // Reset image states when section type changes
+    if (value === "banner") {
+      setCoverImage("");
+      setSingleImage("");
+    } else if (value === "floating product") {
+      setBannerImages([]);
     }
   };
 
@@ -265,14 +285,14 @@ const CustomerPage = () => {
         destroyOnClose
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          <Form.Item
+          {/* <Form.Item
             name="section_type"
             label="Section Type"
             rules={[formValidation("Please select section type")]}
           >
             <Select
               placeholder="Select section type"
-              onChange={setSectionType}
+              onChange={handleSectionTypeChange}
               className="w-full h-12"
             >
               <Select.Option value="floating product">
@@ -280,22 +300,13 @@ const CustomerPage = () => {
               </Select.Option>
               <Select.Option value="banner">Banner</Select.Option>
             </Select>
-          </Form.Item>
+          </Form.Item> */}
 
           {sectionType === "banner" && (
             <>
-              <Form.Item
+              {/* <Form.Item
                 label="Banner Images"
-                rules={[
-                  {
-                    validator: () =>
-                      bannerImages.length > 0
-                        ? Promise.resolve()
-                        : Promise.reject(
-                            "Please upload at least one banner image"
-                          ),
-                  },
-                ]}
+                required
               >
                 <div className="flex flex-wrap gap-4 mb-4">
                   <UploadHelper
@@ -310,9 +321,9 @@ const CustomerPage = () => {
                     multiple={true}
                   />
                 </div>
-              </Form.Item>
+              </Form.Item> */}
 
-              <Form.Item
+              {/* <Form.Item
                 name="banner_count"
                 label="Banner Count"
                 rules={[formValidation("Please select banner count")]}
@@ -324,11 +335,11 @@ const CustomerPage = () => {
                     </Select.Option>
                   ))}
                 </Select>
-              </Form.Item>
+              </Form.Item> */}
             </>
           )}
-
-        {sectionType === "floating product" && (
+{/* 
+          {sectionType === "floating product" && (
             <>
               <Form.Item
                 label="Product Cover Image"
@@ -339,7 +350,7 @@ const CustomerPage = () => {
                     <ShowImages path={[coverImage]} setImage={setCoverImage} />
                   ) : (
                     <UploadHelper 
-                      setImagePath={(images) => setCoverImage(images[0])}
+                      setImagePath={(images) => setCoverImage(images[0] || "")}
                       multiple={false}
                     />
                   )}
@@ -355,14 +366,14 @@ const CustomerPage = () => {
                     <ShowImages path={[singleImage]} setImage={setSingleImage} />
                   ) : (
                     <UploadHelper 
-                      setImagePath={(images) => setSingleImage(images[0])}
+                      setImagePath={(images) => setSingleImage(images[0] || "")}
                       multiple={false}
                     />
                   )}
                 </div>
               </Form.Item>
             </>
-          )}
+          )} */}
 
           <Form.Item
             name="section_name"
@@ -410,7 +421,7 @@ const CustomerPage = () => {
               }
             >
               {productData
-                .filter((product) => !product.is_cloned)
+                .filter((product) => !product.is_cloned&&product.is_visible)
                 .map((product) => (
                   <Select.Option key={product._id} value={product._id}>
                     <div className="flex items-center gap-2">
