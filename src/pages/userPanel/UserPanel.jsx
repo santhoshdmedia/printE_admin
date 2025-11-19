@@ -43,28 +43,29 @@ const UserPanel = () => {
   const [id, setId] = useState("");
   const [role, setRole] = useState("Corporate");
   const [allCustomUser, setAllCustomUser] = useState([]);
+  const [sameAsBusinessAddress, setSameAsBusinessAddress] = useState(false);
   const navigate = useNavigate();
 
   const handleView = (id) => {
     try {
       navigate("/user_details", { state: id });
-    } catch {}
+    } catch { }
   };
 
   const [form] = Form.useForm();
 
   const generateUniqueCode = () => {
     if (allCustomUser.length === 0) return role === "Corporate" ? "PEC001" : "PED001";
-    
+
     const codes = allCustomUser
       .filter(user => user.role === role)
       .map(v => v.unique_code)
       .filter(code => code && code.startsWith(role === "Corporate" ? "PEC" : "PED"));
-    
-    const numbers = codes.map(code => 
+
+    const numbers = codes.map(code =>
       parseInt(code.replace(role === "Corporate" ? "PEC" : "PED", ""), 10)
     );
-    
+
     const maxNumber = numbers.length ? Math.max(...numbers) : 0;
     return `${role === "Corporate" ? "PEC" : "PED"}${String(maxNumber + 1).padStart(3, "0")}`;
   };
@@ -72,28 +73,30 @@ const UserPanel = () => {
   const handleFinish = async (values) => {
     try {
       setLoading(true);
-      
-      // Format the data according to the schema
+
+      // Format the data according to the backend schema
       const userData = {
-        name: values.name,
-        email: values.email,
-        password: values.phone,
+        name: values.name, // Changed from values.person_name
+        email: values.email, // Changed from values.person_email
+        password: values.phone, // Using phone as password
         role: values.role,
-        phone: values.phone,
+        phone: values.phone, // Changed from values.person_phone
         business_name: values.business_name,
         unique_code: values.unique_code,
-        addresses: values.addresses || []
+        addresses: values.addresses || [],
+        // Top level fields as per backend schema
+        gst_no: values.gst_no,
+        business_phone: values.business_phone,
+        business_email: values.business_email,
+        business_address: values.business_address,
+        person_address: values.person_address
       };
-
-
-      // Add GST number if provided
-      if (values.gst_no) {
-        userData.gst_no = values.gst_no;
-      }
 
       let result = "";
       result = await addCustomUser(userData);
+      console.log(result, "corporate");
       form.resetFields();
+      setSameAsBusinessAddress(false);
       handleCancel();
       SUCCESS_NOTIFICATION(result);
       setFormStatus(false);
@@ -110,14 +113,15 @@ const UserPanel = () => {
     setFormStatus(false);
     setId("");
     form.resetFields();
-    setRole("user");
+    setRole("Corporate");
+    setSameAsBusinessAddress(false);
   };
 
   const collectUsers = async () => {
     try {
       setLoading(true);
       const result = await getCustomUser(search);
-      
+
       setAllCustomUser(_.get(result, "data.data", []));
     } catch (err) {
       console.log(err);
@@ -133,18 +137,44 @@ const UserPanel = () => {
 
   useEffect(() => {
     if (formStatus && !id) {
-      form.setFieldsValue({ 
+      form.setFieldsValue({
         unique_code: generateUniqueCode(),
-        role: role 
+        role: role
       });
     }
   }, [formStatus, role]);
+
+  // Handle same as business address checkbox
+  const handleSameAsBusinessAddress = (e) => {
+    const checked = e.target.checked;
+    setSameAsBusinessAddress(checked);
+    
+    if (checked) {
+      const businessAddress = form.getFieldValue('business_address');
+      form.setFieldsValue({
+        person_address: businessAddress
+      });
+    } else {
+      form.setFieldsValue({
+        person_address: ''
+      });
+    }
+  };
+
+  // Update personal address when business address changes and checkbox is checked
+  const handleBusinessAddressChange = (e) => {
+    if (sameAsBusinessAddress) {
+      form.setFieldsValue({
+        person_address: e.target.value
+      });
+    }
+  };
 
   const handleEdit = (res) => {
     try {
       form.setFieldsValue(res);
       setId(res?._id);
-      setRole(res?.role || "user");
+      setRole(res?.role || "Corporate");
       setFormStatus(true);
     } catch (err) {
       ERROR_NOTIFICATION(err);
@@ -174,7 +204,7 @@ const UserPanel = () => {
       title: "Unique Code",
       dataIndex: "unique_code",
       render: (code) => code && (
-        <Tag color="blue" className="font-mono">
+        <Tag color="yellow" className="font-mono border-yellow-400 text-yellow-700">
           {code}
         </Tag>
       ),
@@ -196,7 +226,7 @@ const UserPanel = () => {
       title: "Role",
       dataIndex: "role",
       render: (role) => (
-        <Tag color={role === "Corporate" ? "blue" : role === "Dealer" ? "green" : "default"}>
+        <Tag color={role === "Corporate" ? "yellow" : role === "Dealer" ? "orange" : "default"}>
           {role}
         </Tag>
       ),
@@ -207,30 +237,13 @@ const UserPanel = () => {
       render: (id) => {
         return (
           <div className="flex space-x-2">
-            <Button 
-              icon={<EyeOutlined />} 
-              className="text-blue-600"
+            <Button
+              icon={<EyeOutlined />}
+              className="text-yellow-600 border-yellow-400 hover:bg-yellow-50"
               onClick={() => handleView(id)}
             >
               View
             </Button>
-            {/* <Button 
-              icon={<EditOutlined />} 
-              className="text-green-600"
-              onClick={() => handleEdit(allCustomUser.find(user => user._id === id))}
-            >
-              Edit
-            </Button>
-            <Popconfirm
-              title="Are you sure to delete this user?"
-              onConfirm={() => handleDelete(id)}
-              okText="Yes"
-              cancelText="No"
-            >
-              <Button icon={<DeleteOutlined />} className="text-red-600">
-                Delete
-              </Button>
-            </Popconfirm> */}
           </div>
         );
       },
@@ -238,24 +251,24 @@ const UserPanel = () => {
   ];
 
   return (
-    <div className="p-4 bg-gray-50 min-h-screen">
+    <div className="p-4 bg-yellow-50 min-h-screen">
       <Card
         title={
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-gray-800">
+            <h2 className="text-xl font-semibold text-yellow-800">
               User Management
             </h2>
             <Button
               type="primary"
               icon={<PlusOutlined />}
               onClick={() => setFormStatus(true)}
-              className="bg-blue-500 hover:bg-blue-600"
+              className="bg-yellow-500 hover:bg-yellow-600 border-yellow-500 text-white"
             >
               Add User
             </Button>
           </div>
         }
-        className="rounded-lg shadow-sm border-0"
+        className="rounded-lg shadow-sm border-0 border-t-4 border-t-yellow-400"
       >
         <div className="mb-4 flex justify-between">
           <Input.Search
@@ -265,7 +278,7 @@ const UserPanel = () => {
             className="w-64"
             size="large"
           />
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-yellow-700">
             Total Users:{" "}
             <span className="font-semibold">{allCustomUser.length}</span>
           </div>
@@ -276,16 +289,16 @@ const UserPanel = () => {
           loading={loading}
           columns={columns}
           scroll={{ x: 1000 }}
-          rowClassName="hover:bg-gray-50"
+          rowClassName="hover:bg-yellow-50"
         />
 
         <Modal
           open={formStatus}
           footer={null}
           closable={true}
-          width={800}
+          width={1000}
           title={
-            <div className="text-lg font-semibold">
+            <div className="text-lg font-semibold text-yellow-800">
               {id ? "Update User" : "Add New User"}
             </div>
           }
@@ -307,7 +320,7 @@ const UserPanel = () => {
                     name="role"
                     rules={[formValidation("Select Role")]}
                   >
-                    <Select 
+                    <Select
                       placeholder="Select Role"
                       onChange={(value) => setRole(value)}
                     >
@@ -323,106 +336,170 @@ const UserPanel = () => {
                     tooltip="Automatically generated"
                   >
                     <Input
-                      prefix={<IdcardOutlined className="text-gray-400" />}
-                      className="h-10"
+                      prefix={<IdcardOutlined className="text-yellow-400" />}
+                      className="h-10 border-yellow-200 focus:border-yellow-400"
                       readOnly
                     />
                   </Form.Item>
                 </Col>
               </Row>
 
-              {(role === "Corporate" || role === "Dealer") && (
-                <Form.Item
-                  label="Business Name"
-                  name="business_name"
-                  rules={role !== "user" ? [formValidation("Enter Business Name")] : []}
-                >
-                  <Input
-                    prefix={<ShopOutlined className="text-gray-400" />}
-                    className="h-10"
-                    placeholder="Enter Business Name"
-                  />
-                </Form.Item>
-              )}
+              <Divider className="my-6 border-yellow-200" />
 
-              <Form.Item
-                label="GST Number"
-                name="gst_no"
-              >
-                <Input
-                  className="h-10"
-                  placeholder="Enter GST Number (optional)"
-                />
-              </Form.Item>
+              <div className="grid grid-cols-2 gap-6">
+                {/* Business Information Column */}
+                <div className="space-y-4">
+                  <div className="p-4 rounded-lg border border-yellow-200 bg-yellow-50">
+                    <h3 className="text-md font-medium mb-4 text-yellow-800 flex items-center">
+                      <ShopOutlined className="mr-2" />
+                      Business Information
+                    </h3>
+                    
+                    <Form.Item
+                      label="Business Name"
+                      name="business_name"
+                      rules={[formValidation("Enter Business Name")]}
+                    >
+                      <Input
+                        className="h-10 border-yellow-200 focus:border-yellow-400"
+                        placeholder="Enter Business Name"
+                      />
+                    </Form.Item>
 
-              <Divider className="my-6" />
+                    <Form.Item
+                      label="GST Number"
+                      name="gst_no"
+                    >
+                      <Input
+                        className="h-10 border-yellow-200 focus:border-yellow-400"
+                        placeholder="Enter GST Number (optional)"
+                      />
+                    </Form.Item>
 
-              <h3 className="text-md font-medium mb-4 text-gray-700">
-                Personal Information
-              </h3>
-              
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item
-                    label="Full Name"
-                    name="name"
-                    rules={[formValidation("Enter Full Name")]}
-                  >
-                    <Input
-                      prefix={<UserOutlined className="text-gray-400" />}
-                      className="h-10"
-                      placeholder="Enter Full Name"
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item
-                    label="Email"
-                    name="email"
-                    rules={[formValidation("Enter Email")]}
-                  >
-                    <Input
-                      prefix={<MailOutlined className="text-gray-400" />}
-                      className="h-10"
-                      placeholder="Enter Email"
-                    />
-                  </Form.Item>
-                </Col>
-              </Row>
+                    <Row gutter={16}>
+                      <Col span={12}>
+                        <Form.Item
+                          label="Business Phone"
+                          name="business_phone"
+                          rules={[formValidation("Enter Business Phone")]}
+                        >
+                          <Input
+                            prefix={<PhoneOutlined className="text-yellow-400" />}
+                            className="h-10 border-yellow-200 focus:border-yellow-400"
+                            placeholder="Enter Business Phone"
+                          />
+                        </Form.Item>
+                      </Col>
+                      <Col span={12}>
+                        <Form.Item
+                          label="Business Email"
+                          name="business_email"
+                          rules={[formValidation("Enter Business Email")]}
+                        >
+                          <Input
+                            prefix={<MailOutlined className="text-yellow-400" />}
+                            className="h-10 border-yellow-200 focus:border-yellow-400"
+                            placeholder="Enter Business Email"
+                          />
+                        </Form.Item>
+                      </Col>
+                    </Row>
 
-              <Row gutter={16}>
-                {/* <Col span={12}>
-                  <Form.Item
-                    label="Password"
-                    name="password"
-                    rules={[formValidation("Enter Password")]}
-                  >
-                    <Input.Password
-                      className="h-10"
-                      placeholder="Enter Password"
-                    />
-                  </Form.Item>
-                </Col> */}
-                <Col span={12}>
-                  <Form.Item
-                    label="Phone"
-                    name="phone"
-                    rules={[formValidation("Enter Phone Number")]}
-                  >
-                    <Input
-                      prefix={<PhoneOutlined className="text-gray-400" />}
-                      className="h-10"
-                      placeholder="Enter Phone Number"
-                    />
-                  </Form.Item>
-                </Col>
-              </Row>
+                    <Form.Item
+                      label="Business Address"
+                      name="business_address"
+                      rules={[formValidation("Enter Business Address")]}
+                    >
+                      <TextArea
+                        rows={3}
+                        placeholder="Enter complete business address"
+                        onChange={handleBusinessAddressChange}
+                        className="border-yellow-200 focus:border-yellow-400"
+                      />
+                    </Form.Item>
+                  </div>
+                </div>
+
+                {/* Personal Information Column */}
+                <div className="space-y-4">
+                  <div className="p-4 rounded-lg border border-yellow-200 bg-yellow-50">
+                    <h3 className="text-md font-medium mb-4 text-yellow-800 flex items-center">
+                      <UserOutlined className="mr-2" />
+                      Personal Information
+                    </h3>
+
+                    <Form.Item
+                      label="Person Name"
+                      name="name"
+                      rules={[formValidation("Enter Person Name")]}
+                    >
+                      <Input
+                        prefix={<UserOutlined className="text-yellow-400" />}
+                        className="h-10 border-yellow-200 focus:border-yellow-400"
+                        placeholder="Enter Person Name"
+                      />
+                    </Form.Item>
+
+                    <Row gutter={16}>
+                      <Col span={12}>
+                        <Form.Item
+                          label="Personal Phone"
+                          name="phone"
+                          rules={[formValidation("Enter Personal Phone")]}
+                        >
+                          <Input
+                            prefix={<PhoneOutlined className="text-yellow-400" />}
+                            className="h-10 border-yellow-200 focus:border-yellow-400"
+                            placeholder="Enter Personal Phone"
+                          />
+                        </Form.Item>
+                      </Col>
+                      <Col span={12}>
+                        <Form.Item
+                          label="Personal Email"
+                          name="email"
+                          rules={[formValidation("Enter Personal Email")]}
+                        >
+                          <Input
+                            prefix={<MailOutlined className="text-yellow-400" />}
+                            className="h-10 border-yellow-200 focus:border-yellow-400"
+                            placeholder="Enter Personal Email"
+                          />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+
+                    <Form.Item className="mb-2">
+                      <Checkbox 
+                        checked={sameAsBusinessAddress}
+                        onChange={handleSameAsBusinessAddress}
+                        className="text-yellow-700"
+                      >
+                        Same as Business Address
+                      </Checkbox>
+                    </Form.Item>
+
+                    <Form.Item
+                      label="Personal Address"
+                      name="person_address"
+                      rules={[formValidation("Enter Personal Address")]}
+                    >
+                      <TextArea
+                        rows={3}
+                        placeholder="Enter complete personal address"
+                        disabled={sameAsBusinessAddress}
+                        className="border-yellow-200 focus:border-yellow-400"
+                      />
+                    </Form.Item>
+                  </div>
+                </div>
+              </div>
 
               <Form.Item className="mb-0 mt-6">
                 <Button
                   type="primary"
                   htmlType="submit"
-                  className="w-full h-12 rounded-md text-lg font-medium bg-blue-500 hover:bg-blue-600 border-0 shadow-sm"
+                  className="w-full h-12 rounded-md text-lg font-medium bg-yellow-500 hover:bg-yellow-600 border-yellow-500 shadow-sm text-white"
                   loading={loading}
                 >
                   {id ? "Update" : "Add"} User
@@ -436,10 +513,21 @@ const UserPanel = () => {
       <style jsx>{`
         .user-form .ant-form-item-label > label {
           font-weight: 500;
-          color: #374151;
+          color: #92400e;
         }
         .ant-card-head-title {
           font-weight: 600;
+        }
+        .ant-input:focus, .ant-input-focused {
+          border-color: #f59e0b;
+          box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+        }
+        .ant-select:not(.ant-select-disabled):hover .ant-select-selector {
+          border-color: #f59e0b;
+        }
+        .ant-select-focused:not(.ant-select-disabled).ant-select:not(.ant-select-customize-input) .ant-select-selector {
+          border-color: #f59e0b;
+          box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
         }
       `}</style>
     </div>

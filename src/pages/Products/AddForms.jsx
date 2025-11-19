@@ -1055,7 +1055,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
 
   const userRole = JSON.parse(localStorage.getItem("userprofile") || '{"role": "user"}');
   const hasImageVariant = variants.some(variant => 
-    variant.variant_type === "image_variant" || variant.variant_type === "color_variant"
+    variant.variant_type === "image_variant" 
   );
 
   // API Functions
@@ -1970,1354 +1970,1354 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
             </div>
           </div>
 
-          <Form form={form} layout="vertical" onFinish={handleFinish}>
-            <Collapse
-              defaultActiveKey={["1", "2", "3", "4", "5", "6", "7"]}
-              expandIconPosition="end"
-              className="custom-collapse"
-            >
-              {/* Product Basic Information Panel */}
-              <Panel
-                header={
-                  <span className="text-lg font-semibold relative">
-                    Product Basic Information
-                  </span>
-                }
-                key="1"
-              >
-                <div className={`grid grid-cols-1 md:grid-cols-2 ${userRole.role == "super admin"?"lg:grid-cols-4":"lg:grid-cols-3"} gap-4`}>
-                  {userRole.role == "super admin" && (
-                  <div className="p-2 bg-blue-50 rounded-lg border">
-                    <Form.Item
-                      name="is_visible"
-                      label="Visibility"
-                      valuePropName="checked"
-                    >
-                      <Switch
-                        checkedChildren={<EyeOutlined />}
-                        unCheckedChildren={<EyeInvisibleOutlined />}
-                      />
-                    </Form.Item>
-                    </div>
-                  )}
-                  <div className="p-2 bg-gray-50 rounded-lg border">
-                    <Form.Item
-                      name="is_customer"
-                      label="Customer product"
-                      valuePropName="checked"
-                    >
-                      <Switch />
-                    </Form.Item>
-                  </div>
-                  <div className="p-2 bg-gray-50 rounded-lg border">
-                    <Form.Item
-                      name="is_dealer"
-                      label="Dealer product"
-                      valuePropName="checked"
-                    >
-                      <Switch />
-                    </Form.Item>
-                  </div>
-                  <div className="p-2 bg-gray-50 rounded-lg border">
-                  <Form.Item
-                    name="is_corporate"
-                    label="Corporate product"
-                    valuePropName="checked"
-                  >
-                    <Switch />
-                  </Form.Item>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <Form.Item
-                    name="product_codeS_NO"
-                    label="Product Code(S.No)"
-                    rules={[formValidation("Enter Product Code(S.No)")]}
-                  >
-                    <Input
-                      placeholder="Enter Product Code(S.No)"
-                      type="text"
-                      className="h-12"
-                    />
-                  </Form.Item>
-                  <Form.Item
-                    name="Vendor_Code"
-                    label="Vendor Code"
-                    rules={[formValidation("Enter Vendor Code")]}
-                  >
-                    <Input
-                      placeholder="Enter Vendor Code"
-                      type="text"
-                      className="h-12"
-                    />
-                  </Form.Item>
-                  <Form.Item
-                    label="Product Type"
-                    name="type"
-                    rules={[
-                      {
-                        required: true,
-                        message: "Please select a product type!",
-                      },
-                    ]}
-                  >
-                    <Select
-                      placeholder="Select type"
-                      className="h-12"
-                      options={PRODUCT_TYPE}
-                    />
-                  </Form.Item>
-
-                  <Form.Item
-                    label="Main Category"
-                    name="category_details"
-                    rules={[
-                      {
-                        required: true,
-                        message: "Please select a product category!",
-                      },
-                    ]}
-                  >
-                    <Select
-                      placeholder="Select Product Category"
-                      className="h-12"
-                      onChange={(e) => onCategoryChnge(e)}
-                    >
-                      {categoryData.map((item) => (
-                        <Select.Option key={item._id} value={item._id}>
-                          {item.main_category_name}
-                        </Select.Option>
-                      ))}
-                    </Select>
-                  </Form.Item>
-
-                  {!_.isEmpty(filter_subcategory_data) ? (
-                    <Form.Item
-                      label="Sub Category"
-                      name="sub_category_details"
-                      rules={[
-                        {
-                          required: true,
-                          message: "Please select a product category!",
-                        },
-                      ]}
-                    >
-                      <Select
-                        placeholder="Select Product Sub Category"
-                        className="h-12"
-                      >
-                        {filter_subcategory_data.map((item) => (
-                          <Select.Option key={item._id} value={item._id}>
-                            {item.sub_category_name}
-                          </Select.Option>
-                        ))}
-                      </Select>
-                    </Form.Item>
-                  ) : (
-                    <Form.Item label="Sub Category" name="sub_category_details">
-                      <Select
-                        placeholder="No subcategories available"
-                        className="h-12"
-                        disabled
-                      />
-                    </Form.Item>
-                  )}
-
-                  <Form.Item
-                    label="Product Stocks"
-                    name="stocks_status"
-                    rules={[
-                      {
-                        required: true,
-                        message: "Please select a product stock type!",
-                      },
-                    ]}
-                  >
-                    <Select
-                      placeholder="Select Stocks Type"
-                      className="h-12"
-                      options={PRODUCT_STOCK_TYPE}
-                    />
-                  </Form.Item>
-
-                 {productTypeSelectedValue === "Stand Alone Product" && (
-                  <Form.Item
-                    label="Product Code"
-                    name="product_code"
-                    rules={[
-                      { required: true, message: "Product code is required" },
-                    ]}
-                    className="mb-0"
-                  >
-                    <Input
-                      placeholder="Product code will be generated automatically"
-                      readOnly={isProductCodeLocked||id}
-                      suffix={
-                        !isProductCodeLocked ? (
-                          <ReloadOutlined
-                            onClick={() => {
-                              const code = generateProductCode(false);
-                              if (code)
-                                form.setFieldsValue({ product_code: code });
-                            }}
-                            className="h-10"
-                            style={{ cursor: "pointer" }}
-                          />
-                        ) : null
-                      }
-                      addonAfter={
-                        <Button
-                          type="text"
-                          icon={isProductCodeLocked ? <LockOutlined /> : <UnlockOutlined />}
-                          onClick={handleLockProductCode}
-                          size="small"
-                          disabled={isProductCodeLocked && userRole.role !== "super admin"}
-                        />
-                      }
-                    />
-                  </Form.Item>
-                 )}
-
-                  <Form.Item
-                    name="name"
-                    label="Product Name"
-                    rules={[formValidation("Enter Product Name")]}
-                  >
-                    <Input
-                      placeholder="Enter Product Name"
-                      type="text"
-                      className="h-12"
-                    />
-                  </Form.Item>
-
-                  <Form.Item
-                    name="vendor_details"
-                    label="Select Vendor"
-                    rules={[formValidation("Select Vendor")]}
-                  >
-                    <Select
-                      placeholder="Select Vendor"
-                      mode="multiple"
-                      className="h-12"
-                    >
-                      {allVendors.map((item) => (
-                        <Select.Option key={item._id} value={item._id}>
-                          <div className="flex justify-between items-center">
-                            {item.business_name}({item.vendor_name})
-                            <Link
-                              to={`/vendor_details/${item._id}`}
-                              target="_blank"
-                            >
-                              <span className="text-blue-500">View</span>
-                            </Link>
-                          </div>
-                        </Select.Option>
-                      ))}
-                    </Select>
-                  </Form.Item>
-
-                  <Form.Item
-                    rules={[formValidation("Enter HSN code")]}
-                    label="HSN code"
-                    name="HSNcode_time"
-                  >
-                    <Input
-                      placeholder="Enter HSN code"
-                      type="Text"
-                      className="h-12"
-                    />
-                  </Form.Item>
-
-                  <Form.Item
-                    label="Unit"
-                    name="unit"
-                    rules={[
-                      {
-                        required: true,
-                        message: "Please select a unit!",
-                      },
-                    ]}
-                  >
-                    <Select
-                      placeholder="Select Unit Type"
-                      className="h-12"
-                      options={UNIT_TYPE}
-                    />
-                  </Form.Item>
-
-                  <Form.Item
-                    rules={[formValidation("Enter Production Time")]}
-                    label="Production Time"
-                    name="Production_time"
-                  >
-                    <Input
-                      placeholder="Enter Production Time"
-                      type="number"
-                      className="h-12"
-                    />
-                  </Form.Item>
-
-                  <Form.Item
-                    rules={[formValidation("Enter Stock Arrangement Time")]}
-                    label="Stock Arrangement Time"
-                    name="Stock_Arrangement_time"
-                  >
-                    <Input
-                      placeholder="Enter Stock Arrangement Time"
-                      type="number"
-                      className="h-12"
-                    />
-                  </Form.Item>
-
-                  <Form.Item
-                    label="Tax Preference"
-                    name="Tax_prefernce"
-                    rules={[
-                      {
-                        required: true,
-                        message: "Please select a Tax preference!",
-                      },
-                    ]}
-                  >
-                    <Select
-                      placeholder="Select type"
-                      className="h-12"
-                      options={TAX_PREFERENCE}
-                    />
-                  </Form.Item>
-                  <Form.Item
-                    label="GST Percentage"
-                    name="GST"
-                    rules={[
-                      {
-                        required: true,
-                        message: "Please select a GST percentage!",
-                      },
-                    ]}
-                  >
-                    <Select
-                      placeholder="Select type"
-                      className="h-12"
-                      options={GST_PREFERENCE}
-                    />
-                  </Form.Item>
-                </div>
-
+      <Form form={form} layout="vertical" onFinish={handleFinish}>
+        <Collapse
+          defaultActiveKey={["1", "2", "3", "4", "5", "6", "7"]}
+          expandIconPosition="end"
+          className="custom-collapse"
+        >
+          {/* Product Basic Information Panel */}
+          <Panel
+            header={
+              <span className="text-lg font-semibold relative">
+                Product Basic Information
+              </span>
+            }
+            key="1"
+          >
+            <div className={`grid grid-cols-1 md:grid-cols-2 ${userRole.role == "super admin"?"lg:grid-cols-4":"lg:grid-cols-3"} gap-4`}>
+              {userRole.role == "super admin" && (
+              <div className="p-2 bg-blue-50 rounded-lg border">
                 <Form.Item
-                  rules={[formValidation("enter title for description")]}
-                  label="Product Description Title"
-                  name="product_description_tittle"
+                  name="is_visible"
+                  label="Visibility"
+                  valuePropName="checked"
                 >
-                  <Input
-                    placeholder="Enter description title"
-                    type="Text"
-                    className="h-12"
+                  <Switch
+                    checkedChildren={<EyeOutlined />}
+                    unCheckedChildren={<EyeInvisibleOutlined />}
                   />
                 </Form.Item>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <Form.Item
-                    rules={[formValidation("enter Point one")]}
-                    label="Point one"
-                    name="Point_one"
-                  >
-                    <Input
-                      placeholder="Enter Point one"
-                      type="Text"
-                      className="h-12"
-                    />
-                  </Form.Item>
-                  <Form.Item
-                    rules={[formValidation("enter Point two")]}
-                    label="Point two"
-                    name="Point_two"
-                  >
-                    <Input
-                      placeholder="Enter Point two"
-                      type="Text"
-                      className="h-12"
-                    />
-                  </Form.Item>
-                  <Form.Item
-                    rules={[formValidation("enter Point three")]}
-                    label="Point three"
-                    name="Point_three"
-                  >
-                    <Input
-                      placeholder="Enter Point three"
-                      type="Text"
-                      className="h-12"
-                    />
-                  </Form.Item>
-                  <Form.Item
-                    rules={[formValidation("enter Point four")]}
-                    label="Point four"
-                    name="Point_four"
-                  >
-                    <Input
-                      placeholder="Enter Point four"
-                      type="Text"
-                      className="h-12"
-                    />
-                  </Form.Item>
                 </div>
-              </Panel>
-
-              {/* Stock Info Panel */}
-              <Panel
-                header={
-                  <div className="flex md:flex-row flex-col justify-between items-center">
-                    <span className="text-lg font-semibold">
-                      Stock Information
-                    </span>
-                    <span>Current Stock:{_.get(id, "stock_count", 0)}</span>
-                  </div>
-                }
-                key="7"
-              >
-                <div className="mt-4">
-                  <h2 className="font-medium mb-3">Stock Info</h2>
-                  <Form.List name="stock_info">
-                    {(fields, { add, remove }) => (
-                      <>
-                        <div className="flex justify-between items-center mb-4">
-                          <Form.Item className="mb-0">
-                            <Button
-                              onClick={() => add()}
-                              icon={<PlusOutlined />}
-                              className="h-10"
-                            >
-                              Add Stock Info
-                            </Button>
-                          </Form.Item>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-3">
-                          {fields.map(({ key, name, ...restField }) => (
-                            <Card size="small" key={key} className="relative">
-                              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-                                <Form.Item
-                                  label="Add Stock"
-                                  {...restField}
-                                  name={[name, "add_stock"]}
-                                  rules={[
-                                    formValidation("Enter stock quantity"),
-                                  ]}
-                                  className="mb-0"
-                                >
-                                  <Input
-                                    type="number"
-                                    placeholder="Enter Stock Quantity"
-                                    className="h-10"
-                                  />
-                                </Form.Item>
-
-                                <Form.Item
-                                  label="Date & Time"
-                                  {...restField}
-                                  name={[name, "date"]}
-                                  rules={[formValidation("Select a date")]}
-                                  className="mb-0"
-                                >
-                                  <DatePicker
-                                    showTime
-                                    className="h-10 w-full"
-                                    format="DD/MM/YYYY h:mm A"
-                                  />
-                                </Form.Item>
-
-                                <Form.Item
-                                  label="Invoice"
-                                  {...restField}
-                                  name={[name, "invoice"]}
-                                  className="mb-0"
-                                >
-                                  <Input
-                                    placeholder="Enter Invoice"
-                                    className="h-10"
-                                  />
-                                </Form.Item>
-
-                                <Form.Item
-                                  label="Note"
-                                  {...restField}
-                                  name={[name, "notes"]}
-                                  className="mb-0"
-                                >
-                                  <Input.TextArea
-                                    placeholder="Enter Notes"
-                                    className="h-10"
-                                  />
-                                </Form.Item>
-
-                                <Button
-                                  type="text"
-                                  danger
-                                  icon={<DeleteFilled />}
-                                  onClick={() => remove(name)}
-                                  className="absolute top-2 right-2"
-                                />
-                              </div>
-                            </Card>
-                          ))}
-                        </div>
-
-                        {combinedStockInfoData.length > 1 && (
-                          <div className="mt-6">
-                            <Table
-                              bordered
-                              dataSource={combinedStockInfoData}
-                              columns={stockInfoColumns}
-                              pagination={false}
-                              scroll={{ x: true }}
-                              className="custom-table"
-                            />
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </Form.List>
-                </div>
-              </Panel>
-
-              {/* Product Images Panel */}
-              {productTypeSelectedValue !== "Variable Product" || !hasImageVariant ? (
-                <Panel
-                  header={
-                    <span className="text-lg font-semibold">Product Images</span>
-                  }
-                  key="2"
+              )}
+              <div className="p-2 bg-gray-50 rounded-lg border">
+                <Form.Item
+                  name="is_customer"
+                  label="Customer product"
+                  valuePropName="checked"
                 >
-                  <Form.Item className="py-4" label="Product Image" name="images">
-                    <EnhancedUploadHelper
-                      multiple={true}
-                      max={10}
-                      setImagePath={setImagePath}
-                      image_path={image_path}
-                      label="Upload Product Images "
-                    />
-                  </Form.Item>
-                </Panel>
-              ) : null}
-
-              {/* Pricing Information Panel */}
-              <Panel
-                header={
-                  <span className="text-lg font-semibold">
-                    Pricing Information
-                  </span>
-                }
-                key="3"
+                  <Switch />
+                </Form.Item>
+              </div>
+              <div className="p-2 bg-gray-50 rounded-lg border">
+                <Form.Item
+                  name="is_dealer"
+                  label="Dealer product"
+                  valuePropName="checked"
+                >
+                  <Switch />
+                </Form.Item>
+              </div>
+              <div className="p-2 bg-gray-50 rounded-lg border">
+              <Form.Item
+                name="is_corporate"
+                label="Corporate product"
+                valuePropName="checked"
               >
-                {productTypeSelectedValue === "Stand Alone Product" ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Form.Item
-                      rules={[formValidation("Enter Cost")]}
-                      label="Cost"
-                      name="MRP_price"
-                    >
-                      <Input
-                        placeholder="Enter Cost"
-                        type="Number"
-                        className="h-12"
-                        onChange={(e) => handleMRPChange(e.target.value)}
+                <Switch />
+              </Form.Item>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Form.Item
+                name="product_codeS_NO"
+                label="Product Code(S.No)"
+                rules={[formValidation("Enter Product Code(S.No)")]}
+              >
+                <Input
+                  placeholder="Enter Product Code(S.No)"
+                  type="text"
+                  className="h-12"
+                />
+              </Form.Item>
+              <Form.Item
+                name="Vendor_Code"
+                label="Vendor Code"
+                rules={[formValidation("Enter Vendor Code")]}
+              >
+                <Input
+                  placeholder="Enter Vendor Code"
+                  type="text"
+                  className="h-12"
+                />
+              </Form.Item>
+              <Form.Item
+                label="Product Type"
+                name="type"
+                rules={[
+                  {
+                    required: true,
+                    message: "Please select a product type!",
+                  },
+                ]}
+              >
+                <Select
+                  placeholder="Select type"
+                  className="h-12"
+                  options={PRODUCT_TYPE}
+                />
+              </Form.Item>
+
+              <Form.Item
+                label="Main Category"
+                name="category_details"
+                rules={[
+                  {
+                    required: true,
+                    message: "Please select a product category!",
+                  },
+                ]}
+              >
+                <Select
+                  placeholder="Select Product Category"
+                  className="h-12"
+                  onChange={(e) => onCategoryChnge(e)}
+                >
+                  {categoryData.map((item) => (
+                    <Select.Option key={item._id} value={item._id}>
+                      {item.main_category_name}
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+
+              {!_.isEmpty(filter_subcategory_data) ? (
+                <Form.Item
+                  label="Sub Category"
+                  name="sub_category_details"
+                  rules={[
+                    {
+                      required: true,
+                      message: "Please select a product category!",
+                    },
+                  ]}
+                >
+                  <Select
+                    placeholder="Select Product Sub Category"
+                    className="h-12"
+                  >
+                    {filter_subcategory_data.map((item) => (
+                      <Select.Option key={item._id} value={item._id}>
+                        {item.sub_category_name}
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              ) : (
+                <Form.Item label="Sub Category" name="sub_category_details">
+                  <Select
+                    placeholder="No subcategories available"
+                    className="h-12"
+                    disabled
+                  />
+                </Form.Item>
+              )}
+
+              <Form.Item
+                label="Product Stocks"
+                name="stocks_status"
+                rules={[
+                  {
+                    required: true,
+                    message: "Please select a product stock type!",
+                  },
+                ]}
+              >
+                <Select
+                  placeholder="Select Stocks Type"
+                  className="h-12"
+                  options={PRODUCT_STOCK_TYPE}
+                />
+              </Form.Item>
+
+             {productTypeSelectedValue === "Stand Alone Product" && (
+              <Form.Item
+                label="Product Code"
+                name="product_code"
+                rules={[
+                  { required: true, message: "Product code is required" },
+                ]}
+                className="mb-0"
+              >
+                <Input
+                  placeholder="Product code will be generated automatically"
+                  readOnly={isProductCodeLocked||id}
+                  suffix={
+                    !isProductCodeLocked ? (
+                      <ReloadOutlined
+                        onClick={() => {
+                          const code = generateProductCode(false);
+                          if (code)
+                            form.setFieldsValue({ product_code: code });
+                        }}
+                        className="h-10"
+                        style={{ cursor: "pointer" }}
                       />
-                    </Form.Item>
-                    
-                    <Form.Item
-                      rules={[formValidation("Enter Customer Price")]}
-                      label={
-                        <div className="flex items-center gap-2">
-                          <span>Customer Price</span>
-                          {percentageDifferences.customer !== 0 && (
-                            <Tag 
-                              color={percentageDifferences.customer > 0 ? "green" : "red"}
-                              icon={percentageDifferences.customer > 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
-                              className="text-xs"
-                            >
-                              {percentageDifferences.customer > 0 ? '+' : ''}
-                              {percentageDifferences.customer.toFixed(2)}%
-                            </Tag>
-                          )}
-                        </div>
-                      }
-                      name="customer_product_price"
-                    >
-                      <Input
-                        placeholder="Enter Customer Price"
-                        type="Number"
-                        className="h-12"
-                        onChange={(e) => handleCustomerPriceChange(e.target.value)}
-                      />
-                    </Form.Item>
-                    
-                    <Form.Item
-                      rules={[formValidation("Enter Dealer Price")]}
-                      label={
-                        <div className="flex items-center gap-2">
-                          <span>Dealer Price</span>
-                          {percentageDifferences.dealer !== 0 && (
-                            <Tag 
-                              color={percentageDifferences.dealer > 0 ? "green" : "red"}
-                              icon={percentageDifferences.dealer > 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
-                              className="text-xs"
-                            >
-                              {percentageDifferences.dealer > 0 ? '+' : ''}
-                              {percentageDifferences.dealer.toFixed(2)}%
-                            </Tag>
-                          )}
-                        </div>
-                      }
-                      name="Deler_product_price"
-                    >
-                      <Input
-                        placeholder="Enter Dealer Price"
-                        type="Number"
-                        className="h-12"
-                        onChange={(e) => handleDealerPriceChange(e.target.value)}
-                      />
-                    </Form.Item>
-                    
-                    <Form.Item
-                      rules={[formValidation("Enter Corporate Price")]}
-                      label={
-                        <div className="flex items-center gap-2">
-                          <span>Corporate Price</span>
-                          {percentageDifferences.corporate !== 0 && (
-                            <Tag 
-                              color={percentageDifferences.corporate > 0 ? "green" : "red"}
-                              icon={percentageDifferences.corporate > 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
-                              className="text-xs"
-                            >
-                              {percentageDifferences.corporate > 0 ? '+' : ''}
-                              {percentageDifferences.corporate.toFixed(2)}%
-                            </Tag>
-                          )}
-                        </div>
-                      }
-                      name="corporate_product_price"
-                    >
-                      <Input
-                        placeholder="Enter Corporate Price"
-                        type="Number"
-                        className="h-12"
-                        onChange={(e) => handleCorporatePriceChange(e.target.value)}
-                      />
-                    </Form.Item>
-                  </div>
-                ) : (
+                    ) : null
+                  }
+                  addonAfter={
+                    <Button
+                      type="text"
+                      icon={isProductCodeLocked ? <LockOutlined /> : <UnlockOutlined />}
+                      onClick={handleLockProductCode}
+                      size="small"
+                      disabled={isProductCodeLocked && userRole.role !== "super admin"}
+                    />
+                  }
+                />
+              </Form.Item>
+             )}
+
+              <Form.Item
+                name="name"
+                label="Product Name"
+                rules={[formValidation("Enter Product Name")]}
+              >
+                <Input
+                  placeholder="Enter Product Name"
+                  type="text"
+                  className="h-12"
+                />
+              </Form.Item>
+
+              <Form.Item
+                name="vendor_details"
+                label="Select Vendor"
+                rules={[formValidation("Select Vendor")]}
+              >
+                <Select
+                  placeholder="Select Vendor"
+                  mode="multiple"
+                  className="h-12"
+                >
+                  {allVendors.map((item) => (
+                    <Select.Option key={item._id} value={item._id}>
+                      <div className="flex justify-between items-center">
+                        {item.business_name}({item.vendor_name})
+                        <Link
+                          to={`/vendor_details/${item._id}`}
+                          target="_blank"
+                        >
+                          <span className="text-blue-500">View</span>
+                        </Link>
+                      </div>
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+
+              <Form.Item
+                rules={[formValidation("Enter HSN code")]}
+                label="HSN code"
+                name="HSNcode_time"
+              >
+                <Input
+                  placeholder="Enter HSN code"
+                  type="Text"
+                  className="h-12"
+                />
+              </Form.Item>
+
+              <Form.Item
+                label="Unit"
+                name="unit"
+                rules={[
+                  {
+                    required: true,
+                    message: "Please select a unit!",
+                  },
+                ]}
+              >
+                <Select
+                  placeholder="Select Unit Type"
+                  className="h-12"
+                  options={UNIT_TYPE}
+                />
+              </Form.Item>
+
+              <Form.Item
+                rules={[formValidation("Enter Production Time")]}
+                label="Production Time"
+                name="Production_time"
+              >
+                <Input
+                  placeholder="Enter Production Time"
+                  type="number"
+                  className="h-12"
+                />
+              </Form.Item>
+
+              <Form.Item
+                rules={[formValidation("Enter Stock Arrangement Time")]}
+                label="Stock Arrangement Time"
+                name="Stock_Arrangement_time"
+              >
+                <Input
+                  placeholder="Enter Stock Arrangement Time"
+                  type="number"
+                  className="h-12"
+                />
+              </Form.Item>
+
+              <Form.Item
+                label="Tax Preference"
+                name="Tax_prefernce"
+                rules={[
+                  {
+                    required: true,
+                    message: "Please select a Tax preference!",
+                  },
+                ]}
+              >
+                <Select
+                  placeholder="Select type"
+                  className="h-12"
+                  options={TAX_PREFERENCE}
+                />
+              </Form.Item>
+              <Form.Item
+                label="GST Percentage"
+                name="GST"
+                rules={[
+                  {
+                    required: true,
+                    message: "Please select a GST percentage!",
+                  },
+                ]}
+              >
+                <Select
+                  placeholder="Select type"
+                  className="h-12"
+                  options={GST_PREFERENCE}
+                />
+              </Form.Item>
+            </div>
+
+            <Form.Item
+              rules={[formValidation("enter title for description")]}
+              label="Product Description Title"
+              name="product_description_tittle"
+            >
+              <Input
+                placeholder="Enter description title"
+                type="Text"
+                className="h-12"
+              />
+            </Form.Item>
+
+            <div className="grid grid-cols-2 gap-2">
+              <Form.Item
+                rules={[formValidation("enter Point one")]}
+                label="Point one"
+                name="Point_one"
+              >
+                <Input
+                  placeholder="Enter Point one"
+                  type="Text"
+                  className="h-12"
+                />
+              </Form.Item>
+              <Form.Item
+                rules={[formValidation("enter Point two")]}
+                label="Point two"
+                name="Point_two"
+              >
+                <Input
+                  placeholder="Enter Point two"
+                  type="Text"
+                  className="h-12"
+                />
+              </Form.Item>
+              <Form.Item
+                rules={[formValidation("enter Point three")]}
+                label="Point three"
+                name="Point_three"
+              >
+                <Input
+                  placeholder="Enter Point three"
+                  type="Text"
+                  className="h-12"
+                />
+              </Form.Item>
+              <Form.Item
+                rules={[formValidation("enter Point four")]}
+                label="Point four"
+                name="Point_four"
+              >
+                <Input
+                  placeholder="Enter Point four"
+                  type="Text"
+                  className="h-12"
+                />
+              </Form.Item>
+            </div>
+          </Panel>
+
+          {/* Stock Info Panel */}
+          <Panel
+            header={
+              <div className="flex md:flex-row flex-col justify-between items-center">
+                <span className="text-lg font-semibold">
+                  Stock Information
+                </span>
+                <span>Current Stock:{_.get(id, "stock_count", 0)}</span>
+              </div>
+            }
+            key="7"
+          >
+            <div className="mt-4">
+              <h2 className="font-medium mb-3">Stock Info</h2>
+              <Form.List name="stock_info">
+                {(fields, { add, remove }) => (
                   <>
-                    <div className="flex gap-3 items-center mb-4">
-                      <label className="text-gray-700 font-medium">
-                        Variants
-                      </label>
-                      <Button
-                        type="primary"
-                        onClick={handleAddVariant}
-                        icon={<PlusOutlined />}
-                        size="small"
-                      >
-                        Add Variant
-                      </Button>
+                    <div className="flex justify-between items-center mb-4">
+                      <Form.Item className="mb-0">
+                        <Button
+                          onClick={() => add()}
+                          icon={<PlusOutlined />}
+                          className="h-10"
+                        >
+                          Add Stock Info
+                        </Button>
+                      </Form.Item>
                     </div>
 
-                    {!_.isEmpty(variants) && (
-                      <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {variants.map((data) => (
-                            <Card
-                              key={data._id}
-                              size="small"
-                              className="relative"
-                              title={
-                                <div className="flex items-center">
-                                  <span>Variant Options</span>
-                                </div>
-                              }
-                              extra={
-                                <Button
-                                  type="text"
-                                  danger
-                                  icon={<DeleteFilled />}
-                                  onClick={() =>
-                                    handleOnDeleteVariantName(data)
-                                  }
-                                  size="small"
-                                />
-                              }
+                    <div className="grid grid-cols-1 gap-3">
+                      {fields.map(({ key, name, ...restField }) => (
+                        <Card size="small" key={key} className="relative">
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                            <Form.Item
+                              label="Add Stock"
+                              {...restField}
+                              name={[name, "add_stock"]}
+                              rules={[
+                                formValidation("Enter stock quantity"),
+                              ]}
+                              className="mb-0"
                             >
-                              <div className="flex flex-col gap-4">
-                                <div className="flex flex-col gap-2">
-                                  <label className="text-gray-600">
-                                    Variant Name
-                                  </label>
-                                  <Input
-                                    size="middle"
-                                    placeholder="eg. Color"
-                                    value={data.variant_name}
-                                    onChange={(e) =>
-                                      handleOnChangeVariantName(e, data._id)
-                                    }
-                                  />
-                                </div>
+                              <Input
+                                type="number"
+                                placeholder="Enter Stock Quantity"
+                                className="h-10"
+                              />
+                            </Form.Item>
 
-                                <div className="flex flex-col gap-2">
-                                  <label className="text-gray-600">
-                                    Variant Type
-                                  </label>
-                                  <Select
-                                    value={data.variant_type}
-                                    placeholder="Select Variant type"
-                                    onChange={(e) =>
-                                      handleOnChangeVariantType(e, data._id)
-                                    }
-                                  >
-                                    {VARIANT_TYPES.map(type => (
-                                      <Select.Option key={type.value} value={type.value}>
-                                        {type.label}
-                                      </Select.Option>
-                                    ))}
-                                  </Select>
-                                </div>
+                            <Form.Item
+                              label="Date & Time"
+                              {...restField}
+                              name={[name, "date"]}
+                              rules={[formValidation("Select a date")]}
+                              className="mb-0"
+                            >
+                              <DatePicker
+                                showTime
+                                className="h-10 w-full"
+                                format="DD/MM/YYYY h:mm A"
+                              />
+                            </Form.Item>
 
-                                <div className="flex flex-col gap-3">
-                                  <div className="flex items-center justify-between">
-                                    <label className="text-gray-600">
-                                      Variant Options
-                                    </label>
-                                    <Button
-                                      type="dashed"
-                                      onClick={() =>
-                                        handleAddVariantOption(data._id)
-                                      }
-                                      icon={<PlusOutlined />}
-                                      size="small"
-                                    >
-                                      Add Option
-                                    </Button>
-                                  </div>
+                            <Form.Item
+                              label="Invoice"
+                              {...restField}
+                              name={[name, "invoice"]}
+                              className="mb-0"
+                            >
+                              <Input
+                                placeholder="Enter Invoice"
+                                className="h-10"
+                              />
+                            </Form.Item>
 
-                                  {data.options.map((option) => (
-                                    <VariantOption
-                                      key={option._id}
-                                      variant={data}
-                                      option={option}
-                                      onOptionChange={handleOnChangeVariantOptionName}
-                                      onOptionDelete={handleOnDeleteVariantOptionName}
-                                      onColorChange={handleColorChange}
-                                      onImageUpload={handleVariantOptionImageUpload}
-                                    />
-                                  ))}
-                                </div>
-                              </div>
-                            </Card>
-                          ))}
-                        </div>
+                            <Form.Item
+                              label="Note"
+                              {...restField}
+                              name={[name, "notes"]}
+                              className="mb-0"
+                            >
+                              <Input.TextArea
+                                placeholder="Enter Notes"
+                                className="h-10"
+                              />
+                            </Form.Item>
 
-                        <div className="mt-6">
-                          <Table
-                            bordered
-                            dataSource={!_.isEmpty(variants) ? tableData : []}
-                            columns={columns}
-                            pagination={false}
-                            scroll={{ x: true }}
-                            className="custom-table"
-                          />
-                        </div>
-                      </>
+                            <Button
+                              type="text"
+                              danger
+                              icon={<DeleteFilled />}
+                              onClick={() => remove(name)}
+                              className="absolute top-2 right-2"
+                            />
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+
+                    {combinedStockInfoData.length > 1 && (
+                      <div className="mt-6">
+                        <Table
+                          bordered
+                          dataSource={combinedStockInfoData}
+                          columns={stockInfoColumns}
+                          pagination={false}
+                          scroll={{ x: true }}
+                          className="custom-table"
+                        />
+                      </div>
                     )}
                   </>
                 )}
-              </Panel>
+              </Form.List>
+            </div>
+          </Panel>
 
-              {/* Quantity Information Panel */}
-              <Panel
-                header={
-                  <span className="text-lg font-semibold">
-                    Quantity Information
-                  </span>
-                }
-                key="4"
-              >
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Form.Item
-                    name="quantity_type"
-                    rules={[formValidation("Select Quantity Type")]}
-                    label="Quantity Type"
-                  >
-                    <Select
-                      className="h-12"
-                      onChange={(e) => {
-                        setQuantityType(e);
-                      }}
-                    >
-                      <Select.Option key="Variable" value="dropdown">
-                        Dropdown
-                      </Select.Option>
-                    </Select>
-                  </Form.Item>
+          {/* Product Images Panel - Conditionally hide when there are image variants */}
+          {!hasImageVariant && (
+            <Panel
+              header={
+                <span className="text-lg font-semibold">Product Images</span>
+              }
+              key="2"
+            >
+              <Form.Item className="py-4" label="Product Image" name="images">
+                <EnhancedUploadHelper
+                  multiple={true}
+                  max={10}
+                  setImagePath={setImagePath}
+                  image_path={image_path}
+                  label="Upload Product Images "
+                />
+              </Form.Item>
+            </Panel>
+          )}
 
-                  {quantityType === "textbox" && (
-                    <>
-                      <Form.Item
-                        name="max_quantity"
-                        rules={[formValidation("Enter Maximum Quantity")]}
-                        label="Maximum Quantity"
-                      >
-                        <Input type="number" className="h-12 w-full" />
-                      </Form.Item>
-                    </>
-                  )}
-                </div>
-
-                <div className="mt-4">
-                  <h2 className="font-medium mb-3">Quantity + Discount % + Delivery + Recommended Status</h2>
-                  <Form.List name="quantity_discount_splitup">
-                    {(fields, { add, remove }) => (
-                      <>
-                        <Form.Item>
-                          <Button
-                            onClick={() => add()}
-                            icon={<PlusOutlined />}
-                            className="h-10"
-                          >
-                            Add Quantity and Discount
-                          </Button>
-                        </Form.Item>
-
-                        <div className="grid grid-cols-1 gap-3">
-                          {fields.map(({ key, name, ...restField }) => (
-                            <DiscountRow
-                              key={key}
-                              name={name}
-                              restField={restField}
-                              remove={remove}
-                              form={form}
-                              customerPrice={customerPrice}
-                              dealerPrice={dealerPrice}
-                              corporatePrice={corporatePrice}
-                              productType={productTypeSelectedValue}
-                              variantPrices={tableValue.reduce((acc, variant) => {
-                                acc[variant.key] = {
-                                  customer_product_price: variant.customer_product_price || 0,
-                                  Deler_product_price: variant.Deler_product_price || 0,
-                                  corporate_product_price: variant.corporate_product_price || 0
-                                };
-                                return acc;
-                              }, {})}
-                            />
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </Form.List>
-                </div>
-              </Panel>
-
-              {/* Product Tab Description Info Panel */}
-              <Panel
-                header={
-                  <span className="text-lg font-semibold">
-                    Product Tab Description Info
-                  </span>
-                }
-                key="5"
-              >
-                <Form.List name="description_tabs">
-                  {(fields, { add, remove }) => (
-                    <>
-                      <Tag
-                        type="dashed"
-                        onClick={() => add()}
-                        block
-                        className="cursor-pointer !bg-green-500 hover:!bg-orange-500 !mb-5 !text-white"
-                      >
-                        + Add New Tab
-                      </Tag>
-                      <div className="grid grid-cols-1 gap-x-2 gap-y-3">
-                        {fields.map((field) => (
-                          <Card
-                            size="small"
-                            title={`Tab ${field.name + 1}`}
-                            key={field.key}
-                            extra={
-                              <DeleteFilled
-                                onClick={() => {
-                                  remove(field.name);
-                                }}
-                                className="!text-red-500"
-                              />
-                            }
-                          >
-                            <div className="center_div justify-start gap-x-2">
-                              <Form.Item
-                                label="Tab Name"
-                                name={[field.name, "name"]}
-                                rules={[formValidation("Enter tab name")]}
-                              >
-                                <Input className="!h-[50px] !w-[300px]" />
-                              </Form.Item>
-                              <Form.Item
-                                label="Tab Name"
-                                hidden
-                                name={[field.name, "key"]}
-                                initialValue={field.key}
-                                rules={[formValidation("Enter tab name")]}
-                              >
-                                <Input className="!h-[50px] !w-[300px]" />
-                              </Form.Item>
-                              <Form.Item
-                                label="Tab Type"
-                                name={[field.name, "tab_type"]}
-                                rules={[formValidation("Select tab Type")]}
-                              >
-                                <Select
-                                  className="!h-[50px] !w-[300px]"
-                                  onChange={() => {
-                                    setDummy(!dummy);
-                                  }}
-                                >
-                                  <Select.Option value={"Editor"}>
-                                    Editor
-                                  </Select.Option>
-                                  <Select.Option value={"Table"}>
-                                    Table View
-                                  </Select.Option>
-                                  <Select.Option value={"Content-With-Image"}>
-                                    Content With Image
-                                  </Select.Option>
-                                </Select>
-                              </Form.Item>
-                            </div>
-                            {GET_TABLE_TYPE(field.key) === "Editor" && (
-                              <>
-                                <Form.Item
-                                  label="Description"
-                                  name={[field.name, "description"]}
-                                  rules={[formValidation("Enter Description")]}
-                                >
-                                  <JoditEditor />
-                                </Form.Item>
-                              </>
-                            )}
-                            {GET_TABLE_TYPE(field.key) === "Table" && (
-                              <>
-                                <Form.Item label="Table View">
-                                  <Form.List name={[field.name, "table_view"]}>
-                                    {(subFields, subOpt) => (
-                                      <>
-                                        <div className="w-full center_div justify-end px-10">
-                                          <Tag
-                                            type="dashed"
-                                            onClick={() => subOpt.add()}
-                                            className="!cursor-pointer hover:!bg-orange-500 !bg-green-500 !mb-4 !text-white"
-                                          >
-                                            + Add Table Item
-                                          </Tag>
-                                        </div>
-                                        <div className="grid grid-cols-3 gap-3">
-                                          {subFields.map((subField) => (
-                                            <Space key={subField.key}>
-                                              <Form.Item
-                                                label="Left"
-                                                name={[subField.name, "left"]}
-                                                rules={[
-                                                  formValidation(
-                                                    "Enter left value"
-                                                  ),
-                                                ]}
-                                              >
-                                                <Input
-                                                  placeholder="Left"
-                                                  className="!h-[50px]"
-                                                />
-                                              </Form.Item>
-                                              <Form.Item
-                                                label="Right"
-                                                name={[subField.name, "right"]}
-                                                rules={[
-                                                  formValidation(
-                                                    "Enter right value"
-                                                  ),
-                                                ]}
-                                              >
-                                                <Input
-                                                  placeholder="right"
-                                                  className="!h-[50px]"
-                                                />
-                                              </Form.Item>
-                                              <DeleteFilled
-                                                onClick={() => {
-                                                  subOpt.remove(subField.name);
-                                                }}
-                                                className="!text-red-500"
-                                              />
-                                            </Space>
-                                          ))}
-                                        </div>
-                                      </>
-                                    )}
-                                  </Form.List>
-                                </Form.Item>
-                              </>
-                            )}
-                            {GET_TABLE_TYPE(field.key) ===
-                              "Content-With-Image" && (
-                              <>
-                                <Form.Item label="Content With Image">
-                                  <Form.List
-                                    name={[field.name, "content_image_view"]}
-                                  >
-                                    {(subFields, subOpt) => (
-                                      <>
-                                        <div className="w-full center_div justify-end px-10">
-                                          <Tag
-                                            type="dashed"
-                                            onClick={() =>
-                                              subOpt.add({ images: [] })
-                                            }
-                                            className="!cursor-pointer hover:!bg-orange-500 !bg-green-500 !mb-4 !text-white"
-                                          >
-                                            + Add new image with content
-                                          </Tag>
-                                        </div>
-                                        <div className="grid grid-cols-1 gap-3">
-                                          {subFields.map((subField) => (
-                                            <div
-                                              key={subField.key}
-                                              className="flex flex-col"
-                                            >
-                                              <Form.Item
-                                                label="Content"
-                                                name={[
-                                                  subField.name,
-                                                  "content",
-                                                ]}
-                                                rules={[
-                                                  formValidation(
-                                                    "Enter content"
-                                                  ),
-                                                ]}
-                                              >
-                                                <Input.TextArea
-                                                  placeholder="Content"
-                                                  className=" !w-full"
-                                                />
-                                              </Form.Item>
-                                              <Form.Item
-                                                label="Content"
-                                                hidden
-                                                name={[
-                                                  subField.name,
-                                                  "image_id",
-                                                ]}
-                                                initialValue={subField.key}
-                                                rules={[
-                                                  formValidation(
-                                                    "Enter content"
-                                                  ),
-                                                ]}
-                                              >
-                                                <Input.TextArea
-                                                  placeholder="Content"
-                                                  className=" !w-full"
-                                                />
-                                              </Form.Item>
-                                              <Form.Item
-                                                hidden
-                                                rules={[
-                                                  {
-                                                    required: true,
-                                                    message: `Please upload images`,
-                                                  },
-                                                ]}
-                                                name={[subField.name, "images"]}
-                                                initialValue={[]}
-                                                label="images"
-                                              >
-                                                <Input.TextArea
-                                                  disabled
-                                                  rows={5}
-                                                  placeholder="Images"
-                                                  className="!w-[90%] !h-[50px]"
-                                                />
-                                              </Form.Item>
-                                              <div className="flex items-center gap-x-2">
-                                                <Form.Item
-                                                  label="Image"
-                                                  name={[
-                                                    subField.name,
-                                                    "image",
-                                                  ]}
-                                                >
-                                                  <EnhancedUploadHelper
-                                                    blog={true}
-                                                    current_key={`${subField.key}-${field.key}`}
-                                                    handleChange={handleChange}
-                                                  />
-                                                </Form.Item>
-                                                <div className="flex gap-x-2 flex-wrap">
-                                                  {GETCURRENT_SETOF_IMAGES(
-                                                    `${subField.key}-${field.key}`
-                                                  )?.map((res, index) => {
-                                                    return (
-                                                      <div
-                                                        key={index}
-                                                        className="relative"
-                                                      >
-                                                        <Image
-                                                          height={50}
-                                                          key={index}
-                                                          className="!h-[50px] !w-[50px] !rounded-lg !border cursor-pointer"
-                                                          src={res}
-                                                          preview={{
-                                                            mask: (
-                                                              <div className="flex items-center justify-center gap-1">
-                                                                <EyeOutlined className="text-white" />
-                                                                <span className="text-white text-xs">Preview</span>
-                                                              </div>
-                                                            ),
-                                                          }}
-                                                        />
-                                                        <div
-                                                          onClick={() => {
-                                                            REMOVE_IMAGES(
-                                                              `${subField.key}-${field.key}`,
-                                                              res
-                                                            );
-                                                          }}
-                                                          className="cursor-pointer text-center text-red-500 gap-x-2 center_div"
-                                                        >
-                                                          {
-                                                            <ICON_HELPER.DELETE_ICON2 />
-                                                          }
-                                                        </div>
-                                                      </div>
-                                                    );
-                                                  })}
-                                                </div>
-                                              </div>
-                                              <DeleteFilled
-                                                onClick={() => {
-                                                  subOpt.remove(subField.name);
-                                                }}
-                                                className="!text-red-500"
-                                              />
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </>
-                                    )}
-                                  </Form.List>
-                                </Form.Item>
-                              </>
-                            )}
-                          </Card>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </Form.List>
-              </Panel>
-
-              {/* SEO Information Panel */}
-              <Panel
-                header={
-                  <span className="text-lg font-semibold">SEO Information</span>
-                }
-                key="6"
-              >
-                <div className="grid grid-cols-1 gap-4">
-                  <Form.Item
-                    name="seo_title"
-                    rules={[formValidation("Enter SEO Title")]}
-                    label="SEO Title"
-                  >
-                    <Input
-                      onChange={(e) => {
-                        handleChnge(e, "title");
-                      }}
-                      className="h-12"
-                    />
-                  </Form.Item>
-                  <Form.Item
-                    name="seo_keywords"
-                    rules={[formValidation("Enter SEO keywords")]}
-                    label="SEO keywords"
-                  >
-                    <Input
-                      onChange={(e) => {
-                        handleChnge(e, "keywords");
-                      }}
-                      className="h-12"
-                    />
-                  </Form.Item>
-
-                  <Form.Item
-                    name="seo_description"
-                    rules={[formValidation("Enter SEO Description")]}
-                    label="SEO description"
-                  >
-                    <Input.TextArea
-                      onChange={(e) => {
-                        handleChnge(e, "description");
-                      }}
-                      rows={3}
-                    />
-                  </Form.Item>
-
-                  <Form.Item
-                    label="URL"
-                    name="seo_url"
-                    rules={[formValidation("Enter SEO URL")]}
-                  >
-                    <Input
-                      onChange={(e) => {
-                        handleChnge(e, "url");
-                      }}
-                      className="h-12"
-                      addonBefore={"https://printe.in/products/"}
-                    />
-                  </Form.Item>
-
-                  <Card size="small" title="SEO Preview">
-                    <h3 className="text-blue-600 text-lg mb-1">
-                      {_.get(seo_datas, "title", ``) ||
-                        `WWE Raw Results, News, Video & Photos`}
-                    </h3>
-                    <p className="text-green-600 text-sm mb-2">
-                      {`https://www.printe.in/` + _.get(seo_datas, "url", ``) ||
-                        `https://www.printe.in/product/Signages/Standees/Premium`}
-                    </p>
-                    <p className="text-gray-600 text-sm">
-                      {_.get(seo_datas, "description", ``) ||
-                        `Lorem, ipsum dolor sit amet consectetur adipisicing elit.
-                        Accusamus voluptatum consequuntur, quaerat perspiciatis architecto
-                        neque, porro blanditiis fugit nulla, nobis error quisquam
-                        consequatur ad corporis modi hic autem numquam et.`}
-                    </p>
-                  </Card>
-                </div>
-              </Panel>
-            </Collapse>
-
-            <Divider />
-
-            <Form.Item className="my-6">
-              <Button
-                block
-                htmlType="submit"
-                type="primary"
-                size="large"
-                loading={loading}
-                className="h-12 text-lg"
-              >
-                {id ? "Update Product" : "Add Product"}
-              </Button>
-            </Form.Item>
-          </Form>
-        </Card>
-      </div>
-
-      <Modal
-        title="Unit Configuration"
-        visible={modalUnitVisible}
-        onOk={handleUnitOk}
-        onCancel={handleUnitCancel}
-        width={800}
-        footer={[
-          <Button key="cancel" onClick={handleUnitCancel}>
-            Cancel
-          </Button>,
-          <Button key="submit" type="primary" onClick={handleUnitOk}>
-            Save Configuration
-          </Button>,
-        ]}
-      >
-        <Form form={form} layout="vertical">
-          <Form.List name="unit_splitup">
-            {(fields, { add, remove }) => (
-              <>
-                <Form.Item>
-                  <Button
-                    onClick={() => add()}
-                    icon={<PlusOutlined />}
-                    className="h-10 mb-4"
-                  >
-                    Add Unit
-                  </Button>
+          {/* Pricing Information Panel */}
+          <Panel
+            header={
+              <span className="text-lg font-semibold">
+                Pricing Information
+              </span>
+            }
+            key="3"
+          >
+            {productTypeSelectedValue === "Stand Alone Product" ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Form.Item
+                  rules={[formValidation("Enter Cost")]}
+                  label="Cost"
+                  name="MRP_price"
+                >
+                  <Input
+                    placeholder="Enter Cost"
+                    type="Number"
+                    className="h-12"
+                    onChange={(e) => handleMRPChange(e.target.value)}
+                  />
                 </Form.Item>
-
-                <div className="grid grid-cols-1 gap-3 max-h-96 overflow-y-auto pr-2">
-                  {fields.map(({ key, name, ...restField }) => (
-                    <Card size="small" key={key} className="relative">
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-                        <Form.Item
-                          label="Unit"
-                          {...restField}
-                          name={[name, "Unit"]}
-                          rules={[formValidation("Enter a Unit")]}
-                          className="mb-0"
+                
+                <Form.Item
+                  rules={[formValidation("Enter Customer Price")]}
+                  label={
+                    <div className="flex items-center gap-2">
+                      <span>Customer Price</span>
+                      {percentageDifferences.customer !== 0 && (
+                        <Tag 
+                          color={percentageDifferences.customer > 0 ? "green" : "red"}
+                          icon={percentageDifferences.customer > 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
+                          className="text-xs"
                         >
-                          <Input
-                            type="Text"
-                            placeholder="Enter Unit"
-                            className="h-10"
-                          />
-                        </Form.Item>
-
-                        <Form.Item
-                          label="Measurement"
-                          {...restField}
-                          name={[name, "Measurement"]}
-                          rules={[formValidation("Enter a Measurement")]}
-                          className="mb-0"
+                          {percentageDifferences.customer > 0 ? '+' : ''}
+                          {percentageDifferences.customer.toFixed(2)}%
+                        </Tag>
+                      )}
+                    </div>
+                  }
+                  name="customer_product_price"
+                >
+                  <Input
+                    placeholder="Enter Customer Price"
+                    type="Number"
+                    className="h-12"
+                    onChange={(e) => handleCustomerPriceChange(e.target.value)}
+                  />
+                </Form.Item>
+                
+                <Form.Item
+                  rules={[formValidation("Enter Dealer Price")]}
+                  label={
+                    <div className="flex items-center gap-2">
+                      <span>Dealer Price</span>
+                      {percentageDifferences.dealer !== 0 && (
+                        <Tag 
+                          color={percentageDifferences.dealer > 0 ? "green" : "red"}
+                          icon={percentageDifferences.dealer > 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
+                          className="text-xs"
                         >
-                          <Input
-                            type="Text"
-                            placeholder="Enter Measurement"
-                            className="h-10"
-                          />
-                        </Form.Item>
-
-                        <Button
-                          type="text"
-                          danger
-                          icon={<DeleteFilled />}
-                          onClick={() => remove(name)}
-                          className="absolute top-2 right-2"
-                        />
-                      </div>
-                    </Card>
-                  ))}
+                          {percentageDifferences.dealer > 0 ? '+' : ''}
+                          {percentageDifferences.dealer.toFixed(2)}%
+                        </Tag>
+                      )}
+                    </div>
+                  }
+                  name="Deler_product_price"
+                >
+                  <Input
+                    placeholder="Enter Dealer Price"
+                    type="Number"
+                    className="h-12"
+                    onChange={(e) => handleDealerPriceChange(e.target.value)}
+                  />
+                </Form.Item>
+                
+                <Form.Item
+                  rules={[formValidation("Enter Corporate Price")]}
+                  label={
+                    <div className="flex items-center gap-2">
+                      <span>Corporate Price</span>
+                      {percentageDifferences.corporate !== 0 && (
+                        <Tag 
+                          color={percentageDifferences.corporate > 0 ? "green" : "red"}
+                          icon={percentageDifferences.corporate > 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
+                          className="text-xs"
+                        >
+                          {percentageDifferences.corporate > 0 ? '+' : ''}
+                          {percentageDifferences.corporate.toFixed(2)}%
+                        </Tag>
+                      )}
+                    </div>
+                  }
+                  name="corporate_product_price"
+                >
+                  <Input
+                    placeholder="Enter Corporate Price"
+                    type="Number"
+                    className="h-12"
+                    onChange={(e) => handleCorporatePriceChange(e.target.value)}
+                  />
+                </Form.Item>
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-3 items-center mb-4">
+                  <label className="text-gray-700 font-medium">
+                    Variants
+                  </label>
+                  <Button
+                    type="primary"
+                    onClick={handleAddVariant}
+                    icon={<PlusOutlined />}
+                    size="small"
+                  >
+                    Add Variant
+                  </Button>
                 </div>
+
+                {!_.isEmpty(variants) && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {variants.map((data) => (
+                        <Card
+                          key={data._id}
+                          size="small"
+                          className="relative"
+                          title={
+                            <div className="flex items-center">
+                              <span>Variant Options</span>
+                            </div>
+                          }
+                          extra={
+                            <Button
+                              type="text"
+                              danger
+                              icon={<DeleteFilled />}
+                              onClick={() =>
+                                handleOnDeleteVariantName(data)
+                              }
+                              size="small"
+                            />
+                          }
+                        >
+                          <div className="flex flex-col gap-4">
+                            <div className="flex flex-col gap-2">
+                              <label className="text-gray-600">
+                                Variant Name
+                              </label>
+                              <Input
+                                size="middle"
+                                placeholder="eg. Color"
+                                value={data.variant_name}
+                                onChange={(e) =>
+                                  handleOnChangeVariantName(e, data._id)
+                                }
+                              />
+                            </div>
+
+                            <div className="flex flex-col gap-2">
+                              <label className="text-gray-600">
+                                Variant Type
+                              </label>
+                              <Select
+                                value={data.variant_type}
+                                placeholder="Select Variant type"
+                                onChange={(e) =>
+                                  handleOnChangeVariantType(e, data._id)
+                                }
+                              >
+                                {VARIANT_TYPES.map(type => (
+                                  <Select.Option key={type.value} value={type.value}>
+                                    {type.label}
+                                  </Select.Option>
+                                ))}
+                              </Select>
+                            </div>
+
+                            <div className="flex flex-col gap-3">
+                              <div className="flex items-center justify-between">
+                                <label className="text-gray-600">
+                                  Variant Options
+                                </label>
+                                <Button
+                                  type="dashed"
+                                  onClick={() =>
+                                    handleAddVariantOption(data._id)
+                                  }
+                                  icon={<PlusOutlined />}
+                                  size="small"
+                                >
+                                  Add Option
+                                </Button>
+                              </div>
+
+                              {data.options.map((option) => (
+                                <VariantOption
+                                  key={option._id}
+                                  variant={data}
+                                  option={option}
+                                  onOptionChange={handleOnChangeVariantOptionName}
+                                  onOptionDelete={handleOnDeleteVariantOptionName}
+                                  onColorChange={handleColorChange}
+                                  onImageUpload={handleVariantOptionImageUpload}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+
+                    <div className="mt-6">
+                      <Table
+                        bordered
+                        dataSource={!_.isEmpty(variants) ? tableData : []}
+                        columns={columns}
+                        pagination={false}
+                        scroll={{ x: true }}
+                        className="custom-table"
+                      />
+                    </div>
+                  </>
+                )}
               </>
             )}
-          </Form.List>
-        </Form>
-      </Modal>
+          </Panel>
 
-      <style jsx>{`
-        :global(.custom-collapse .ant-collapse-header) {
-          align-items: center !important;
-          font-weight: 600;
-        }
+          {/* Quantity Information Panel */}
+          <Panel
+            header={
+              <span className="text-lg font-semibold">
+                Quantity Information
+              </span>
+            }
+            key="4"
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Form.Item
+                name="quantity_type"
+                rules={[formValidation("Select Quantity Type")]}
+                label="Quantity Type"
+              >
+                <Select
+                  className="h-12"
+                  onChange={(e) => {
+                    setQuantityType(e);
+                  }}
+                >
+                  <Select.Option key="Variable" value="dropdown">
+                    Dropdown
+                  </Select.Option>
+                </Select>
+              </Form.Item>
 
-        :global(.custom-table .ant-table-thead > tr > th) {
-          background-color: #fafafa;
-          font-weight: 600;
-        }
+              {quantityType === "textbox" && (
+                <>
+                  <Form.Item
+                    name="max_quantity"
+                    rules={[formValidation("Enter Maximum Quantity")]}
+                    label="Maximum Quantity"
+                  >
+                    <Input type="number" className="h-12 w-full" />
+                  </Form.Item>
+                </>
+              )}
+            </div>
 
-        :global(.image-preview-modal .ant-modal-body) {
-          padding: 0;
-        }
+            <div className="mt-4">
+              <h2 className="font-medium mb-3">Quantity + Discount % + Delivery + Recommended Status</h2>
+              <Form.List name="quantity_discount_splitup">
+                {(fields, { add, remove }) => (
+                  <>
+                    <Form.Item>
+                      <Button
+                        onClick={() => add()}
+                        icon={<PlusOutlined />}
+                        className="h-10"
+                      >
+                        Add Quantity and Discount
+                      </Button>
+                    </Form.Item>
 
-        :global(.image-preview-modal .ant-modal-close) {
-          top: 10px;
-          right: 10px;
-        }
-      `}</style>
-    </Spin>
+                    <div className="grid grid-cols-1 gap-3">
+                      {fields.map(({ key, name, ...restField }) => (
+                        <DiscountRow
+                          key={key}
+                          name={name}
+                          restField={restField}
+                          remove={remove}
+                          form={form}
+                          customerPrice={customerPrice}
+                          dealerPrice={dealerPrice}
+                          corporatePrice={corporatePrice}
+                          productType={productTypeSelectedValue}
+                          variantPrices={tableValue.reduce((acc, variant) => {
+                            acc[variant.key] = {
+                              customer_product_price: variant.customer_product_price || 0,
+                              Deler_product_price: variant.Deler_product_price || 0,
+                              corporate_product_price: variant.corporate_product_price || 0
+                            };
+                            return acc;
+                          }, {})}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </Form.List>
+            </div>
+          </Panel>
+
+          {/* Product Tab Description Info Panel */}
+          <Panel
+            header={
+              <span className="text-lg font-semibold">
+                Product Tab Description Info
+              </span>
+            }
+            key="5"
+          >
+            <Form.List name="description_tabs">
+              {(fields, { add, remove }) => (
+                <>
+                  <Tag
+                    type="dashed"
+                    onClick={() => add()}
+                    block
+                    className="cursor-pointer !bg-green-500 hover:!bg-orange-500 !mb-5 !text-white"
+                  >
+                    + Add New Tab
+                  </Tag>
+                  <div className="grid grid-cols-1 gap-x-2 gap-y-3">
+                    {fields.map((field) => (
+                      <Card
+                        size="small"
+                        title={`Tab ${field.name + 1}`}
+                        key={field.key}
+                        extra={
+                          <DeleteFilled
+                            onClick={() => {
+                              remove(field.name);
+                            }}
+                            className="!text-red-500"
+                          />
+                        }
+                      >
+                        <div className="center_div justify-start gap-x-2">
+                          <Form.Item
+                            label="Tab Name"
+                            name={[field.name, "name"]}
+                            rules={[formValidation("Enter tab name")]}
+                          >
+                            <Input className="!h-[50px] !w-[300px]" />
+                          </Form.Item>
+                          <Form.Item
+                            label="Tab Name"
+                            hidden
+                            name={[field.name, "key"]}
+                            initialValue={field.key}
+                            rules={[formValidation("Enter tab name")]}
+                          >
+                            <Input className="!h-[50px] !w-[300px]" />
+                          </Form.Item>
+                          <Form.Item
+                            label="Tab Type"
+                            name={[field.name, "tab_type"]}
+                            rules={[formValidation("Select tab Type")]}
+                          >
+                            <Select
+                              className="!h-[50px] !w-[300px]"
+                              onChange={() => {
+                                setDummy(!dummy);
+                              }}
+                            >
+                              <Select.Option value={"Editor"}>
+                                Editor
+                              </Select.Option>
+                              <Select.Option value={"Table"}>
+                                Table View
+                              </Select.Option>
+                              <Select.Option value={"Content-With-Image"}>
+                                Content With Image
+                              </Select.Option>
+                            </Select>
+                          </Form.Item>
+                        </div>
+                        {GET_TABLE_TYPE(field.key) === "Editor" && (
+                          <>
+                            <Form.Item
+                              label="Description"
+                              name={[field.name, "description"]}
+                              rules={[formValidation("Enter Description")]}
+                            >
+                              <JoditEditor />
+                            </Form.Item>
+                          </>
+                        )}
+                        {GET_TABLE_TYPE(field.key) === "Table" && (
+                          <>
+                            <Form.Item label="Table View">
+                              <Form.List name={[field.name, "table_view"]}>
+                                {(subFields, subOpt) => (
+                                  <>
+                                    <div className="w-full center_div justify-end px-10">
+                                      <Tag
+                                        type="dashed"
+                                        onClick={() => subOpt.add()}
+                                        className="!cursor-pointer hover:!bg-orange-500 !bg-green-500 !mb-4 !text-white"
+                                      >
+                                        + Add Table Item
+                                      </Tag>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-3">
+                                      {subFields.map((subField) => (
+                                        <Space key={subField.key}>
+                                          <Form.Item
+                                            label="Left"
+                                            name={[subField.name, "left"]}
+                                            rules={[
+                                              formValidation(
+                                                "Enter left value"
+                                              ),
+                                            ]}
+                                          >
+                                            <Input
+                                              placeholder="Left"
+                                              className="!h-[50px]"
+                                            />
+                                          </Form.Item>
+                                          <Form.Item
+                                            label="Right"
+                                            name={[subField.name, "right"]}
+                                            rules={[
+                                              formValidation(
+                                                "Enter right value"
+                                              ),
+                                            ]}
+                                          >
+                                            <Input
+                                              placeholder="right"
+                                              className="!h-[50px]"
+                                            />
+                                          </Form.Item>
+                                          <DeleteFilled
+                                            onClick={() => {
+                                              subOpt.remove(subField.name);
+                                            }}
+                                            className="!text-red-500"
+                                          />
+                                        </Space>
+                                      ))}
+                                    </div>
+                                  </>
+                                )}
+                              </Form.List>
+                            </Form.Item>
+                          </>
+                        )}
+                        {GET_TABLE_TYPE(field.key) ===
+                          "Content-With-Image" && (
+                          <>
+                            <Form.Item label="Content With Image">
+                              <Form.List
+                                name={[field.name, "content_image_view"]}
+                              >
+                                {(subFields, subOpt) => (
+                                  <>
+                                    <div className="w-full center_div justify-end px-10">
+                                      <Tag
+                                        type="dashed"
+                                        onClick={() =>
+                                          subOpt.add({ images: [] })
+                                        }
+                                        className="!cursor-pointer hover:!bg-orange-500 !bg-green-500 !mb-4 !text-white"
+                                      >
+                                        + Add new image with content
+                                      </Tag>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-3">
+                                      {subFields.map((subField) => (
+                                        <div
+                                          key={subField.key}
+                                          className="flex flex-col"
+                                        >
+                                          <Form.Item
+                                            label="Content"
+                                            name={[
+                                              subField.name,
+                                              "content",
+                                            ]}
+                                            rules={[
+                                              formValidation(
+                                                "Enter content"
+                                              ),
+                                            ]}
+                                          >
+                                            <Input.TextArea
+                                              placeholder="Content"
+                                              className=" !w-full"
+                                            />
+                                          </Form.Item>
+                                          <Form.Item
+                                            label="Content"
+                                            hidden
+                                            name={[
+                                              subField.name,
+                                              "image_id",
+                                            ]}
+                                            initialValue={subField.key}
+                                            rules={[
+                                              formValidation(
+                                                "Enter content"
+                                              ),
+                                            ]}
+                                          >
+                                            <Input.TextArea
+                                              placeholder="Content"
+                                              className=" !w-full"
+                                            />
+                                          </Form.Item>
+                                          <Form.Item
+                                            hidden
+                                            rules={[
+                                              {
+                                                required: true,
+                                                message: `Please upload images`,
+                                              },
+                                            ]}
+                                            name={[subField.name, "images"]}
+                                            initialValue={[]}
+                                            label="images"
+                                          >
+                                            <Input.TextArea
+                                              disabled
+                                              rows={5}
+                                              placeholder="Images"
+                                              className="!w-[90%] !h-[50px]"
+                                            />
+                                          </Form.Item>
+                                          <div className="flex items-center gap-x-2">
+                                            <Form.Item
+                                              label="Image"
+                                              name={[
+                                                subField.name,
+                                                "image",
+                                              ]}
+                                            >
+                                              <EnhancedUploadHelper
+                                                blog={true}
+                                                current_key={`${subField.key}-${field.key}`}
+                                                handleChange={handleChange}
+                                              />
+                                            </Form.Item>
+                                            <div className="flex gap-x-2 flex-wrap">
+                                              {GETCURRENT_SETOF_IMAGES(
+                                                `${subField.key}-${field.key}`
+                                              )?.map((res, index) => {
+                                                return (
+                                                  <div
+                                                    key={index}
+                                                    className="relative"
+                                                  >
+                                                    <Image
+                                                      height={50}
+                                                      key={index}
+                                                      className="!h-[50px] !w-[50px] !rounded-lg !border cursor-pointer"
+                                                      src={res}
+                                                      preview={{
+                                                        mask: (
+                                                          <div className="flex items-center justify-center gap-1">
+                                                            <EyeOutlined className="text-white" />
+                                                            <span className="text-white text-xs">Preview</span>
+                                                          </div>
+                                                        ),
+                                                      }}
+                                                    />
+                                                    <div
+                                                      onClick={() => {
+                                                        REMOVE_IMAGES(
+                                                          `${subField.key}-${field.key}`,
+                                                          res
+                                                        );
+                                                      }}
+                                                      className="cursor-pointer text-center text-red-500 gap-x-2 center_div"
+                                                    >
+                                                      {
+                                                        <ICON_HELPER.DELETE_ICON2 />
+                                                      }
+                                                    </div>
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          </div>
+                                          <DeleteFilled
+                                            onClick={() => {
+                                              subOpt.remove(subField.name);
+                                            }}
+                                            className="!text-red-500"
+                                          />
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </>
+                                )}
+                              </Form.List>
+                            </Form.Item>
+                          </>
+                        )}
+                      </Card>
+                    ))}
+                  </div>
+                </>
+              )}
+            </Form.List>
+          </Panel>
+
+          {/* SEO Information Panel */}
+          <Panel
+            header={
+              <span className="text-lg font-semibold">SEO Information</span>
+            }
+            key="6"
+          >
+            <div className="grid grid-cols-1 gap-4">
+              <Form.Item
+                name="seo_title"
+                rules={[formValidation("Enter SEO Title")]}
+                label="SEO Title"
+              >
+                <Input
+                  onChange={(e) => {
+                    handleChnge(e, "title");
+                  }}
+                  className="h-12"
+                />
+              </Form.Item>
+              <Form.Item
+                name="seo_keywords"
+                rules={[formValidation("Enter SEO keywords")]}
+                label="SEO keywords"
+              >
+                <Input
+                  onChange={(e) => {
+                    handleChnge(e, "keywords");
+                  }}
+                  className="h-12"
+                />
+              </Form.Item>
+
+              <Form.Item
+                name="seo_description"
+                rules={[formValidation("Enter SEO Description")]}
+                label="SEO description"
+              >
+                <Input.TextArea
+                  onChange={(e) => {
+                    handleChnge(e, "description");
+                  }}
+                  rows={3}
+                />
+              </Form.Item>
+
+              <Form.Item
+                label="URL"
+                name="seo_url"
+                rules={[formValidation("Enter SEO URL")]}
+              >
+                <Input
+                  onChange={(e) => {
+                    handleChnge(e, "url");
+                  }}
+                  className="h-12"
+                  addonBefore={"https://printe.in/products/"}
+                />
+              </Form.Item>
+
+              <Card size="small" title="SEO Preview">
+                <h3 className="text-blue-600 text-lg mb-1">
+                  {_.get(seo_datas, "title", ``) ||
+                    `WWE Raw Results, News, Video & Photos`}
+                </h3>
+                <p className="text-green-600 text-sm mb-2">
+                  {`https://www.printe.in/` + _.get(seo_datas, "url", ``) ||
+                    `https://www.printe.in/product/Signages/Standees/Premium`}
+                </p>
+                <p className="text-gray-600 text-sm">
+                  {_.get(seo_datas, "description", ``) ||
+                    `Lorem, ipsum dolor sit amet consectetur adipisicing elit.
+                    Accusamus voluptatum consequuntur, quaerat perspiciatis architecto
+                    neque, porro blanditiis fugit nulla, nobis error quisquam
+                    consequatur ad corporis modi hic autem numquam et.`}
+                </p>
+              </Card>
+            </div>
+          </Panel>
+        </Collapse>
+
+        <Divider />
+
+        <Form.Item className="my-6">
+          <Button
+            block
+            htmlType="submit"
+            type="primary"
+            size="large"
+            loading={loading}
+            className="h-12 text-lg"
+          >
+            {id ? "Update Product" : "Add Product"}
+          </Button>
+        </Form.Item>
+      </Form>
+    </Card>
+  </div>
+
+  <Modal
+    title="Unit Configuration"
+    visible={modalUnitVisible}
+    onOk={handleUnitOk}
+    onCancel={handleUnitCancel}
+    width={800}
+    footer={[
+      <Button key="cancel" onClick={handleUnitCancel}>
+        Cancel
+      </Button>,
+      <Button key="submit" type="primary" onClick={handleUnitOk}>
+        Save Configuration
+      </Button>,
+    ]}
+  >
+    <Form form={form} layout="vertical">
+      <Form.List name="unit_splitup">
+        {(fields, { add, remove }) => (
+          <>
+            <Form.Item>
+              <Button
+                onClick={() => add()}
+                icon={<PlusOutlined />}
+                className="h-10 mb-4"
+              >
+                Add Unit
+              </Button>
+            </Form.Item>
+
+            <div className="grid grid-cols-1 gap-3 max-h-96 overflow-y-auto pr-2">
+              {fields.map(({ key, name, ...restField }) => (
+                <Card size="small" key={key} className="relative">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                    <Form.Item
+                      label="Unit"
+                      {...restField}
+                      name={[name, "Unit"]}
+                      rules={[formValidation("Enter a Unit")]}
+                      className="mb-0"
+                    >
+                      <Input
+                        type="Text"
+                        placeholder="Enter Unit"
+                        className="h-10"
+                      />
+                    </Form.Item>
+
+                    <Form.Item
+                      label="Measurement"
+                      {...restField}
+                      name={[name, "Measurement"]}
+                      rules={[formValidation("Enter a Measurement")]}
+                      className="mb-0"
+                    >
+                      <Input
+                        type="Text"
+                        placeholder="Enter Measurement"
+                        className="h-10"
+                      />
+                    </Form.Item>
+
+                    <Button
+                      type="text"
+                      danger
+                      icon={<DeleteFilled />}
+                      onClick={() => remove(name)}
+                      className="absolute top-2 right-2"
+                    />
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </>
+        )}
+      </Form.List>
+    </Form>
+  </Modal>
+
+  <style jsx>{`
+    :global(.custom-collapse .ant-collapse-header) {
+      align-items: center !important;
+      font-weight: 600;
+    }
+
+    :global(.custom-table .ant-table-thead > tr > th) {
+      background-color: #fafafa;
+      font-weight: 600;
+    }
+
+    :global(.image-preview-modal .ant-modal-body) {
+      padding: 0;
+    }
+
+    :global(.image-preview-modal .ant-modal-close) {
+      top: 10px;
+      right: 10px;
+    }
+  `}</style>
+</Spin>
   );
 };
 
