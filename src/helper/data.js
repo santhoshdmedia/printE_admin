@@ -8,7 +8,7 @@ export const MENU_DATA = [
     icon: ICON_HELPER.HOME_ICON,
     to: "/dashboard",
     special: ["dashboard"],
-    for: ["super admin", "accounting team", "designing team", "production team", "delivery team"],
+    for: ["super admin", "accounting team", "designing team", "production team", "delivery team","Frontend admin"],
   },
 
   {
@@ -132,7 +132,7 @@ export const MENU_DATA = [
     icon: ICON_HELPER.VENDORS_ICON,
     to: "/users",
     special: ["client-users", "user_details"],
-    for: ["super admin","frontend admin"],
+    for: ["super admin","Frontend admin"],
   },
 
   {
