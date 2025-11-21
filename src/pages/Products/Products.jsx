@@ -83,8 +83,86 @@ const Products = () => {
   const [visibilityFilter, setVisibilityFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [updatingProductId, setUpdatingProductId] = useState(null);
 
   const [form] = useForm();
+
+  // Fixed visibility handler with optimistic updates
+  const handleOnChangeLabel = async (data, product) => {
+    const productId = _.get(product, "_id", "");
+    
+    try {
+      // Set loading state for this specific product
+      setUpdatingProductId(productId);
+      
+      // Optimistically update the UI first for immediate feedback
+      setTableData(prevTableData => 
+        prevTableData.map(item => 
+          item._id === productId 
+            ? { ...item, ...data }
+            : item
+        )
+      );
+
+      const result = await editProduct(data, productId);
+      SUCCESS_NOTIFICATION(result);
+      
+      // Refresh data to ensure consistency with server
+      await fetchData();
+      
+    } catch (error) {
+      // Revert optimistic update on error
+      setTableData(prevTableData => 
+        prevTableData.map(item => 
+          item._id === productId 
+            ? { ...item, is_visible: !data.is_visible } // Revert the change
+            : item
+        )
+      );
+      ERROR_NOTIFICATION(error);
+    } finally {
+      setUpdatingProductId(null);
+    }
+  };
+
+  // Fixed fetchData function with proper filter handling
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      
+      // Prepare filter parameters
+      const filters = {
+        search: search || "",
+        category: filterByProductCategory || "",
+        type: filterByType || "",
+        subcategory: filterByProductSubcategory || "",
+        vendor: vendorFilter || "",
+        visibility: visibilityFilter || ""
+      };
+
+      console.log("Fetching data with filters:", filters);
+
+      const result = await getProduct(
+        "", // id
+        filters.search, // search
+        true, // isReverse
+        filters.category, // category
+        filters.type, // type
+        filters.subcategory, // subcategory
+        filters.vendor, // vendor
+        filters.visibility // visibility
+      );
+      
+      const data = _.get(result, "data.data", []);
+      console.log("Fetched data:", data.length, "products");
+      setTableData(data.reverse());
+    } catch (err) {
+      console.error("Error fetching data:", err);
+      ERROR_NOTIFICATION(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Export functions
   const exportToCSV = () => {
@@ -219,7 +297,7 @@ const Products = () => {
   const exportAllToCSV = async () => {
     try {
       setExportLoading(true);
-      const result = await getProduct("", "", false, "", "", "", "");
+      const result = await getProduct("", "", false, "", "", "", "", "");
       const allProducts = _.get(result, "data.data", []);
 
       if (allProducts.length === 0) {
@@ -462,7 +540,7 @@ const Products = () => {
   const onCategoryChange = (value) => {
     setFilterByProductCategory(value);
     setFilterByProductSubcategory("");
-    setCurrentPage(1); // Reset to first page when filter changes
+    setCurrentPage(1);
 
     if (value) {
       const filteredSubcategories = subcategoryData.filter(
@@ -511,29 +589,6 @@ const Products = () => {
     }
   };
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const result = await getProduct(
-        "",
-        search,
-        true,
-        filterByProductCategory,
-        filterByType,
-        filterByProductSubcategory,
-        vendorFilter,
-        visibilityFilter
-      );
-      const data = _.get(result, "data.data", []).reverse();
-      setTableData(data);
-    } catch (err) {
-      console.log(err);
-      ERROR_NOTIFICATION(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSubmit = async (values) => {
     setLoading(true);
     try {
@@ -549,7 +604,7 @@ const Products = () => {
       const result = await addproduct(payload);
       SUCCESS_NOTIFICATION(result);
       form.resetFields();
-      await fetchData(); // Wait for data refresh
+      await fetchData();
       setCloneProductDetails([]);
       setOpenCloneModal(false);
     } catch (err) {
@@ -573,7 +628,7 @@ const Products = () => {
       };
       const result = await deleteProduct(JSON.stringify(payload));
       SUCCESS_NOTIFICATION(result);
-      await fetchData(); // Wait for data refresh
+      await fetchData();
     } catch (err) {
       console.log(err);
       ERROR_NOTIFICATION(err);
@@ -582,16 +637,6 @@ const Products = () => {
 
   const handleView = (id) => {
     window.open(`${CLIENT_URL}/product/${_.get(id, "seo_url", "")}`);
-  };
-
-  const handleOnChangeLabel = async (data, product) => {
-    try {
-      const result = await editProduct(data, _.get(product, "_id", ""));
-      SUCCESS_NOTIFICATION(result);
-      await fetchData(); // Wait for data refresh
-    } catch (error) {
-      ERROR_NOTIFICATION(error);
-    }
   };
 
   const getVendorName = useCallback(
@@ -739,7 +784,7 @@ const Products = () => {
   const processedTableData = useMemo(() => {
     return tableData.map((item, index) => ({
       ...item,
-      serialNumber: tableData.length - index,
+      serialNumber: (currentPage - 1) * pageSize + index + 1,
       totalStock: getTotalStock(item),
       prices: {
         customerPrice: getProductPrice(item, 'customer'),
@@ -747,7 +792,7 @@ const Products = () => {
         corporatePrice: getProductPrice(item, 'corporate'),
       }
     }));
-  }, [tableData]);
+  }, [tableData, currentPage, pageSize]);
 
   // Filter options
   const productType = [
@@ -758,8 +803,8 @@ const Products = () => {
 
   const visibilityOptions = [
     { value: "", label: "All Products" },
-    { value: "visible", label: "Visible Only" },
-    { value: "hidden", label: "Hidden Only" },
+    { value: "true", label: "Visible Only" },
+    { value: "false", label: "Hidden Only" },
   ];
 
   const handleClearFilters = () => {
@@ -769,7 +814,8 @@ const Products = () => {
     setFilterByType("");
     setVisibilityFilter("");
     setSubcategoryDataFilter([]);
-    setCurrentPage(1); // Reset to first page when clearing filters
+    setCurrentPage(1);
+    setSearch("");
   };
 
   const handleTableChange = (pagination, filters, sorter) => {
@@ -838,15 +884,17 @@ const Products = () => {
           align: "center",
           width: 100,
           dataIndex: "is_visible",
-          render: (data, record) => (
-            <Tooltip title={data ? "Visible" : "Hidden"}>
+          render: (isVisible, record) => (
+            <Tooltip title={isVisible ? "Visible" : "Hidden"}>
               <Switch
                 size="small"
-                checked={data}
-                onChange={(checked) =>
-                  handleOnChangeLabel({ is_visible: checked }, record)
-                }
-                className={`${data ? 'bg-green-600' : 'bg-gray-300'} hover:bg-teal-500 transition-colors duration-300`}
+                checked={isVisible}
+                onChange={(checked) => {
+                  console.log("Changing visibility for:", record._id, "to:", checked);
+                  handleOnChangeLabel({ is_visible: checked }, record);
+                }}
+                loading={updatingProductId === record._id}
+                className={`${isVisible ? 'bg-green-600' : 'bg-gray-300'} hover:bg-teal-500 transition-colors duration-300`}
               />
             </Tooltip>
           ),
@@ -1042,6 +1090,7 @@ const Products = () => {
                   record
                 )
               }
+              loading={updatingProductId === record._id}
               className={`flex items-center justify-center w-full text-xs ${record.new_product
                   ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-300"
@@ -1061,6 +1110,7 @@ const Products = () => {
                   record
                 )
               }
+              loading={updatingProductId === record._id}
               className={`flex items-center justify-center w-full text-xs ${record.popular_product
                   ? "bg-green-600 text-white border-green-600 hover:bg-green-700"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-300"
@@ -1080,6 +1130,7 @@ const Products = () => {
                   record
                 )
               }
+              loading={updatingProductId === record._id}
               className={`flex items-center justify-center w-full text-xs ${record.recommended_product
                   ? "bg-amber-600 text-white border-amber-600 hover:bg-amber-700"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-300"
