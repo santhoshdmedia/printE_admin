@@ -17,7 +17,7 @@ export const MENU_DATA = [
     icon: ICON_HELPER.ORDERS_ICON,
     to: "/orders",
     special: ["orders","assigned-order", "order_explore"],
-    for: ["super admin", "accounting team", "designing team", "production team", "delivery team"],
+    for: ["super admin", "accounting team", "designing team", "production team", "delivery team","quality check","packing team"],
   },
   
   {
@@ -182,7 +182,7 @@ export const MENU_DATA = [
     icon: ICON_HELPER.SETTINGS_ICON,
     to: "/settings",
     special: ["settings"],
-    for: ["super admin", "accounting team", "designing team", "production team", "delivery team"],
+    for: ["super admin", "accounting team", "designing team", "production team", "delivery team","quality check"],
   },
 ];
 

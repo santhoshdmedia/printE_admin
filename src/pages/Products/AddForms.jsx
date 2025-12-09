@@ -1820,128 +1820,160 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
   ], [variants, tableValue, lockedProductCodes, productTypeSelectedValue, userRole.role, handlePriceChange, handleProductCodeChange, generateProductCode, handleLockVariantProductCode]);
 
   // Form Submission
-  const handleFinish = async (values) => {
-    try {
-      console.log("Form Values:", values);
-      
-      setLoading(true);
-      
-      const existingStockInfo = (id ? _.get(id, "stock_info", []) : []).map(
-        (item) => ({
-          ...item,
-          _id: item._id || uuidv4(),
-          date: item.date ? new Date(item.date).toISOString() : null,
-        })
-      );
-      
-      const newStockInfo = (values.stock_info || []).map((item) => ({
-        ...item,
-        _id: uuidv4(),
-        date: item.date ? item.date.toISOString() : null,
-      }));
-
-      const combinedStockInfo = [...existingStockInfo, ...newStockInfo];
-      const uniqueStockInfo = [];
-      const seenIds = new Set();
-
-      combinedStockInfo.forEach((item) => {
-        if (!seenIds.has(item._id)) {
-          seenIds.add(item._id);
-          uniqueStockInfo.push(item);
+const getFirstAvailableImage = (productData) => {
+  // Check main images array
+  if (productData.images && productData.images.length > 0) {
+    return productData.images[0].url;
+  }
+  
+  // Check variant images
+  if (productData.variants && productData.variants.length > 0) {
+    // Look for variant images first
+    for (const variant of productData.variants) {
+      if (variant.variant_images && variant.variant_images.length > 0) {
+        return variant.variant_images[0].url;
+      }
+    }
+    
+    // Look in option images
+    for (const variant of productData.variants) {
+      if (variant.options && variant.options.length > 0) {
+        for (const option of variant.options) {
+          if (option.image_names && option.image_names.length > 0) {
+            return option.image_names[0].url;
+          }
         }
-      });
+      }
+    }
+  }
+  
+  return null; // Return null if no image found
+};
 
-      values.stock_info = uniqueStockInfo;
+const handleFinish = async (values) => {
+  try {
+    console.log("Form Values:", values);
+    
+    setLoading(true);
+    
+    const existingStockInfo = (id ? _.get(id, "stock_info", []) : []).map(
+      (item) => ({
+        ...item,
+        _id: item._id || uuidv4(),
+        date: item.date ? new Date(item.date).toISOString() : null,
+      })
+    );
+    
+    const newStockInfo = (values.stock_info || []).map((item) => ({
+      ...item,
+      _id: uuidv4(),
+      date: item.date ? item.date.toISOString() : null,
+    }));
 
-      const existingStockCount = id ? Number(_.get(id, "stock_count", 0)) : 0;
-      const newStock = newStockInfo.reduce(
-        (sum, item) => sum + (Number(item.add_stock) || 0),
-        0
-      );
-      values.stock_count = Number(existingStockCount) + Number(newStock);
+    const combinedStockInfo = [...existingStockInfo, ...newStockInfo];
+    const uniqueStockInfo = [];
+    const seenIds = new Set();
 
-      values.images = image_path.map(img => ({
+    combinedStockInfo.forEach((item) => {
+      if (!seenIds.has(item._id)) {
+        seenIds.add(item._id);
+        uniqueStockInfo.push(item);
+      }
+    });
+
+    values.stock_info = uniqueStockInfo;
+
+    const existingStockCount = id ? Number(_.get(id, "stock_count", 0)) : 0;
+    const newStock = newStockInfo.reduce(
+      (sum, item) => sum + (Number(item.add_stock) || 0),
+      0
+    );
+    values.stock_count = Number(existingStockCount) + Number(newStock);
+
+    values.images = image_path.map(img => ({
+      _id: img._id,
+      path: img.path,
+      url: img.url,
+      type: img.type || 'image',
+      uploadedAt: img.uploadedAt
+    }));
+
+    values.variants = variants.map(variant => ({
+      variant_name: variant.variant_name,
+      variant_type: variant.variant_type,
+      variant_images: variant.variant_images ? variant.variant_images.map(img => ({
         _id: img._id,
         path: img.path,
         url: img.url,
         type: img.type || 'image',
         uploadedAt: img.uploadedAt
-      }));
-
-      values.variants = variants.map(variant => ({
-        variant_name: variant.variant_name,
-        variant_type: variant.variant_type,
-        variant_images: variant.variant_images ? variant.variant_images.map(img => ({
+      })) : [],
+      options: variant.options.map(option => ({
+        value: option.value,
+        variant_type: option.variant_type,
+        color_code: option.color_code,
+        image_names: option.image_names ? option.image_names.map(img => ({
           _id: img._id,
           path: img.path,
           url: img.url,
           type: img.type || 'image',
           uploadedAt: img.uploadedAt
-        })) : [],
-        options: variant.options.map(option => ({
-          value: option.value,
-          variant_type: option.variant_type,
-          color_code: option.color_code,
-          image_names: option.image_names ? option.image_names.map(img => ({
-            _id: img._id,
-            path: img.path,
-            url: img.url,
-            type: img.type || 'image',
-            uploadedAt: img.uploadedAt
-          })) : []
-        }))
-      }));
+        })) : []
+      }))
+    }));
 
-      values.product_Lock = isProductCodeLocked;
-      values.variants_price = tableValue.map(item => {
-        const { variantData, ...rest } = item;
-        
-        const flatItem = { ...rest };
-        if (variantData) {
-          Object.keys(variantData).forEach(variantName => {
-            flatItem[variantName] = variantData[variantName].value;
-            if (variantData[variantName].color) {
-              flatItem[`${variantName}_color`] = variantData[variantName].color;
-            }
-          });
-        }
-        
-        return {
-          ...flatItem,
-          isLocked: lockedProductCodes[item.key] || false
-        };
-      });
-
-      values.seo_url = String(values.seo_url).trim();
-
-      console.log("Final submission data:", values);
-
-      let result = id
-        ? await editProduct(values, id?._id)
-        : await addproduct(values);
-
-      setFormStatus(false);
-      SUCCESS_NOTIFICATION(result);
-      form.resetFields();
-      setId("");
-      setQuantityType("");
-      setImagePath([]);
-      setFormStatus(false);
-      fetchData();
-      setSEO_Datas(INITIAL_SEO_DATA);
-      setPercentageDifferences({ customer: 0, dealer: 0, corporate: 0 });
+    values.product_Lock = isProductCodeLocked;
+    values.variants_price = tableValue.map(item => {
+      const { variantData, ...rest } = item;
       
-      if (!id) {
-        setIsProductCodeLocked(false);
-        setLockedProductCodes({});
+      const flatItem = { ...rest };
+      if (variantData) {
+        Object.keys(variantData).forEach(variantName => {
+          flatItem[variantName] = variantData[variantName].value;
+          if (variantData[variantName].color) {
+            flatItem[`${variantName}_color`] = variantData[variantName].color;
+          }
+        });
       }
-    } catch (err) {
-      console.log("Error in form submission:", err);
-      ERROR_NOTIFICATION(err);
-    } finally {
-      setLoading(false);
+      
+      return {
+        ...flatItem,
+        isLocked: lockedProductCodes[item.key] || false
+      };
+    });
+
+    values.seo_url = String(values.seo_url).trim();
+    
+    // Get SEO image from available images
+    values.seo_img = getFirstAvailableImage(values);
+    console.log("SEO Image URL:", values.seo_img);
+
+    let result = id
+      ? await editProduct(values, id?._id)
+      : await addproduct(values);
+
+    setFormStatus(false);
+    SUCCESS_NOTIFICATION(result);
+    form.resetFields();
+    setId("");
+    setQuantityType("");
+    setImagePath([]);
+    setFormStatus(false);
+    fetchData();
+    setSEO_Datas(INITIAL_SEO_DATA);
+    setPercentageDifferences({ customer: 0, dealer: 0, corporate: 0 });
+    
+    if (!id) {
+      setIsProductCodeLocked(false);
+      setLockedProductCodes({});
     }
-  };
+  } catch (err) {
+    console.log("Error in form submission:", err);
+    ERROR_NOTIFICATION(err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <Spin spinning={loading}>
@@ -1985,7 +2017,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
             }
             key="1"
           >
-            <div className={`grid grid-cols-1 md:grid-cols-2 ${userRole.role == "super admin"?"lg:grid-cols-4":"lg:grid-cols-3"} gap-4`}>
+            <div className={`grid grid-cols-1 md:grid-cols-2 ${userRole.role == "super admin"?"lg:grid-cols-5":"lg:grid-cols-4"} gap-4`}>
               {userRole.role == "super admin" && (
               <div className="p-2 bg-blue-50 rounded-lg border">
                 <Form.Item
@@ -2000,6 +2032,15 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                 </Form.Item>
                 </div>
               )}
+              <div className="p-2 bg-gray-50 rounded-lg border">
+                    <Form.Item
+                  name="is_soldout"
+                  label="sold out "
+                  valuePropName="checked"
+                >
+                  <Switch />
+                </Form.Item>
+              </div>
               <div className="p-2 bg-gray-50 rounded-lg border">
                 <Form.Item
                   name="is_customer"
@@ -3163,6 +3204,17 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
                     handleChnge(e, "description");
                   }}
                   rows={3}
+                />
+              </Form.Item>
+              <Form.Item
+                name="seo_img"
+                label="SEO img"
+                className="hidden"
+              >
+                <Input.TextArea
+                  onChange={(e) => {
+                    handleChnge(e, "img");
+                  }}
                 />
               </Form.Item>
 
