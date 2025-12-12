@@ -169,7 +169,7 @@ const Banner = () => {
                         />
                       </div>,
                     ]}
-                    className="!w-full !h-[450px]"
+                    className="!w-full !h-fit"
                     cover={<Image className="!h-[300px] !rounded-t-lg" src={res.banner_image} />}
                   >
                     <Card.Meta 
