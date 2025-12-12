@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import DefaultTile from "../../components/DefaultTile";
-import { Button, Card, Divider, Empty, Form, Image, Input, Modal, Select, Spin, Tag } from "antd";
+import { Button, Card, Divider, Empty, Form, Image, Input, Modal, Select, Spin, Switch, Tag } from "antd";
 import ShowImages from "../../helper/ShowImages";
 import UploadHelper from "../../helper/UploadHelper";
 import { formValidation } from "../../helper/formvalidation";
@@ -139,7 +139,7 @@ const Banner = () => {
           </div>
         ) : (
           <>
-            <div className="w-full max-h-[600px] bg-white rounded-lg grid grid-cols-4 p-5 gap-x-4 gap-y-4">
+            <div className="w-full max-h-fit bg-white rounded-lg grid grid-cols-4 p-14 gap-x-4 gap-y-4">
               {banners.map((res, index) => {
                 return (
                   <Card
@@ -194,13 +194,24 @@ const Banner = () => {
         )}
         <Modal open={formStatus} footer={false} closable={true} title={`${id ? "Update" : "Add"} Banner`} onCancel={handleCancel}>
           <Form layout="vertical" form={form} onFinish={handleFinish}>
-            <Form.Item className="w-full " name="banner_image" label={<CustomLabel name="Banner Image" />}>
+           <div className="flex justify-between">
+             <Form.Item className="w-full " name="banner_image" label={<CustomLabel name="Banner Image" />}>
               {image_path ? <ShowImages path={image_path} setImage={setImagePath} /> : <UploadHelper setImagePath={setImagePath} />}
             </Form.Item>
+            {/* <Form.Item className="w-full " name="is_reward" label={<CustomLabel name="Reward" />}>
+                <Switch/>
+            </Form.Item> */}
+           </div>
             
             <Form.Item label="Banner Name" name="banner_name" rules={[formValidation("Enter Banner Name")]}>
               <Input className="h-[45px]" placeholder="Enter Banner Name" />
             </Form.Item>
+            {/* <Form.Item label="Banner rating" name="rating" rules={[formValidation("Enter Banner Name")]}>
+              <Input className="h-[45px]" placeholder="Enter Banner rating" />
+            </Form.Item> */}
+            {/* <Form.Item label="Banner Slug" name="banner_slug" rules={[formValidation("Enter Banner Slug")]}>
+              <Input className="h-[45px]" placeholder="Enter Banner Slug" />
+            </Form.Item> */}
             
             <Form.Item label="Tag" name="tag" rules={[formValidation("Enter Tag")]}>
               <Input className="h-[45px]" placeholder="Enter Tag" />
