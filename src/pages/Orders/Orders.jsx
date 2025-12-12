@@ -1443,19 +1443,19 @@ const Orders = () => {
 
             <Descriptions title="Product Information" bordered column={2}>
               <Descriptions.Item label="Product Name">
-                {_.get(currentOrder, "cart_items.product_name", "N/A")}
+                {_.get(currentOrder, "cart_items[0].product_name", "N/A")}
               </Descriptions.Item>
               <Descriptions.Item label="Quantity">
-                {_.get(currentOrder, "cart_items.product_quantity", "N/A")}
+                {_.get(currentOrder, "cart_items[0].product_quantity", "N/A")}
               </Descriptions.Item>
-              <Descriptions.Item label="Unit Price">
-                ₹{_.get(currentOrder, "cart_items.product_price", "N/A")}
+              <Descriptions.Item label="Final Price">
+                ₹{_.get(currentOrder, "cart_items[0].final_total", "N/A")}
               </Descriptions.Item>
               <Descriptions.Item label="CGST">
-                {_.get(currentOrder, "cart_items.cgst", "N/A")}%
+                {_.get(currentOrder, "cart_items[0].cgst", "N/A")}%
               </Descriptions.Item>
               <Descriptions.Item label="SGST">
-                {_.get(currentOrder, "cart_items.sgst", "N/A")}%
+                {_.get(currentOrder, "cart_items[0].sgst", "N/A")}%
               </Descriptions.Item>
             </Descriptions>
 
