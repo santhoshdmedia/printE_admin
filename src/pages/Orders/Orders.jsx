@@ -501,7 +501,10 @@ const Orders = () => {
         order.order_status !== "completed" && order.order_status !== "placed"
     ).length,
     placed: orderData.filter((order) => order.order_status === "placed").length,
+    Pending: orderData.filter((order) => order.payment_status === "pending").length,
   };
+
+  
 
   // Get current status index for progress
   const getStatusIndex = (status) => {
@@ -667,7 +670,7 @@ const Orders = () => {
               </div>
               <div className="ml-4">
                 <h3 className="text-white text-opacity-80">Pending Payment</h3>
-                <p className="text-2xl font-bold">{orderStats.placed}</p>
+                <p className="text-2xl font-bold">{orderStats.Pending}</p>
               </div>
             </div>
           </Card>
