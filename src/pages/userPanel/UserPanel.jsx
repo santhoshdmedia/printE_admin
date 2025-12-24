@@ -12,7 +12,8 @@ import {
   Select,
   Row,
   Col,
-  Popconfirm
+  Popconfirm,
+  message
 } from "antd";
 import {
   UserOutlined,
@@ -25,10 +26,13 @@ import {
   EditOutlined,
   DeleteOutlined,
   EyeOutlined,
+  SendOutlined,
+   CheckCircleOutlined,
+  CloseCircleOutlined
 } from "@ant-design/icons";
 import { formValidation } from "../../helper/formvalidation";
 import { CUSTOM_ERROR_NOTIFICATION, ERROR_NOTIFICATION, SUCCESS_NOTIFICATION } from "../../helper/notification_helper";
-import { addCustomUser, getCustomUser, deleteVendor } from "../../api";
+import { addCustomUser, getCustomUser, deleteVendor, sendMailDealer } from "../../api";
 import _ from "lodash";
 import CustomTable from "../../components/CustomTable";
 import { useNavigate } from "react-router-dom";
@@ -40,6 +44,7 @@ const UserPanel = () => {
   const [search, setSearch] = useState(null);
   const [formStatus, setFormStatus] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [sendingMail, setSendingMail] = useState({}); 
   const [id, setId] = useState("");
   const [role, setRole] = useState("Corporate");
   const [allCustomUser, setAllCustomUser] = useState([]);
@@ -76,15 +81,14 @@ const UserPanel = () => {
 
       // Format the data according to the backend schema
       const userData = {
-        name: values.name, // Changed from values.person_name
-        email: values.email, // Changed from values.person_email
-        password: values.phone, // Using phone as password
+        name: values.name,
+        email: values.email,
+        password: values.phone,
         role: values.role,
-        phone: values.phone, // Changed from values.person_phone
+        phone: values.phone,
         business_name: values.business_name,
         unique_code: values.unique_code,
         addresses: values.addresses || [],
-        // Top level fields as per backend schema
         gst_no: values.gst_no,
         business_phone: values.business_phone,
         business_email: values.business_email,
@@ -194,6 +198,33 @@ const UserPanel = () => {
     }
   };
 
+  // Handle send mail to user
+  const handleSendMail = async (userId, userEmail) => {
+    if (!userEmail) {
+      message.error("No email address found for this user");
+      return;
+    }
+
+    try {
+      // Set sending state for this specific user
+      setSendingMail(prev => ({ ...prev, [userId]: true }));
+      
+      // Prepare payload with email
+      const payload = { mail_id: userEmail };
+      
+      // Call the send mail API
+      const result = await sendMailDealer(payload);
+      
+      SUCCESS_NOTIFICATION(result || "Mail sent successfully!");
+    } catch (err) {
+      console.error("Error sending mail:", err);
+      ERROR_NOTIFICATION(err);
+    } finally {
+      // Reset sending state for this user
+      setSendingMail(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
   const columns = [
     {
       title: "S.No",
@@ -214,13 +245,52 @@ const UserPanel = () => {
       dataIndex: "name",
       render: (name) => <div className="font-medium">{name}</div>,
     },
+   {
+      title: "Verification Status",
+      dataIndex: "Dealer_verification",
+      render: (verified, record) => {
+        if (record.role !== "Dealer") {
+          return <span className="text-gray-400">N/A</span>;
+        }
+        
+        return verified ? (
+          <Tag 
+            icon={<CheckCircleOutlined />} 
+            color="success"
+            className="flex items-center"
+          >
+            Verified
+          </Tag>
+        ) : (
+          <Tag 
+            icon={<CloseCircleOutlined />} 
+            color="error"
+            className="flex items-center"
+          >
+            Not Verified
+          </Tag>
+        );
+      },
+    },
     {
       title: "Email",
       dataIndex: "email",
+      render: (email) => (
+        <div className="flex items-center">
+          <MailOutlined className="mr-1 text-gray-400" />
+          {email}
+        </div>
+      ),
     },
     {
       title: "Phone",
       dataIndex: "phone",
+      render: (phone) => (
+        <div className="flex items-center">
+          <PhoneOutlined className="mr-1 text-gray-400" />
+          {phone}
+        </div>
+      ),
     },
     {
       title: "Role",
@@ -234,7 +304,7 @@ const UserPanel = () => {
     {
       title: "Action",
       dataIndex: "_id",
-      render: (id) => {
+      render: (id, record) => {
         return (
           <div className="flex space-x-2">
             <Button
@@ -244,6 +314,22 @@ const UserPanel = () => {
             >
               View
             </Button>
+            
+            <Popconfirm
+              title="Send mail to this user?"
+              description={`you want to send an email to ${record.email}?`}
+              onConfirm={() => handleSendMail(id, record.email)}
+              okText="Yes"
+              cancelText="No"
+            >
+              <Button
+                icon={<SendOutlined />}
+                loading={sendingMail[id]}
+                className="text-blue-600 border-blue-400 hover:bg-blue-50"
+              >
+                Send Mail
+              </Button>
+            </Popconfirm>        
           </div>
         );
       },
@@ -256,16 +342,29 @@ const UserPanel = () => {
         title={
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold text-yellow-800">
-              User Management
+              User Management 
             </h2>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => setFormStatus(true)}
-              className="bg-yellow-500 hover:bg-yellow-600 border-yellow-500 text-white"
-            >
-              Add User
-            </Button>
+            <div className="flex space-x-2">
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => setFormStatus(true)}
+                className="bg-yellow-500 hover:bg-yellow-600 border-yellow-500 text-white"
+              >
+                Add User
+              </Button>
+              <Button
+                type="default"
+                icon={<MailOutlined />}
+                onClick={() => {
+                  // Optional: Bulk send mail functionality could be added here
+                  message.info("Bulk mail feature coming soon!");
+                }}
+                className="border-blue-400 text-blue-600 hover:bg-blue-50"
+              >
+                Bulk Mail
+              </Button>
+            </div>
           </div>
         }
         className="rounded-lg shadow-sm border-0 border-t-4 border-t-yellow-400"
@@ -288,7 +387,7 @@ const UserPanel = () => {
           dataSource={allCustomUser}
           loading={loading}
           columns={columns}
-          scroll={{ x: 1000 }}
+          scroll={{ x: 1200 }}
           rowClassName="hover:bg-yellow-50"
         />
 
@@ -534,4 +633,4 @@ const UserPanel = () => {
   );
 };
 
-export default UserPanel;
+export default UserPanel; 

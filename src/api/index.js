@@ -189,6 +189,9 @@ export const addCustomUser = async (formdata) =>
 export const getCustomUser = async () =>
   await custom_request.get(`${BASE_URL}/client_user/get_all_custom_users`);
 
+export const sendMailDealer = async (formdata) =>
+  await custom_request.post(`${BASE_URL}/mail/send_Dealer_mail`, formdata);
+
 //enquires
 export const getInquires = async () =>
   await custom_request.get(`${BASE_URL}/help/get_enquires`);
