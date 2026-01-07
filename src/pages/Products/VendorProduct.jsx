@@ -8,8 +8,8 @@ import {
   MdNewReleases,
   MdThumbUp,
   MdFileDownload,
-  MdVisibility,
-  MdVisibilityOff,
+  MdFilterList,
+  MdClearAll,
 } from "react-icons/md";
 import {
   Button,
@@ -30,6 +30,10 @@ import {
   Dropdown,
   Menu,
   message,
+  Input,
+  Space,
+  Badge,
+  Alert,
 } from "antd";
 import { FaEdit, FaEye, FaFilter } from "react-icons/fa";
 import _ from "lodash";
@@ -55,8 +59,68 @@ import { useForm } from "antd/es/form/Form";
 import AddForms from "./AddForms";
 
 const { Title, Text } = Typography;
+const { Search } = Input;
 
-const Products = () => {
+// Error Boundary Component for AddForms
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("Error caught by ErrorBoundary:", error, errorInfo);
+    this.setState({ errorInfo });
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Card className="mb-6 bg-white shadow-lg rounded-xl border border-red-200">
+          <div className="text-center p-8">
+            <div className="text-red-500 text-5xl mb-4">⚠️</div>
+            <Title level={4} className="text-red-600 mb-2">
+              Something went wrong
+            </Title>
+            <Text className="text-gray-600 mb-4 block">
+              There was an error loading the product form.
+            </Text>
+            <Button
+              type="primary"
+              danger
+              onClick={() => window.location.reload()}
+              className="mt-4"
+            >
+              Reload Page
+            </Button>
+          </div>
+        </Card>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// Utility functions
+const safeGet = (obj, path, defaultValue = null) => {
+  const value = _.get(obj, path, defaultValue);
+  return value === null || value === undefined ? defaultValue : value;
+};
+
+const safeMap = (array, callback) => {
+  if (!Array.isArray(array)) {
+    console.warn("Attempted to map over non-array:", array);
+    return [];
+  }
+  return array.map(callback);
+};
+
+const VendorProduct = () => {
   const [formStatus, setFormStatus] = useState(false);
   const [tableData, setTableData] = useState([]);
   const [search, setSearch] = useState("");
@@ -84,21 +148,30 @@ const Products = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [updatingProductId, setUpdatingProductId] = useState(null);
+  const [error, setError] = useState(null);
+  const [totalProducts, setTotalProducts] = useState(0);
 
   const [form] = useForm();
 
-  // Fixed visibility handler with optimistic updates
+  // Handle product visibility toggle
   const handleOnChangeLabel = async (data, product) => {
-    const productId = _.get(product, "_id", "");
-
+    const productId = safeGet(product, "_id", "");
+    
+    if (!productId) {
+      ERROR_NOTIFICATION("Product ID is missing");
+      return;
+    }
+    
     try {
-      // Set loading state for this specific product
       setUpdatingProductId(productId);
-
-      // Optimistically update the UI first for immediate feedback
-      setTableData(prevTableData =>
-        prevTableData.map(item =>
-          item._id === productId
+      
+      // Store original state for rollback
+      const originalState = { ...product };
+      
+      // Optimistic update
+      setTableData(prevTableData => 
+        prevTableData.map(item => 
+          item._id === productId 
             ? { ...item, ...data }
             : item
         )
@@ -106,16 +179,13 @@ const Products = () => {
 
       const result = await editProduct(data, productId);
       SUCCESS_NOTIFICATION(result);
-
-      // Refresh data to ensure consistency with server
-      await fetchData();
-
+      
     } catch (error) {
       // Revert optimistic update on error
-      setTableData(prevTableData =>
-        prevTableData.map(item =>
-          item._id === productId
-            ? { ...item, is_visible: !data.is_visible } // Revert the change
+      setTableData(prevTableData => 
+        prevTableData.map(item => 
+          item._id === productId 
+            ? { ...originalState }
             : item
         )
       );
@@ -125,12 +195,12 @@ const Products = () => {
     }
   };
 
-  // Fixed fetchData function with proper filter handling
+  // Fetch products with filters
   const fetchData = async () => {
     try {
       setLoading(true);
-
-      // Prepare filter parameters
+      setError(null);
+      
       const filters = {
         search: search || "",
         category: filterByProductCategory || "",
@@ -140,27 +210,32 @@ const Products = () => {
         visibility: visibilityFilter || ""
       };
 
-
       const result = await getProduct(
-        "", // id
-        filters.search, // search
-        true, // isReverse
-        filters.category, // category
-        filters.type, // type
-        filters.subcategory, // subcategory
-        filters.vendor, // vendor
-        filters.visibility // visibility
+        "",
+        filters.search,
+        true,
+        filters.category,
+        filters.type,
+        filters.subcategory,
+        filters.vendor,
+        filters.visibility
       );
-
-      const data = _.get(result, "data.data", []);
-      const ownProducts = data.filter((res) =>
-        res.product_type.toLowerCase() !== "vendor product"
-      )
-
-      console.log("Fetched data:", data, "products");
-      setTableData(ownProducts.reverse());
+      
+      const data = safeGet(result, "data.data", []);
+      const allProducts = Array.isArray(data) ? data : [];
+      
+      // Safely filter vendor products
+      const vendorProducts = allProducts.filter((res) => {
+        if (!res || typeof res !== "object") return false;
+        const productType = safeGet(res, "product_type", "").toString().toLowerCase();
+        return productType === "vendor product";
+      });
+      
+      setTableData(vendorProducts.reverse());
+      setTotalProducts(vendorProducts.length);
     } catch (err) {
       console.error("Error fetching data:", err);
+      setError("Failed to fetch products. Please try again.");
       ERROR_NOTIFICATION(err);
     } finally {
       setLoading(false);
@@ -171,6 +246,12 @@ const Products = () => {
   const exportToCSV = () => {
     try {
       setExportLoading(true);
+      
+      if (tableData.length === 0) {
+        message.warning("No products available for export");
+        return;
+      }
+      
       let csvContent = "data:text/csv;charset=utf-8,";
       const columns = [
         "S.No",
@@ -182,8 +263,25 @@ const Products = () => {
         "Sub Category",
         "MRP Price",
       ];
+      
       csvContent += columns.join(",") + "\r\n";
-      provideProductContent().forEach((row) => {
+      
+      tableData.forEach((product, index) => {
+        const vendorCode = safeGet(product, "Vendor_Code", "N/A");
+        const categoryName = safeGet(product, "category_details.main_category_name", "N/A");
+        const subCategoryName = safeGet(product, "sub_category_details.sub_category_name", "N/A");
+        
+        const row = {
+          s_no: index + 1,
+          product_name: safeGet(product, "name", "N/A"),
+          product_serial_no: safeGet(product, "product_codeS_NO", "N/A"),
+          vendor_code: vendorCode,
+          product_code: safeGet(product, "product_code", "N/A"),
+          category: categoryName,
+          sub_category: subCategoryName,
+          mrp_price: safeGet(product, "MRP_price", "N/A"),
+        };
+
         const values = columns.map((col) => {
           const keyMap = {
             "S.No": "s_no",
@@ -198,6 +296,7 @@ const Products = () => {
           const key = keyMap[col];
           return `"${row[key] || ""}"`;
         });
+        
         csvContent += values.join(",") + "\r\n";
       });
 
@@ -251,7 +350,44 @@ const Products = () => {
       ];
 
       csvContent += columns.join(",") + "\r\n";
-      provideFilteredProductContent().forEach((row) => {
+      
+      tableData.forEach((product, index) => {
+        const totalStock = getTotalStock(product);
+        const customerPrice = getProductPrice(product, 'customer');
+        const dealerPrice = getProductPrice(product, 'dealer');
+        const corporatePrice = getProductPrice(product, 'corporate');
+
+        const vendorDetails = safeGet(product, "vendor_details", []);
+        const vendorNames = Array.isArray(vendorDetails) && vendorDetails.length > 0
+          ? vendorDetails.map(vendor => safeGet(vendor, "business_name", safeGet(vendor, "vendor_name", "Unknown Vendor"))).join(', ')
+          : 'No Vendor';
+
+        const vendorCodes = safeGet(product, "Vendor_Code", "N/A");
+        const categoryName = safeGet(product, "category_details.main_category_name", "N/A");
+        const subCategoryName = safeGet(product, "sub_category_details.sub_category_name", "N/A");
+
+        const row = {
+          s_no: index + 1,
+          product_name: safeGet(product, "name", "N/A"),
+          product_serial_no: safeGet(product, "product_codeS_NO", safeGet(product, "product_serial_no", safeGet(product, "product_code", "N/A"))),
+          vendor_code: vendorCodes,
+          product_code: safeGet(product, "product_code", "N/A"),
+          product_type: safeGet(product, "type", safeGet(product, "product_type", "N/A")),
+          category: categoryName,
+          sub_category: subCategoryName,
+          total_stock: totalStock || 'N/A',
+          stock_status: safeGet(product, "stocks_status", safeGet(product, "stock_status", "N/A")),
+          customer_price: customerPrice !== "N/A" ? `₹${customerPrice}` : 'N/A',
+          dealer_price: dealerPrice !== "N/A" ? `₹${dealerPrice}` : 'N/A',
+          corporate_price: corporatePrice !== "N/A" ? `₹${corporatePrice}` : 'N/A',
+          vendors: vendorNames,
+          visibility: safeGet(product, "is_visible", false) ? 'Visible' : 'Hidden',
+          new_product: safeGet(product, "new_product", false) ? 'Yes' : 'No',
+          popular_product: safeGet(product, "popular_product", false) ? 'Yes' : 'No',
+          recommended_product: safeGet(product, "recommended_product", false) ? 'Yes' : 'No',
+          cloned_product: safeGet(product, "is_cloned", false) ? 'Yes' : 'No',
+        };
+
         const values = columns.map((col) => {
           const keyMap = {
             "S.No": "s_no",
@@ -277,6 +413,7 @@ const Products = () => {
           const key = keyMap[col];
           return `"${row[key] || ""}"`;
         });
+
         csvContent += values.join(",") + "\r\n";
       });
 
@@ -301,9 +438,10 @@ const Products = () => {
     try {
       setExportLoading(true);
       const result = await getProduct("", "", false, "", "", "", "", "");
-      const allProducts = _.get(result, "data.data", []);
+      const allProducts = safeGet(result, "data.data", []);
+      const safeProducts = Array.isArray(allProducts) ? allProducts : [];
 
-      if (allProducts.length === 0) {
+      if (safeProducts.length === 0) {
         message.warning("No products available for export");
         return;
       }
@@ -340,53 +478,51 @@ const Products = () => {
       ];
 
       csvContent += columns.join(",") + "\r\n";
-      allProducts.forEach((product, index) => {
+      
+      safeProducts.forEach((product, index) => {
         const productImage = getProductImage(product);
         const totalStock = getTotalStock(product);
         const customerPrice = getProductPrice(product, 'customer');
         const dealerPrice = getProductPrice(product, 'dealer');
         const corporatePrice = getProductPrice(product, 'corporate');
 
-        const vendorNames = product.vendor_details && product.vendor_details.length > 0
-          ? product.vendor_details.map(vendor => vendor.business_name || vendor.vendor_name || "Unknown Vendor").join(', ')
+        const vendorDetails = safeGet(product, "vendor_details", []);
+        const vendorNames = Array.isArray(vendorDetails) && vendorDetails.length > 0
+          ? vendorDetails.map(vendor => safeGet(vendor, "business_name", safeGet(vendor, "vendor_name", "Unknown Vendor"))).join(', ')
           : 'No Vendor';
 
-        const vendorCodes = product.vendor_details && product.vendor_details.length > 0
-          ? product.vendor_details.map(vendor => vendor.vendor_code || vendor.Vendor_Code || vendor.code || "N/A").join(', ')
-          : product.Vendor_Code || 'N/A';
-
-        const categoryName = _.get(product, "category_details.main_category_name", "N/A");
-        const subCategoryName = _.get(product, "sub_category_details.sub_category_name", "N/A");
+        const vendorCodes = safeGet(product, "Vendor_Code", "N/A");
+        const categoryName = safeGet(product, "category_details.main_category_name", "N/A");
+        const subCategoryName = safeGet(product, "sub_category_details.sub_category_name", "N/A");
 
         const row = {
           s_no: index + 1,
-          product_id: product._id || 'N/A',
-          product_name: product.name || 'N/A',
-          product_serial_no: product.product_codeS_NO || product.product_serial_no || product.product_code || 'N/A',
+          product_id: safeGet(product, "_id", "N/A"),
+          product_name: safeGet(product, "name", "N/A"),
+          product_serial_no: safeGet(product, "product_codeS_NO", safeGet(product, "product_serial_no", safeGet(product, "product_code", "N/A"))),
           vendor_code: vendorCodes,
-          product_code: product.product_code || 'N/A',
-          product_type: product.type || product.product_type || 'N/A',
+          product_code: safeGet(product, "product_code", "N/A"),
+          product_type: safeGet(product, "type", safeGet(product, "product_type", "N/A")),
           category: categoryName,
           sub_category: subCategoryName,
           total_stock: totalStock,
-          stock_status: product.stocks_status || product.stock_status || 'In Stock',
+          stock_status: safeGet(product, "stocks_status", safeGet(product, "stock_status", "In Stock")),
           customer_price: customerPrice !== "N/A" ? `₹${customerPrice}` : 'N/A',
           dealer_price: dealerPrice !== "N/A" ? `₹${dealerPrice}` : 'N/A',
           corporate_price: corporatePrice !== "N/A" ? `₹${corporatePrice}` : 'N/A',
-          mrp_price: product.MRP_price ? `₹${product.MRP_price}` : 'N/A',
+          mrp_price: safeGet(product, "MRP_price") ? `₹${product.MRP_price}` : 'N/A',
           vendors: vendorNames,
-          visibility: product.is_visible ? 'Visible' : 'Hidden',
-          new_product: product.new_product ? 'Yes' : 'No',
-          popular_product: product.popular_product ? 'Yes' : 'No',
-          recommended_product: product.recommended_product ? 'Yes' : 'No',
-          cloned_product: product.is_cloned ? 'Yes' : 'No',
-          parent_product_id: product.parent_product_id || 'Original',
+          visibility: safeGet(product, "is_visible", false) ? 'Visible' : 'Hidden',
+          new_product: safeGet(product, "new_product", false) ? 'Yes' : 'No',
+          popular_product: safeGet(product, "popular_product", false) ? 'Yes' : 'No',
+          recommended_product: safeGet(product, "recommended_product", false) ? 'Yes' : 'No',
+          cloned_product: safeGet(product, "is_cloned", false) ? 'Yes' : 'No',
+          parent_product_id: safeGet(product, "parent_product_id", "Original"),
           image_url: productImage || 'No Image',
-          product_description: product.product_description_tittle || product.description ?
-            (product.product_description_tittle || product.description.replace(/(<([^>]+)>)/gi, "").substring(0, 100) + '...') : 'N/A',
-          seo_url: product.seo_url || 'N/A',
-          created_date: product.createdAt ? new Date(product.createdAt).toLocaleDateString('en-IN') : 'N/A',
-          last_updated: product.updatedAt ? new Date(product.updatedAt).toLocaleDateString('en-IN') : 'N/A',
+          product_description: safeGet(product, "product_description_tittle", safeGet(product, "description", "N/A")),
+          seo_url: safeGet(product, "seo_url", "N/A"),
+          created_date: safeGet(product, "createdAt") ? new Date(product.createdAt).toLocaleDateString('en-IN') : 'N/A',
+          last_updated: safeGet(product, "updatedAt") ? new Date(product.updatedAt).toLocaleDateString('en-IN') : 'N/A',
         };
 
         const values = columns.map((col) => {
@@ -434,7 +570,7 @@ const Products = () => {
       link.click();
       document.body.removeChild(link);
 
-      message.success(`All ${allProducts.length} products exported successfully`);
+      message.success(`All ${safeProducts.length} products exported successfully`);
     } catch (err) {
       console.error("Error exporting all data:", err);
       message.error("Failed to export all products");
@@ -443,93 +579,21 @@ const Products = () => {
     }
   };
 
-  const provideProductContent = () => {
-    return tableData.map((product, index) => {
-      const productImage = getProductImage(product);
-      const totalStock = getTotalStock(product);
-      const customerPrice = getProductPrice(product, 'customer');
-      const dealerPrice = getProductPrice(product, 'dealer');
-      const corporatePrice = getProductPrice(product, 'corporate');
-
-      const vendorNames = product.vendor_details && product.vendor_details.length > 0
-        ? product.vendor_details.map(vendor => vendor.business_name || vendor.vendor_name || "Unknown Vendor").join(', ')
-        : 'No Vendor';
-
-      const vendorCodes = product.Vendor_Code;
-
-      const categoryName = _.get(product, "category_details.main_category_name", "N/A");
-      const subCategoryName = _.get(product, "sub_category_details.sub_category_name", "N/A");
-
-      return {
-        s_no: index + 1,
-        product_name: product.name || 'N/A',
-        product_serial_no: product.product_codeS_NO || 'N/A',
-        vendor_code: vendorCodes,
-        product_code: product.product_code || 'N/A',
-        product_type: product.type || product.product_type || 'N/A',
-        category: categoryName,
-        sub_category: subCategoryName,
-        mrp_price: product.MRP_price || 'N/A',
-        created_date: product.createdAt ? new Date(product.createdAt).toLocaleDateString('en-IN') : 'N/A',
-      };
-    });
-  };
-
-  const provideFilteredProductContent = () => {
-    return tableData.map((product, index) => {
-      const totalStock = getTotalStock(product);
-      const customerPrice = getProductPrice(product, 'customer');
-      const dealerPrice = getProductPrice(product, 'dealer');
-      const corporatePrice = getProductPrice(product, 'corporate');
-
-      const vendorNames = product.vendor_details && product.vendor_details.length > 0
-        ? product.vendor_details.map(vendor => vendor.business_name || vendor.vendor_name || "Unknown Vendor").join(', ')
-        : 'No Vendor';
-
-      const vendorCodes = product.vendor_details && product.vendor_details.length > 0
-        ? product.vendor_details.map(vendor => vendor.vendor_code || vendor.Vendor_Code || vendor.code || "N/A").join(', ')
-        : product.Vendor_Code || 'N/A';
-
-      const categoryName = _.get(product, "category_details.main_category_name", "N/A");
-      const subCategoryName = _.get(product, "sub_category_details.sub_category_name", "N/A");
-
-      return {
-        s_no: index + 1,
-        product_name: product.name || 'N/A',
-        product_serial_no: product.product_codeS_NO || product.product_serial_no || product.product_code || 'N/A',
-        vendor_code: vendorCodes,
-        product_code: product.product_code || 'N/A',
-        product_type: product.type || product.product_type || 'N/A',
-        category: categoryName,
-        sub_category: subCategoryName,
-        total_stock: totalStock || 'N/A',
-        stock_status: product.stocks_status || product.stock_status || 'N/A',
-        customer_price: customerPrice !== "N/A" ? `₹${customerPrice}` : 'N/A',
-        dealer_price: dealerPrice !== "N/A" ? `₹${dealerPrice}` : 'N/A',
-        corporate_price: corporatePrice !== "N/A" ? `₹${corporatePrice}` : 'N/A',
-        vendors: vendorNames,
-        visibility: product.is_visible ? 'Visible' : 'Hidden',
-        new_product: product.new_product ? 'Yes' : 'No',
-        popular_product: product.popular_product ? 'Yes' : 'No',
-        recommended_product: product.recommended_product ? 'Yes' : 'No',
-        cloned_product: product.is_cloned ? 'Yes' : 'No',
-      };
-    });
-  };
-
+  // Clone product modal handlers
   const handleOpenModal = (productData) => {
-    const product = { ...productData };
-    delete product.category_details;
-    delete product.sub_category_details;
-    const product_id = product._id;
-    delete product._id;
-
     try {
+      const product = { ...productData };
+      delete product.category_details;
+      delete product.sub_category_details;
+      const product_id = product._id;
+      delete product._id;
+
       setSelectedProductData(product);
       setProductId(product_id);
       setOpenCloneModal(true);
     } catch (err) {
-      console.log(err);
+      console.error("Error opening clone modal:", err);
+      ERROR_NOTIFICATION("Failed to open clone modal");
     }
   };
 
@@ -540,6 +604,7 @@ const Products = () => {
     setOpenCloneModal(false);
   };
 
+  // Category change handlers
   const onCategoryChange = (value) => {
     setFilterByProductCategory(value);
     setFilterByProductSubcategory("");
@@ -568,16 +633,17 @@ const Products = () => {
     form.setFieldValue("sub_category_details", undefined);
   };
 
+  // Fetch initial data
   const fetchCategories = async () => {
     try {
       const [mainResult, subResult] = await Promise.all([
         getMainCategory(),
         getSubCategory(),
       ]);
-      setCategoryData(_.get(mainResult, "data.data", []));
-      setSubcategoryData(_.get(subResult, "data.data", []));
+      setCategoryData(safeGet(mainResult, "data.data", []));
+      setSubcategoryData(safeGet(subResult, "data.data", []));
     } catch (err) {
-      console.log(err);
+      console.error("Error fetching categories:", err);
       ERROR_NOTIFICATION(err);
     }
   };
@@ -585,19 +651,20 @@ const Products = () => {
   const fetchMainCategories = async () => {
     try {
       const result = await getAllCategoryProducts();
-      setMainCategoryData(_.get(result, "data.data", []));
+      setMainCategoryData(safeGet(result, "data.data", []));
     } catch (err) {
-      console.log(err);
+      console.error("Error fetching main categories:", err);
       ERROR_NOTIFICATION(err);
     }
   };
 
+  // Clone product submission
   const handleSubmit = async (values) => {
     setLoading(true);
     try {
       const payload = {
         ...cloneProductDetails,
-        parent_product_id: _.get(cloneProductDetails, "_id", ""),
+        parent_product_id: safeGet(cloneProductDetails, "_id", ""),
         is_cloned: true,
         category_details: values.category_details,
         sub_category_details: values.sub_category_details,
@@ -611,13 +678,14 @@ const Products = () => {
       setCloneProductDetails([]);
       setOpenCloneModal(false);
     } catch (err) {
-      console.log(err);
+      console.error("Error cloning product:", err);
       ERROR_NOTIFICATION(err);
     } finally {
       setLoading(false);
     }
   };
 
+  // CRUD operations
   const handleUpdate = (data) => {
     setId(data);
     setFormStatus(true);
@@ -626,35 +694,36 @@ const Products = () => {
   const handleDelete = async (data) => {
     try {
       const payload = {
-        product_id: data._id,
-        is_cloned: data.is_cloned,
+        product_id: safeGet(data, "_id", ""),
+        is_cloned: safeGet(data, "is_cloned", false),
       };
       const result = await deleteProduct(JSON.stringify(payload));
       SUCCESS_NOTIFICATION(result);
       await fetchData();
     } catch (err) {
-      console.log(err);
+      console.error("Error deleting product:", err);
       ERROR_NOTIFICATION(err);
     }
   };
 
   const handleView = (id) => {
-    window.open(`${CLIENT_URL}/product/${_.get(id, "seo_url", "")}`);
+    const seoUrl = safeGet(id, "seo_url", "");
+    if (seoUrl) {
+      window.open(`${CLIENT_URL}/product/${seoUrl}`);
+    } else {
+      ERROR_NOTIFICATION("Product URL not found");
+    }
   };
 
   const getVendorName = useCallback(
     async (id) => {
-      if (!id) return null;
+      if (!id) return "No Vendor";
       if (vendorNames[id]) return vendorNames[id];
 
       setVendorsLoading((prev) => ({ ...prev, [id]: true }));
       try {
         const vendor = await getSingleVendor(id);
-        const businessName = _.get(
-          vendor,
-          "data.data.business_name",
-          "Unknown Vendor"
-        );
+        const businessName = safeGet(vendor, "data.data.business_name", "Unknown Vendor");
         setVendorNames((prev) => ({ ...prev, [id]: businessName }));
         return businessName;
       } catch (error) {
@@ -672,33 +741,36 @@ const Products = () => {
     try {
       setLoading(true);
       const result = await getAllVendor();
-      setAllVendors(_.get(result, "data.data", []));
+      setAllVendors(safeGet(result, "data.data", []));
     } catch (err) {
-      console.log(err);
+      console.error("Error fetching vendors:", err);
       ERROR_NOTIFICATION(err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Helper functions
+  // Helper functions for product data
   const getVariantImages = (product) => {
-    if (!product.variants || !Array.isArray(product.variants)) return [];
+    const variants = safeGet(product, "variants", []);
+    if (!Array.isArray(variants)) return [];
 
     const variantImages = [];
 
-    product.variants.forEach((variantGroup) => {
+    variants.forEach((variantGroup) => {
       if (variantGroup.variant_type === "image_variant" && variantGroup.options) {
-        variantGroup.options.forEach((option) => {
-          if (option.image_names && Array.isArray(option.image_names) && option.image_names.length > 0) {
-            const images = option.image_names.map(img =>
-              typeof img === 'object' ? _.get(img, "url", _.get(img, "path", "")) : img
+        const options = Array.isArray(variantGroup.options) ? variantGroup.options : [];
+        options.forEach((option) => {
+          const imageNames = safeGet(option, "image_names", []);
+          if (Array.isArray(imageNames) && imageNames.length > 0) {
+            const images = imageNames.map(img =>
+              typeof img === 'object' ? safeGet(img, "url", safeGet(img, "path", "")) : img
             ).filter(img => img);
 
             if (images.length > 0) {
               variantImages.push({
-                variantName: variantGroup.variant_name,
-                optionValue: option.value,
+                variantName: safeGet(variantGroup, "variant_name", ""),
+                optionValue: safeGet(option, "value", ""),
                 images: images
               });
             }
@@ -712,21 +784,20 @@ const Products = () => {
 
   const getFirstVariantImage = (product) => {
     const variantImages = getVariantImages(product);
-
     for (const variant of variantImages) {
       if (variant.images && variant.images.length > 0) {
         return variant.images[0];
       }
     }
-
     return null;
   };
 
   const getProductImage = (product) => {
-    if (product.images && Array.isArray(product.images) && product.images.length > 0) {
-      const firstImage = product.images[0];
+    const images = safeGet(product, "images", []);
+    if (Array.isArray(images) && images.length > 0) {
+      const firstImage = images[0];
       if (typeof firstImage === 'object') {
-        return _.get(firstImage, "url", _.get(firstImage, "path", ""));
+        return safeGet(firstImage, "url", safeGet(firstImage, "path", ""));
       }
       return firstImage;
     }
@@ -747,15 +818,17 @@ const Products = () => {
     };
 
     const priceField = priceFieldMap[priceType];
+    const type = safeGet(product, "type", "");
 
-    if (product.type === "Stand Alone Product") {
-      return product[priceField] || product.MRP_price || "N/A";
+    if (type === "Stand Alone Product") {
+      return safeGet(product, priceField, safeGet(product, "MRP_price", "N/A"));
     }
-    else if (product.type === "Variant Product" || product.type === "Variable Product") {
-      if (product.variants_price && Array.isArray(product.variants_price) && product.variants_price.length > 0) {
-        const prices = product.variants_price
+    else if (type === "Variant Product" || type === "Variable Product") {
+      const variantsPrice = safeGet(product, "variants_price", []);
+      if (Array.isArray(variantsPrice) && variantsPrice.length > 0) {
+        const prices = variantsPrice
           .map(variant => {
-            const price = variant[priceField] || variant.price;
+            const price = safeGet(variant, priceField, safeGet(variant, "price", null));
             return price ? parseFloat(price) : null;
           })
           .filter(price => price !== null && !isNaN(price));
@@ -765,25 +838,28 @@ const Products = () => {
         }
       }
 
-      return product[priceField] || product.MRP_price || "N/A";
+      return safeGet(product, priceField, safeGet(product, "MRP_price", "N/A"));
     }
 
     return "N/A";
   };
 
   const getTotalStock = (product) => {
-    if ((product.type === "Variant Product" || product.type === "Variable Product") &&
-      product.variants_price && Array.isArray(product.variants_price)) {
-      return product.variants_price.reduce((sum, variant) => {
-        const stock = parseInt(variant.stock) || 0;
-        return sum + stock;
-      }, 0);
+    const type = safeGet(product, "type", "");
+    if ((type === "Variant Product" || type === "Variable Product")) {
+      const variantsPrice = safeGet(product, "variants_price", []);
+      if (Array.isArray(variantsPrice)) {
+        return variantsPrice.reduce((sum, variant) => {
+          const stock = parseInt(safeGet(variant, "stock", 0)) || 0;
+          return sum + stock;
+        }, 0);
+      }
     }
 
-    return product.stock_count || 0;
+    return parseInt(safeGet(product, "stock_count", 0)) || 0;
   };
 
-  // Process table data with stable pagination
+  // Process table data with pagination
   const processedTableData = useMemo(() => {
     return tableData.map((item, index) => ({
       ...item,
@@ -828,6 +904,7 @@ const Products = () => {
 
   const userRole = JSON.parse(localStorage.getItem("userprofile")) || {};
 
+  // Table columns
   const columns = [
     {
       title: "S.No",
@@ -865,6 +942,19 @@ const Products = () => {
       ),
     },
     {
+      title: "Vendor Name",
+      dataIndex: "vendor_details",
+      align: "center",
+      width: 150,
+      render: (vendorDetails) => (
+        <Tooltip title={safeGet(vendorDetails, "vendor_name", "N/A")}>
+          <Tag className="max-w-full truncate font-semibold bg-orange-100 text-orange-500 border-orange-200 rounded-full px-3 py-1 text-xs">
+            {safeGet(vendorDetails, "vendor_name", "N/A")}
+          </Tag>
+        </Tooltip>
+      ),
+    },
+    {
       title: "Clone",
       align: "center",
       width: 80,
@@ -893,7 +983,6 @@ const Products = () => {
                 size="small"
                 checked={isVisible}
                 onChange={(checked) => {
-                  console.log("Changing visibility for:", record._id, "to:", checked);
                   handleOnChangeLabel({ is_visible: checked }, record);
                 }}
                 loading={updatingProductId === record._id}
@@ -907,17 +996,17 @@ const Products = () => {
     {
       title: "Image",
       dataIndex: "images",
-      width: 260,
+      width: 120,
       render: (image, record) => {
         const productImage = getProductImage(record);
-        const hasVariants = record.variants && record.variants.length > 0;
+        const hasVariants = record.variants && Array.isArray(record.variants) && record.variants.length > 0;
         const variantImages = getVariantImages(record);
         const isVariableProduct = record.type === "Variable Product" || record.type === "Variant Product";
 
         return (
           <div className="flex justify-center">
             {productImage ? (
-              <div className="relative aspect-square w-40 h-40 sm:w-40 sm:h-40 rounded-xl overflow-hidden border border-gray-200 bg-white shadow-lg hover:shadow-2xl transition-all duration-300">
+              <div className="relative aspect-square w-16 h-16 rounded-lg overflow-hidden border border-gray-200 bg-white shadow-sm hover:shadow-md transition-all duration-300">
                 <Image
                   src={productImage}
                   alt="Product"
@@ -928,21 +1017,14 @@ const Products = () => {
                   fallback="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzkzYTNiMyIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=="
                 />
                 {hasVariants && variantImages.length > 0 && (
-                  <div className="absolute top-1 right-1 bg-blue-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                  <div className="absolute top-0 right-0 bg-blue-500 text-white text-xs rounded-bl-lg px-1 py-0.5">
                     {variantImages.length}
-                  </div>
-                )}
-                {isVariableProduct && (
-                  <div className="absolute bottom-1 left-1 bg-purple-500 text-white text-xs rounded-full px-1 py-0.5">
-                    Var
                   </div>
                 )}
               </div>
             ) : (
-              <div className="aspect-square w-16 h-16 sm:w-20 sm:h-20 bg-gray-50 rounded-xl flex items-center justify-center border border-dashed border-gray-300">
-                <span className="text-xs text-gray-500 font-medium text-center px-1">
-                  No Image
-                </span>
+              <div className="aspect-square w-16 h-16 bg-gray-50 rounded-lg flex items-center justify-center border border-dashed border-gray-300">
+                <span className="text-xs text-gray-500">No Image</span>
               </div>
             )}
           </div>
@@ -950,13 +1032,13 @@ const Products = () => {
       },
     },
     {
-      title: "Name",
+      title: "Product Name",
       dataIndex: "name",
       width: 200,
       render: (data, record) => {
-        const hasVariants = record.variants && record.variants.length > 0;
+        const hasVariants = record.variants && Array.isArray(record.variants) && record.variants.length > 0;
         const variantCount = hasVariants ? record.variants.reduce((count, variant) => count + (variant.options?.length || 0), 0) : 0;
-        const productCode = record.product_code || "N/A";
+        const productCode = safeGet(record, "product_code", "N/A");
 
         return (
           <div className="flex flex-col space-y-1">
@@ -967,9 +1049,9 @@ const Products = () => {
             </Tooltip>
             <span className="text-xs text-gray-500">Code: {productCode}</span>
             {hasVariants && (
-              <span className="text-xs text-blue-600 font-medium">
-                {variantCount} variant(s)
-              </span>
+              <Badge count={variantCount} size="small" className="mt-1">
+                <span className="text-xs text-blue-600">Variants</span>
+              </Badge>
             )}
           </div>
         );
@@ -1001,9 +1083,9 @@ const Products = () => {
       dataIndex: "category_details",
       width: 150,
       render: (data) => (
-        <Tooltip title={_.get(data, "main_category_name", "")}>
+        <Tooltip title={safeGet(data, "main_category_name", "")}>
           <Tag className="max-w-full truncate font-semibold bg-teal-100 text-teal-800 border-teal-200 rounded-full px-3 py-1 text-xs">
-            {_.get(data, "main_category_name", "N/A")}
+            {safeGet(data, "main_category_name", "N/A")}
           </Tag>
         </Tooltip>
       ),
@@ -1014,12 +1096,13 @@ const Products = () => {
       width: 100,
       align: "center",
       render: (stock, record) => {
-        const stockStatus = record.stocks_status || "In Stock";
-        const statusColor = stockStatus === "Limited" ? "text-orange-600" : "text-green-600";
+        const stockStatus = safeGet(record, "stocks_status", "In Stock");
+        const statusColor = stockStatus === "Limited" ? "text-orange-600" :
+                          stockStatus === "Out of Stock" ? "text-red-600" : "text-green-600";
 
         return (
           <div className="flex flex-col items-center">
-            <span className="font-semibold text-gray-900 text-lg">{stock}</span>
+            <span className="font-semibold text-gray-900 text-lg">{stock || 0}</span>
             <span className={`text-xs font-medium ${statusColor}`}>
               {stockStatus}
             </span>
@@ -1034,9 +1117,9 @@ const Products = () => {
       render: (prices) => (
         <div className="flex flex-col space-y-1">
           <div className="flex justify-between items-center">
-            <span className="text-xs font-semibold text-gray-600">Corporate:</span>
+            <span className="text-xs font-semibold text-gray-600">Customer:</span>
             <span className="font-bold text-gray-900 text-sm">
-              {prices.corporatePrice !== "N/A" ? `₹${prices.corporatePrice}` : "N/A"}
+              {prices.customerPrice !== "N/A" ? `₹${prices.customerPrice}` : "N/A"}
             </span>
           </div>
           <div className="flex justify-between items-center">
@@ -1046,33 +1129,11 @@ const Products = () => {
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-xs font-semibold text-gray-600">Customer:</span>
+            <span className="text-xs font-semibold text-gray-600">Corporate:</span>
             <span className="font-bold text-gray-900 text-sm">
-              {prices.customerPrice !== "N/A" ? `₹${prices.customerPrice}` : "N/A"}
+              {prices.corporatePrice !== "N/A" ? `₹${prices.corporatePrice}` : "N/A"}
             </span>
           </div>
-        </div>
-      ),
-    },
-    {
-      title: "Vendor",
-      align: "center",
-      width: 120,
-      dataIndex: "vendor_details",
-      render: (data) => (
-        <div className="flex justify-center">
-          {data?.length > 0 ? (
-            <Tag
-              onClick={() => setVendorClose(data)}
-              className="cursor-pointer bg-purple-100 text-purple-800 font-semibold hover:bg-purple-200 transition-colors duration-300 rounded-full px-3 py-1 border-purple-200 text-xs"
-            >
-              View ({data.length})
-            </Tag>
-          ) : (
-            <Tag className="bg-gray-100 text-gray-600 font-semibold rounded-full px-3 py-1 border-gray-200 text-xs">
-              None
-            </Tag>
-          )}
         </div>
       ),
     },
@@ -1095,8 +1156,8 @@ const Products = () => {
               }
               loading={updatingProductId === record._id}
               className={`flex items-center justify-center w-full text-xs ${record.new_product
-                ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-300"
+                  ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-300"
                 }`}
             >
               New
@@ -1115,8 +1176,8 @@ const Products = () => {
               }
               loading={updatingProductId === record._id}
               className={`flex items-center justify-center w-full text-xs ${record.popular_product
-                ? "bg-green-600 text-white border-green-600 hover:bg-green-700"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-300"
+                  ? "bg-green-600 text-white border-green-600 hover:bg-green-700"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-300"
                 }`}
             >
               Popular
@@ -1135,8 +1196,8 @@ const Products = () => {
               }
               loading={updatingProductId === record._id}
               className={`flex items-center justify-center w-full text-xs ${record.recommended_product
-                ? "bg-amber-600 text-white border-amber-600 hover:bg-amber-700"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-300"
+                  ? "bg-amber-600 text-white border-amber-600 hover:bg-amber-700"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-300"
                 }`}
             >
               Recommended
@@ -1154,7 +1215,7 @@ const Products = () => {
         <Dropdown
           overlay={
             <Menu className="rounded-xl shadow-2xl bg-white border border-gray-100 p-2 min-w-[120px]">
-              {!_.get(data, "is_cloned", false) && (
+              {!safeGet(data, "is_cloned", false) && (
                 <Menu.Item key="edit">
                   <Button
                     type="text"
@@ -1209,6 +1270,7 @@ const Products = () => {
     },
   ];
 
+  // Effects
   useEffect(() => {
     fetchCategories();
     fetchMainCategories();
@@ -1216,8 +1278,11 @@ const Products = () => {
   }, []);
 
   useEffect(() => {
-    fetchData();
-    if (!formStatus) setId("");
+    const debounceTimer = setTimeout(() => {
+      fetchData();
+    }, 500);
+
+    return () => clearTimeout(debounceTimer);
   }, [
     search,
     formStatus,
@@ -1231,7 +1296,7 @@ const Products = () => {
   useEffect(() => {
     if (vendorClose.length > 0) {
       vendorClose.forEach((vendor) => {
-        if (!vendorNames[vendor._id]) {
+        if (vendor && vendor._id && !vendorNames[vendor._id]) {
           getVendorName(vendor._id);
         }
       });
@@ -1239,150 +1304,165 @@ const Products = () => {
   }, [vendorClose, vendorNames, getVendorName]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 to-blue-50 p-4 md:p-8 font-sans">
-      <DefaultTile
-        title="Products Dashboard"
-        add={true}
-        addText="New Product"
-        formStatus={formStatus}
-        setFormStatus={setFormStatus}
-        search={true}
-        setSearch={setSearch}
-        className="bg-white shadow-2xl rounded-3xl p-6 md:p-8 mb-6 md:mb-8 border border-teal-100"
-        extra={
-          <Dropdown
-            overlay={
-              <Menu className="rounded-xl shadow-2xl bg-white border border-gray-100 p-2 min-w-[200px]">
-                <Menu.Item key="all">
-                  <Button
-                    type="text"
-                    icon={<MdFileDownload className="text-green-600" />}
-                    onClick={exportAllToCSV}
-                    loading={exportLoading}
-                    className="flex items-center text-green-600 hover:bg-green-50 w-full text-left px-3 py-2 rounded-lg font-medium text-sm"
-                  >
-                    Export All Products (CSV)
-                  </Button>
-                </Menu.Item>
-                <Menu.Item key="filtered">
-                  <Button
-                    type="text"
-                    icon={<MdFileDownload className="text-blue-600" />}
-                    onClick={exportFilteredToCSV}
-                    loading={exportLoading}
-                    disabled={tableData.length === 0}
-                    className="flex items-center text-blue-600 hover:bg-blue-50 w-full text-left px-3 py-2 rounded-lg font-medium text-sm"
-                  >
-                    Export Filtered Products (CSV)
-                  </Button>
-                </Menu.Item>
-                <Menu.Item key="current">
-                  <Button
-                    type="text"
-                    icon={<MdFileDownload className="text-teal-600" />}
-                    onClick={exportToCSV}
-                    loading={exportLoading}
-                    className="flex items-center text-teal-600 hover:bg-teal-50 w-full text-left px-3 py-2 rounded-lg font-medium text-sm"
-                  >
-                    Export Current View (CSV)
-                  </Button>
-                </Menu.Item>
-              </Menu>
-            }
-            trigger={["click"]}
-            placement="bottomRight"
-          >
-            <Button
-              type="primary"
-              icon={<MdFileDownload className="text-white" />}
-              loading={exportLoading}
-              className="bg-teal-600 hover:bg-teal-700 border-none rounded-xl font-semibold px-4 flex items-center shadow-lg"
-            >
-              Export CSV
-            </Button>
-          </Dropdown>
-        }
-      />
+    <div className="min-h-screen bg-gray-50 p-4 md:p-6 font-sans">
+      <ErrorBoundary>
+        <DefaultTile
+          title="Vendor Products Dashboard"
+          add={true}
+          addText="Add Vendor Product"
+          formStatus={formStatus}
+          setFormStatus={setFormStatus}
+          search={true}
+          setSearch={setSearch}
+          className="bg-white shadow-lg rounded-xl p-6 mb-6 border border-gray-200"
+          extra={
+            <Space>
+              <Dropdown
+                overlay={
+                  <Menu className="rounded-xl shadow-xl bg-white border border-gray-100 p-2 min-w-[200px]">
+                    <Menu.Item key="all">
+                      <Button
+                        type="text"
+                        icon={<MdFileDownload className="text-green-600" />}
+                        onClick={exportAllToCSV}
+                        loading={exportLoading}
+                        className="flex items-center text-green-600 hover:bg-green-50 w-full text-left px-3 py-2 rounded-lg font-medium text-sm"
+                      >
+                        Export All Products
+                      </Button>
+                    </Menu.Item>
+                    <Menu.Item key="filtered">
+                      <Button
+                        type="text"
+                        icon={<MdFileDownload className="text-blue-600" />}
+                        onClick={exportFilteredToCSV}
+                        loading={exportLoading}
+                        disabled={tableData.length === 0}
+                        className="flex items-center text-blue-600 hover:bg-blue-50 w-full text-left px-3 py-2 rounded-lg font-medium text-sm"
+                      >
+                        Export Filtered Products
+                      </Button>
+                    </Menu.Item>
+                    <Menu.Item key="current">
+                      <Button
+                        type="text"
+                        icon={<MdFileDownload className="text-teal-600" />}
+                        onClick={exportToCSV}
+                        loading={exportLoading}
+                        className="flex items-center text-teal-600 hover:bg-teal-50 w-full text-left px-3 py-2 rounded-lg font-medium text-sm"
+                      >
+                        Export Current View
+                      </Button>
+                    </Menu.Item>
+                  </Menu>
+                }
+                trigger={["click"]}
+                placement="bottomRight"
+              >
+                <Button
+                  type="primary"
+                  icon={<MdFileDownload className="text-white" />}
+                  loading={exportLoading}
+                  className="bg-teal-600 hover:bg-teal-700 border-none rounded-lg font-medium px-4 flex items-center shadow"
+                >
+                  Export
+                </Button>
+              </Dropdown>
+            </Space>
+          }
+        />
+      </ErrorBoundary>
+
+      {error && (
+        <Alert
+          message="Error"
+          description={error}
+          type="error"
+          showIcon
+          closable
+          onClose={() => setError(null)}
+          className="mb-6"
+        />
+      )}
 
       {formStatus ? (
-        <AddForms
-          fetchData={fetchData}
-          setFormStatus={setFormStatus}
-          id={id}
-          setId={setId}
-          className="bg-white shadow-2xl rounded-3xl p-6 md:p-8 border border-teal-100"
-        />
+        <ErrorBoundary>
+          <AddForms
+            fetchData={fetchData}
+            setFormStatus={setFormStatus}
+            id={id}
+            setId={setId}
+            className="bg-white shadow-lg rounded-xl p-6 border border-gray-200"
+          />
+        </ErrorBoundary>
       ) : (
         <>
           <Card
-            className="mb-6 md:mb-8 bg-white shadow-2xl rounded-3xl border-none overflow-hidden"
-            bodyStyle={{ padding: "24px" }}
+            className="mb-6 bg-white shadow-lg rounded-xl border-none"
+            bodyStyle={{ padding: "20px" }}
           >
-            <div className="flex justify-between items-center mb-6">
-              <Title
-                level={4}
-                className="m-0 flex items-center text-gray-900 font-extrabold tracking-tight text-lg md:text-xl"
-              >
-                <FaFilter className="mr-3 text-teal-600 text-lg" />
-                Filter Products
-              </Title>
-              <div className="flex space-x-2">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+              <div className="flex items-center">
+                <MdFilterList className="mr-2 text-teal-600 text-xl" />
+                <Title level={4} className="m-0 text-gray-900 font-bold">
+                  Filter Products
+                </Title>
+                <Badge
+                  count={totalProducts}
+                  showZero
+                  className="ml-3 bg-teal-100 text-teal-800"
+                />
+              </div>
+              <Space>
                 <Button
                   type="text"
-                  icon={
-                    showFilters ? (
-                      <span className="text-teal-600">▲</span>
-                    ) : (
-                      <span className="text-teal-600">▼</span>
-                    )
-                  }
+                  icon={showFilters ? <MdClearAll /> : <FaFilter />}
                   onClick={() => setShowFilters(!showFilters)}
-                  className="text-teal-600 hover:text-teal-800 transition-colors duration-300 font-semibold"
+                  className="text-teal-600 hover:text-teal-800"
                 >
                   {showFilters ? "Hide Filters" : "Show Filters"}
                 </Button>
                 <Button
                   onClick={handleClearFilters}
-                  className="bg-gray-200 text-gray-800 hover:bg-gray-300 border-none rounded-xl font-semibold px-4"
+                  icon={<MdClearAll />}
+                  className="bg-gray-100 text-gray-800 hover:bg-gray-200 border-none rounded-lg"
                 >
                   Clear All
                 </Button>
-              </div>
+              </Space>
             </div>
 
             <div
-              className={`transition-all duration-500 ease-in-out overflow-hidden ${showFilters ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+              className={`transition-all duration-300 ease-in-out overflow-hidden ${showFilters ? "max-h-[400px] opacity-100" : "max-h-0 opacity-0"
                 }`}
             >
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div>
-                  <Text className="text-sm font-semibold text-gray-700 mb-2 block">
+                  <Text className="text-sm font-medium text-gray-700 mb-2 block">
                     Product Category
                   </Text>
                   <Select
                     placeholder="Select Category"
-                    size="large"
-                    className="w-full rounded-xl"
+                    size="middle"
+                    className="w-full"
                     allowClear
                     onChange={onCategoryChange}
                     value={filterByProductCategory}
-                  >
-                    {mainCategory.map((item) => (
-                      <Select.Option key={item._id} value={item._id}>
-                        {item.main_category_name}
-                      </Select.Option>
-                    ))}
-                  </Select>
+                    options={mainCategory.map(item => ({
+                      value: item._id,
+                      label: item.main_category_name
+                    }))}
+                  />
                 </div>
 
                 <div>
-                  <Text className="text-sm font-semibold text-gray-700 mb-2 block">
+                  <Text className="text-sm font-medium text-gray-700 mb-2 block">
                     Sub Category
                   </Text>
                   <Select
                     placeholder="Select Sub Category"
-                    size="large"
-                    className="w-full rounded-xl"
+                    size="middle"
+                    className="w-full"
                     allowClear
                     onChange={(val) => setFilterByProductSubcategory(val)}
                     value={filterByProductSubcategory}
@@ -1390,43 +1470,39 @@ const Products = () => {
                       !filterByProductCategory ||
                       subcategoryDataFilter.length === 0
                     }
-                  >
-                    {subcategoryDataFilter.map((item) => (
-                      <Select.Option key={item._id} value={item._id}>
-                        {item.sub_category_name}
-                      </Select.Option>
-                    ))}
-                  </Select>
+                    options={subcategoryDataFilter.map(item => ({
+                      value: item._id,
+                      label: item.sub_category_name
+                    }))}
+                  />
                 </div>
 
                 <div>
-                  <Text className="text-sm font-semibold text-gray-700 mb-2 block">
+                  <Text className="text-sm font-medium text-gray-700 mb-2 block">
                     Vendor
                   </Text>
                   <Select
                     placeholder="Select Vendor"
-                    size="large"
-                    className="w-full rounded-xl"
+                    size="middle"
+                    className="w-full"
                     allowClear
                     onChange={(val) => setVendorFilter(val)}
                     value={vendorFilter}
-                  >
-                    {allVendors.map((item) => (
-                      <Select.Option key={item._id} value={item._id}>
-                        {item.vendor_name}
-                      </Select.Option>
-                    ))}
-                  </Select>
+                    options={allVendors.map(item => ({
+                      value: item._id,
+                      label: item.vendor_name
+                    }))}
+                  />
                 </div>
 
                 <div>
-                  <Text className="text-sm font-semibold text-gray-700 mb-2 block">
+                  <Text className="text-sm font-medium text-gray-700 mb-2 block">
                     Product Type
                   </Text>
                   <Select
                     placeholder="Select Type"
-                    size="large"
-                    className="w-full rounded-xl"
+                    size="middle"
+                    className="w-full"
                     options={productType}
                     allowClear
                     onChange={(val) => setFilterByType(val)}
@@ -1435,13 +1511,13 @@ const Products = () => {
                 </div>
 
                 <div>
-                  <Text className="text-sm font-semibold text-gray-700 mb-2 block">
+                  <Text className="text-sm font-medium text-gray-700 mb-2 block">
                     Visibility
                   </Text>
                   <Select
                     placeholder="Select Visibility"
-                    size="large"
-                    className="w-full rounded-xl"
+                    size="middle"
+                    className="w-full"
                     options={visibilityOptions}
                     allowClear
                     onChange={(val) => setVisibilityFilter(val)}
@@ -1453,23 +1529,25 @@ const Products = () => {
           </Card>
 
           <Card
-            className="bg-white shadow-2xl rounded-3xl border-none overflow-hidden"
+            className="bg-white shadow-lg rounded-xl border-none"
             bodyStyle={{ padding: 0 }}
           >
             <Tabs
-              destroyInactiveTabPane
+              defaultActiveKey="1"
               type="card"
-              size="large"
-              className="px-4 md:px-8 pt-4 md:pt-6"
+              size="middle"
+              className="px-4 pt-4"
               items={[
                 {
                   key: "1",
                   label: (
-                    <span className="flex items-center text-gray-900 font-extrabold tracking-tight text-sm md:text-base">
-                      <span className="mr-2">📦</span> Products
-                      <Tag className="ml-2 bg-teal-100 text-teal-800 font-semibold rounded-full px-2 py-0.5 text-xs">
-                        {tableData.filter((res) => !res.is_cloned).length}
-                      </Tag>
+                    <span className="flex items-center">
+                      <span className="mr-2">📦</span>
+                      Products
+                      <Badge
+                        count={tableData.filter((res) => !res.is_cloned).length}
+                        className="ml-2 bg-teal-100 text-teal-800"
+                      />
                     </span>
                   ),
                   children: (
@@ -1479,16 +1557,17 @@ const Products = () => {
                         (res) => !res.is_cloned
                       )}
                       columns={columns}
-                      scroll={{ x: 1200 }}
-                      className="rounded-b-3xl"
+                      scroll={{ x: 1500 }}
                       onChange={handleTableChange}
                       pagination={{
                         current: currentPage,
                         pageSize: pageSize,
+                        total: tableData.filter((res) => !res.is_cloned).length,
                         showSizeChanger: true,
                         showQuickJumper: true,
                         showTotal: (total, range) =>
                           `${range[0]}-${range[1]} of ${total} items`,
+                        pageSizeOptions: ['10', '20', '50', '100']
                       }}
                     />
                   ),
@@ -1496,12 +1575,13 @@ const Products = () => {
                 {
                   key: "2",
                   label: (
-                    <span className="flex items-center text-gray-900 font-extrabold tracking-tight text-sm md:text-base">
+                    <span className="flex items-center">
                       <MdContentCopy className="mr-2 text-teal-600" />
                       Cloned Products
-                      <Tag className="ml-2 bg-green-100 text-green-800 font-semibold rounded-full px-2 py-0.5 text-xs">
-                        {tableData.filter((res) => res.is_cloned).length}
-                      </Tag>
+                      <Badge
+                        count={tableData.filter((res) => res.is_cloned).length}
+                        className="ml-2 bg-green-100 text-green-800"
+                      />
                     </span>
                   ),
                   children: (
@@ -1509,16 +1589,17 @@ const Products = () => {
                       loading={loading}
                       dataSource={processedTableData.filter((res) => res.is_cloned)}
                       columns={columns.filter((col) => col.title !== "Clone")}
-                      scroll={{ x: 1100 }}
-                      className="rounded-b-3xl"
+                      scroll={{ x: 1400 }}
                       onChange={handleTableChange}
                       pagination={{
                         current: currentPage,
                         pageSize: pageSize,
+                        total: tableData.filter((res) => res.is_cloned).length,
                         showSizeChanger: true,
                         showQuickJumper: true,
                         showTotal: (total, range) =>
                           `${range[0]}-${range[1]} of ${total} items`,
+                        pageSizeOptions: ['10', '20', '50', '100']
                       }}
                     />
                   ),
@@ -1527,17 +1608,12 @@ const Products = () => {
             />
           </Card>
 
+          {/* Vendor Details Modal */}
           <Modal
-            title={
-              <span className="text-xl md:text-2xl font-extrabold text-gray-900 tracking-tight">
-                Vendor Details
-              </span>
-            }
-            open={!_.isEmpty(vendorClose)}
+            title="Vendor Details"
+            open={vendorClose.length > 0}
             footer={null}
             onCancel={() => setVendorClose([])}
-            className="rounded-3xl"
-            bodyStyle={{ padding: "24px" }}
             width={600}
           >
             <div className="max-h-96 overflow-y-auto">
@@ -1545,20 +1621,16 @@ const Products = () => {
                 layout="vertical"
                 bordered
                 column={1}
-                className="rounded-xl"
+                className="rounded-lg"
               >
                 {vendorClose.map((res, index) => (
                   <Descriptions.Item
                     key={index}
-                    label={
-                      <p className="font-semibold text-gray-700 text-base md:text-lg">
-                        Vendor {index + 1}
-                      </p>
-                    }
+                    label={`Vendor ${index + 1}`}
                   >
-                    <div className="flex justify-between items-center text-sm md:text-base">
+                    <div className="flex justify-between items-center">
                       <div className="flex items-center">
-                        <span className="font-semibold text-gray-900 mr-3">
+                        <span className="font-medium text-gray-900 mr-3">
                           {vendorNames[res._id] || "Loading..."}
                         </span>
                         {vendorsLoading[res._id] && <Spin size="small" />}
@@ -1566,9 +1638,9 @@ const Products = () => {
                       <Link
                         to={`/vendor_details/${res._id}`}
                         target="_blank"
-                        className="text-teal-600 hover:text-teal-800 transition-colors duration-300 flex items-center font-semibold text-sm"
+                        className="text-teal-600 hover:text-teal-800 font-medium text-sm"
                       >
-                        View Details <span className="ml-1">→</span>
+                        View Details →
                       </Link>
                     </div>
                   </Descriptions.Item>
@@ -1577,26 +1649,17 @@ const Products = () => {
             </div>
           </Modal>
 
+          {/* Clone Product Modal */}
           <Modal
-            title={
-              <span className="text-xl md:text-2xl font-extrabold text-gray-900 tracking-tight">
-                Clone Product
-              </span>
-            }
+            title="Clone Product"
             open={cloneModal}
             onCancel={handleCloseModal}
             footer={null}
-            className="rounded-3xl"
-            bodyStyle={{ padding: "24px" }}
-            width={500}
+            width={400}
           >
             <Form form={form} layout="vertical" onFinish={handleSubmit}>
               <Form.Item
-                label={
-                  <span className="text-sm font-semibold text-gray-700">
-                    Category
-                  </span>
-                }
+                label="Category"
                 name="category_details"
                 rules={[
                   {
@@ -1607,29 +1670,23 @@ const Products = () => {
               >
                 <Select
                   placeholder="Select Product Category"
-                  className="w-full rounded-xl"
+                  className="w-full"
                   onChange={onCloneCategoryChange}
-                >
-                  {categoryData
+                  options={categoryData
                     .filter(
                       (res) =>
                         res._id !==
-                        _.get(cloneProductDetails, "category_details._id", "")
+                        safeGet(cloneProductDetails, "category_details._id", "")
                     )
-                    .map((item) => (
-                      <Select.Option key={item._id} value={item._id}>
-                        {item.main_category_name}
-                      </Select.Option>
-                    ))}
-                </Select>
+                    .map((item) => ({
+                      value: item._id,
+                      label: item.main_category_name
+                    }))}
+                />
               </Form.Item>
 
               <Form.Item
-                label={
-                  <span className="text-sm font-semibold text-gray-700">
-                    Sub Category
-                  </span>
-                }
+                label="Sub Category"
                 name="sub_category_details"
                 rules={[
                   {
@@ -1640,32 +1697,30 @@ const Products = () => {
               >
                 <Select
                   placeholder="Select Product Sub Category"
-                  className="w-full rounded-xl"
+                  className="w-full"
                   disabled={
                     !form.getFieldValue("category_details") ||
                     subcategoryDataFilter.length === 0
                   }
-                >
-                  {subcategoryDataFilter.map((item) => (
-                    <Select.Option key={item._id} value={item._id}>
-                      {item.sub_category_name}
-                    </Select.Option>
-                  ))}
-                </Select>
+                  options={subcategoryDataFilter.map((item) => ({
+                    value: item._id,
+                    label: item.sub_category_name
+                  }))}
+                />
               </Form.Item>
 
-              <Form.Item className="mb-0">
-                <div className="flex justify-end gap-4">
+              <Form.Item>
+                <div className="flex justify-end gap-3">
                   <Button
                     onClick={handleCloseModal}
-                    className="bg-gray-200 text-gray-900 hover:bg-gray-300 border-none rounded-xl font-semibold px-6"
+                    className="bg-gray-100 text-gray-900 hover:bg-gray-200 border-none"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="primary"
                     htmlType="submit"
-                    className="bg-teal-600 hover:bg-teal-700 border-none rounded-xl font-semibold px-6"
+                    className="bg-teal-600 hover:bg-teal-700 border-none"
                     loading={loading}
                   >
                     Clone Product
@@ -1680,4 +1735,4 @@ const Products = () => {
   );
 };
 
-export default Products;
+export default VendorProduct;

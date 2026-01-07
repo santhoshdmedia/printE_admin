@@ -213,7 +213,7 @@ const Coupon = () => {
       render: (value, record) => (
         <Text>
           {record.discountType === 'percentage' ? `${value}%` : 
-           record.discountType === 'fixed' ? `$${value}` : 'Free Shipping'}
+           record.discountType === 'fixed' ? `₹${value}` : 'Free Shipping'}
         </Text>
       ),
     },
@@ -302,148 +302,288 @@ const Coupon = () => {
         />
 
         {/* Add/Edit Modal */}
-        <Modal
-          title={editingCoupon ? 'Edit Coupon' : 'Create New Coupon'}
-          open={modalVisible}
-          onCancel={() => {
-            setModalVisible(false);
-            setEditingCoupon(null);
-            form.resetFields();
-          }}
-          footer={null}
-          width={700}
+     <Modal
+  title={editingCoupon ? 'Edit Coupon' : 'Create New Coupon'}
+  open={modalVisible}
+  onCancel={() => {
+    setModalVisible(false);
+    setEditingCoupon(null);
+    form.resetFields();
+  }}
+  footer={null}
+  width={800} // Increased width for better layout
+>
+  <Form
+    form={form}
+    layout="vertical"
+    onFinish={handleFormSubmit}
+    initialValues={{
+      isActive: true,
+      singleUse: false,
+      discountType: 'percentage',
+      minimumOrderAmount: 0,
+      // Add initial values for all discount fields
+      Customer_discountValue: 0,
+      Dealer_discountValue: 0,
+      Corporate_discountValue: 0
+    }}
+  >
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+      <Form.Item
+        name="code"
+        label="Coupon Code"
+        rules={[{ required: true, message: 'Please enter coupon code' }]}
+      >
+        <Input 
+          placeholder="e.g., WELCOME10" 
+          style={{ textTransform: 'uppercase' }} 
+        />
+      </Form.Item>
+
+      <Form.Item
+        name="discountType"
+        label="Discount Type"
+        rules={[{ required: true, message: 'Please select discount type' }]}
+      >
+        <Select placeholder="Select discount type" onChange={(value) => handleDiscountTypeChange(value)}>
+          <Option value="percentage">Percentage</Option>
+          <Option value="fixed">Fixed Amount</Option>
+          <Option value="shipping">Free Shipping</Option>
+          <Option value="tiered_quantity">Tiered Quantity</Option>
+        </Select>
+      </Form.Item>
+    </div>
+
+    {/* Discount Values Section - Show for percentage, fixed, and shipping */}
+    <div style={{ marginBottom: '16px', padding: '16px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
+      <h4 style={{ marginBottom: '16px' }}>Discount Values by User Type</h4>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+        <Form.Item
+          name="Customer_discountValue"
+          label="Customer Discount"
+          rules={[{ required: true, message: 'Please enter customer discount' }]}
         >
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleFormSubmit}
-            initialValues={{
-              isActive: true,
-              singleUse: false,
-              discountType: 'percentage',
-              minimumOrderAmount: 0
-            }}
-          >
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <Form.Item
-                name="code"
-                label="Coupon Code"
-                rules={[{ required: true, message: 'Please enter coupon code' }]}
-              >
-                <Input placeholder="e.g., WELCOME10" style={{ textTransform: 'uppercase' }} />
-              </Form.Item>
+          <InputNumber
+            min={0}
+            style={{ width: '100%' }}
+            placeholder={form.getFieldValue('discountType') === 'percentage' ? 'e.g., 10%' : 'e.g., ₹10'}
+            addonAfter={form.getFieldValue('discountType') === 'percentage' ? '%' : '₹'}
+          />
+        </Form.Item>
 
-              <Form.Item
-                name="discountType"
-                label="Discount Type"
-                rules={[{ required: true, message: 'Please select discount type' }]}
-              >
-                <Select placeholder="Select discount type">
-                  <Option value="percentage">Percentage</Option>
-                  <Option value="fixed">Fixed Amount</Option>
-                  <Option value="shipping">Free Shipping</Option>
-                </Select>
-              </Form.Item>
+        <Form.Item
+          name="Dealer_discountValue"
+          label="Dealer Discount"
+          rules={[{ required: true, message: 'Please enter dealer discount' }]}
+        >
+          <InputNumber
+            min={0}
+            style={{ width: '100%' }}
+            placeholder={form.getFieldValue('discountType') === 'percentage' ? 'e.g., 15%' : 'e.g., ₹15'}
+            addonAfter={form.getFieldValue('discountType') === 'percentage' ? '%' : '₹'}
+          />
+        </Form.Item>
 
-              <Form.Item
-                name="discountValue"
-                label="Discount Value"
-                rules={[{ required: true, message: 'Please enter discount value' }]}
-              >
-                <InputNumber
-                  min={0}
-                  style={{ width: '100%' }}
-                  placeholder="e.g., 10 for 10% or $10"
-                />
-              </Form.Item>
+        <Form.Item
+          name="Corporate_discountValue"
+          label="Corporate Discount"
+          rules={[{ required: true, message: 'Please enter corporate discount' }]}
+        >
+          <InputNumber
+            min={0}
+            style={{ width: '100%' }}
+            placeholder={form.getFieldValue('discountType') === 'percentage' ? 'e.g., 20%' : 'e.g., ₹20'}
+            addonAfter={form.getFieldValue('discountType') === 'percentage' ? '%' : '₹'}
+          />
+        </Form.Item>
+      </div>
+    </div>
 
-              <Form.Item
-                name="minimumOrderAmount"
-                label="Minimum Order Amount"
-              >
-                <InputNumber
-                  min={0}
-                  style={{ width: '100%' }}
-                  placeholder="0"
-                  prefix="$"
-                />
-              </Form.Item>
-
-              <Form.Item
-                name="maximumDiscount"
-                label="Maximum Discount"
-              >
-                <InputNumber
-                  min={0}
-                  style={{ width: '100%' }}
-                  placeholder="No limit"
-                  prefix="$"
-                />
-              </Form.Item>
-
-              <Form.Item
-                name="usageLimit"
-                label="Usage Limit"
-              >
-                <InputNumber
-                  min={1}
-                  style={{ width: '100%' }}
-                  placeholder="No limit"
-                />
-              </Form.Item>
-            </div>
-
-            <Form.Item
-              name="dateRange"
-              label="Validity Period"
-              rules={[{ required: true, message: 'Please select validity period' }]}
-            >
-              <RangePicker style={{ width: '100%' }} />
+    {/* Tiered Discount Section - Only show for tiered_quantity */}
+    <div 
+      style={{ 
+        marginBottom: '16px', 
+        padding: '16px', 
+        backgroundColor: '#f5f5f5', 
+        borderRadius: '8px',
+        display: form.getFieldValue('discountType') === 'tiered_quantity' ? 'block' : 'none'
+      }}
+    >
+      <h4 style={{ marginBottom: '16px' }}>Tiered Quantity Discounts</h4>
+      <Form.List name="discountTiers">
+        {(fields, { add, remove }) => (
+          <>
+            {fields.map(({ key, name, ...restField }) => (
+              <div key={key} style={{ marginBottom: '16px', padding: '16px', border: '1px solid #d9d9d9', borderRadius: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px', alignItems: 'end' }}>
+                  <Form.Item
+                    {...restField}
+                    name={[name, 'minimumQuantity']}
+                    label="Min Quantity"
+                    rules={[{ required: true, message: 'Enter minimum quantity' }]}
+                  >
+                    <InputNumber min={1} placeholder="e.g., 10" style={{ width: '100%' }} />
+                  </Form.Item>
+                  
+                  <Form.Item
+                    {...restField}
+                    name={[name, 'Customer_discountValue']}
+                    label="Customer"
+                    rules={[{ required: true, message: 'Enter discount' }]}
+                  >
+                    <InputNumber min={0} placeholder="Discount" style={{ width: '100%' }} />
+                  </Form.Item>
+                  
+                  <Form.Item
+                    {...restField}
+                    name={[name, 'Dealer_discountValue']}
+                    label="Dealer"
+                    rules={[{ required: true, message: 'Enter discount' }]}
+                  >
+                    <InputNumber min={0} placeholder="Discount" style={{ width: '100%' }} />
+                  </Form.Item>
+                  
+                  <Form.Item
+                    {...restField}
+                    name={[name, 'Corporate_discountValue']}
+                    label="Corporate"
+                    rules={[{ required: true, message: 'Enter discount' }]}
+                  >
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <InputNumber min={0} placeholder="Discount" style={{ flex: 1 }} />
+                      {fields.length > 1 && (
+                        <Button 
+                          type="text" 
+                          danger 
+                          onClick={() => remove(name)}
+                          icon={<DeleteOutlined />}
+                        />
+                      )}
+                    </div>
+                  </Form.Item>
+                </div>
+              </div>
+            ))}
+            <Form.Item>
+              <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                Add Tier
+              </Button>
             </Form.Item>
+          </>
+        )}
+      </Form.List>
+    </div>
 
-            <Form.Item
-              name="applicableCategories"
-              label="Applicable Categories"
-            >
-              <Select mode="tags" placeholder="Add categories">
-                <Option value="all">All Categories</Option>
-                <Option value="electronics">Electronics</Option>
-                <Option value="clothing">Clothing</Option>
-                <Option value="home">Home & Garden</Option>
-                <Option value="books">Books</Option>
-              </Select>
-            </Form.Item>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+      <Form.Item
+        name="minimumOrderAmount"
+        label="Minimum Order Amount"
+      >
+        <InputNumber
+          min={0}
+          style={{ width: '100%' }}
+          placeholder="0"
+          prefix="₹"
+        />
+      </Form.Item>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <Form.Item
-                name="isActive"
-                label="Active Status"
-                valuePropName="checked"
-              >
-                <Switch />
-              </Form.Item>
+      <Form.Item
+        name="maximumDiscount"
+        label="Maximum Discount"
+      >
+        <InputNumber
+          min={0}
+          style={{ width: '100%' }}
+          placeholder="No limit"
+          prefix="₹"
+        />
+      </Form.Item>
 
-              <Form.Item
-                name="singleUse"
-                label="Single Use"
-                valuePropName="checked"
-              >
-                <Switch />
-              </Form.Item>
-            </div>
+      <Form.Item
+        name="usageLimit"
+        label="Usage Limit"
+      >
+        <InputNumber
+          min={1}
+          style={{ width: '100%' }}
+          placeholder="No limit"
+        />
+      </Form.Item>
 
-            <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
-              <Space>
-                <Button onClick={() => setModalVisible(false)}>
-                  Cancel
-                </Button>
-                <Button type="primary" htmlType="submit" loading={loading}>
-                  {editingCoupon ? 'Update' : 'Create'} Coupon
-                </Button>
-              </Space>
-            </Form.Item>
-          </Form>
-        </Modal>
+      <Form.Item
+        name="isPerProductDiscount"
+        label="Apply Per Product"
+        valuePropName="checked"
+      >
+        <Switch />
+      </Form.Item>
+    </div>
+
+    <Form.Item
+      name="dateRange"
+      label="Validity Period"
+      rules={[{ required: true, message: 'Please select validity period' }]}
+    >
+      <RangePicker style={{ width: '100%' }} />
+    </Form.Item>
+
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+      <Form.Item
+        name="applicableCategories"
+        label="Applicable Categories"
+      >
+        <Select mode="tags" placeholder="Add categories">
+          <Option value="all">All Categories</Option>
+          <Option value="electronics">Electronics</Option>
+          <Option value="clothing">Clothing</Option>
+          <Option value="home">Home & Garden</Option>
+          <Option value="books">Books</Option>
+        </Select>
+      </Form.Item>
+
+      <Form.Item
+        name="applicableProducts"
+        label="Applicable Products"
+      >
+        <Select
+          mode="multiple"
+          placeholder="Select specific products"
+          // You'll need to fetch products and populate this dropdown
+          // options={productOptions}
+        />
+      </Form.Item>
+    </div>
+
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+      <Form.Item
+        name="isActive"
+        label="Active Status"
+        valuePropName="checked"
+      >
+        <Switch />
+      </Form.Item>
+
+      <Form.Item
+        name="singleUse"
+        label="Single Use"
+        valuePropName="checked"
+      >
+        <Switch />
+      </Form.Item>
+    </div>
+
+    <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+      <Space>
+        <Button onClick={() => setModalVisible(false)}>
+          Cancel
+        </Button>
+        <Button type="primary" htmlType="submit" loading={loading}>
+          {editingCoupon ? 'Update' : 'Create'} Coupon
+        </Button>
+      </Space>
+    </Form.Item>
+  </Form>
+</Modal>
       </Card>
     </div>
   );

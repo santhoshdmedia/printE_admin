@@ -1103,7 +1103,7 @@ const AddForms = ({ fetchData, setFormStatus, id, setId }) => {
       
       const formValues = {
         ...id,
-        vendor_details: _.get(id, "vendor_details", []).map((res) => res._id),
+        vendor_details: _.get(id, "vendor_details._id",""),
         category_details: categoryId,
         sub_category_details: _.get(id, "sub_category_details._id", ""),
         stock_info: [],

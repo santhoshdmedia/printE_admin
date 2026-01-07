@@ -55,7 +55,15 @@ export const MENU_DATA = [
     icon: ICON_HELPER.PRODUCT_ICON,
     to: "/product-details",
     special: ["product-details"],
-    for: ["super admin", "accounting team", "designing team", "production team", "delivery team"],
+    for: ["super admin"],
+  },
+  {
+    id: 55,
+    name: "Vendor Products",
+    icon: ICON_HELPER.PRODUCT_ICON,
+    to: "/Vendor-product-details",
+    special: ["Vendor-product-details"],
+    for: ["super admin"],
   },
 
   // {
@@ -128,9 +136,9 @@ export const MENU_DATA = [
   },
   {
     id: 8,
-    name: "Users",
+    name: "Dealers",
     icon: ICON_HELPER.VENDORS_ICON,
-    to: "/users",
+    to: "/Dealers",
     special: ["client-users", "user_details"],
     for: ["super admin","Frontend admin"],
   },

@@ -5,6 +5,7 @@ import Dashboard from "../pages/Dashboard/Dashboard";
 import Category from "../pages/Categories/Category";
 import Orders from "../pages/Orders/Orders";
 import Products from "../pages/Products/Products";
+import VendorProduct from "../pages/Products/VendorProduct";
 import Settings from "../pages/Settings/Settings";
 import ProductForm from "../pages/Productforms/ProductForm";
 import AdminUsers from "../pages/AdminUsers/AdminUsers";
@@ -97,6 +98,11 @@ export const router = createBrowserRouter([
     children: [{ path: "/product-details", element: <Products /> }],
   },
   {
+    path: "/Vendor-product-details",
+    element: <Layout />,
+    children: [{ path: "/Vendor-product-details", element: <VendorProduct /> }],
+  },
+  {
     path: "/coupons",
     element: <Layout />,
     children: [{ path: "/coupons", element: <Coupen /> }],
@@ -127,9 +133,9 @@ export const router = createBrowserRouter([
     children: [{ path: "/review", element: <Review /> }],
   },
   {
-    path: "/users",
+    path: "/Dealers",
     element: <Layout />,
-    children: [{ path: "/users", element: <UserPanel /> }],
+    children: [{ path: "/Dealers", element: <UserPanel /> }],
   },
   {
     path: "/vendors",
