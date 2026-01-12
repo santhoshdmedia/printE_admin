@@ -56,6 +56,14 @@ import AddForms from "./AddForms";
 
 const { Title, Text } = Typography;
 
+// Local storage keys for persistence
+const STORAGE_KEYS = {
+  PAGE_SIZE: 'products_pageSize',
+  CURRENT_PAGE: 'products_currentPage',
+  FILTERS: 'products_filters',
+  ACTIVE_TAB: 'products_activeTab'
+};
+
 const Products = () => {
   const [formStatus, setFormStatus] = useState(false);
   const [tableData, setTableData] = useState([]);
@@ -81,24 +89,109 @@ const Products = () => {
   const [cloneProductDetails, setCloneProductDetails] = useState([]);
   const [exportLoading, setExportLoading] = useState(false);
   const [visibilityFilter, setVisibilityFilter] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [activeTabKey, setActiveTabKey] = useState("1");
+
+  // Load pagination from localStorage or use defaults
+  const [paginationConfig, setPaginationConfig] = useState(() => {
+    const savedPageSize = localStorage.getItem(STORAGE_KEYS.PAGE_SIZE);
+    const savedCurrentPage = localStorage.getItem(STORAGE_KEYS.CURRENT_PAGE);
+    const savedActiveTab = localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB);
+    
+    if (savedActiveTab) setActiveTabKey(savedActiveTab);
+    
+    return {
+      pageSize: savedPageSize ? parseInt(savedPageSize, 10) : 10,
+      currentPage: savedCurrentPage ? parseInt(savedCurrentPage, 10) : 1,
+    };
+  });
+
+  // Load filters from localStorage
+  const [initialFilters, setInitialFilters] = useState(() => {
+    const savedFilters = localStorage.getItem(STORAGE_KEYS.FILTERS);
+    return savedFilters ? JSON.parse(savedFilters) : {};
+  });
+
   const [updatingProductId, setUpdatingProductId] = useState(null);
 
   const [form] = useForm();
 
+  // Save pagination to localStorage
+  const savePaginationToStorage = (pageSize, currentPage) => {
+    localStorage.setItem(STORAGE_KEYS.PAGE_SIZE, pageSize.toString());
+    localStorage.setItem(STORAGE_KEYS.CURRENT_PAGE, currentPage.toString());
+  };
+
+  // Save filters to localStorage
+  const saveFiltersToStorage = (filters) => {
+    localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(filters));
+  };
+
+  // Save active tab to localStorage
+  const saveActiveTabToStorage = (tabKey) => {
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, tabKey);
+  };
+
+  // Handle page size change
+  const handlePageSizeChange = (pageSize) => {
+    const newPagination = { ...paginationConfig, pageSize, currentPage: 1 };
+    setPaginationConfig(newPagination);
+    savePaginationToStorage(pageSize, 1);
+  };
+
+  // Handle page change
+  const handlePageChange = (currentPage) => {
+    const newPagination = { ...paginationConfig, currentPage };
+    setPaginationConfig(newPagination);
+    savePaginationToStorage(newPagination.pageSize, currentPage);
+  };
+
+  // Handle tab change
+  const handleTabChange = (key) => {
+    setActiveTabKey(key);
+    saveActiveTabToStorage(key);
+    // Reset to first page when switching tabs
+    if (paginationConfig.currentPage !== 1) {
+      handlePageChange(1);
+    }
+  };
+
+  // Initialize filters from localStorage on component mount
+  useEffect(() => {
+    if (initialFilters) {
+      if (initialFilters.category) setFilterByProductCategory(initialFilters.category);
+      if (initialFilters.subcategory) setFilterByProductSubcategory(initialFilters.subcategory);
+      if (initialFilters.vendor) setVendorFilter(initialFilters.vendor);
+      if (initialFilters.type) setFilterByType(initialFilters.type);
+      if (initialFilters.visibility) setVisibilityFilter(initialFilters.visibility);
+      if (initialFilters.search) setSearch(initialFilters.search);
+    }
+  }, []);
+
+  // Save filters when they change
+  useEffect(() => {
+    const filters = {
+      category: filterByProductCategory,
+      subcategory: filterByProductSubcategory,
+      vendor: vendorFilter,
+      type: filterByType,
+      visibility: visibilityFilter,
+      search: search,
+    };
+    saveFiltersToStorage(filters);
+  }, [filterByProductCategory, filterByProductSubcategory, vendorFilter, filterByType, visibilityFilter, search]);
+
   // Fixed visibility handler with optimistic updates
   const handleOnChangeLabel = async (data, product) => {
     const productId = _.get(product, "_id", "");
-
+    
     try {
       // Set loading state for this specific product
       setUpdatingProductId(productId);
-
+      
       // Optimistically update the UI first for immediate feedback
-      setTableData(prevTableData =>
-        prevTableData.map(item =>
-          item._id === productId
+      setTableData(prevTableData => 
+        prevTableData.map(item => 
+          item._id === productId 
             ? { ...item, ...data }
             : item
         )
@@ -106,15 +199,15 @@ const Products = () => {
 
       const result = await editProduct(data, productId);
       SUCCESS_NOTIFICATION(result);
-
+      
       // Refresh data to ensure consistency with server
       await fetchData();
-
+      
     } catch (error) {
       // Revert optimistic update on error
-      setTableData(prevTableData =>
-        prevTableData.map(item =>
-          item._id === productId
+      setTableData(prevTableData => 
+        prevTableData.map(item => 
+          item._id === productId 
             ? { ...item, is_visible: !data.is_visible } // Revert the change
             : item
         )
@@ -129,7 +222,7 @@ const Products = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-
+      
       // Prepare filter parameters
       const filters = {
         search: search || "",
@@ -140,6 +233,7 @@ const Products = () => {
         visibility: visibilityFilter || ""
       };
 
+      console.log("Fetching data with filters:", filters);
 
       const result = await getProduct(
         "", // id
@@ -151,14 +245,10 @@ const Products = () => {
         filters.vendor, // vendor
         filters.visibility // visibility
       );
-
+      
       const data = _.get(result, "data.data", []);
-      const ownProducts = data.filter((res) =>
-        res.product_type.toLowerCase() !== "vendor product"
-      )
-
-      console.log("Fetched data:", data, "products");
-      setTableData(ownProducts.reverse());
+      console.log("Fetched data:", data.length, "products");
+      setTableData(data.reverse());
     } catch (err) {
       console.error("Error fetching data:", err);
       ERROR_NOTIFICATION(err);
@@ -543,7 +633,9 @@ const Products = () => {
   const onCategoryChange = (value) => {
     setFilterByProductCategory(value);
     setFilterByProductSubcategory("");
-    setCurrentPage(1);
+    
+    // Reset to first page when filter changes
+    handlePageChange(1);
 
     if (value) {
       const filteredSubcategories = subcategoryData.filter(
@@ -783,11 +875,20 @@ const Products = () => {
     return product.stock_count || 0;
   };
 
-  // Process table data with stable pagination
+  // Get the current data for the active tab
+  const getCurrentTabData = useMemo(() => {
+    if (activeTabKey === "1") {
+      return tableData.filter((res) => !res.is_cloned);
+    } else {
+      return tableData.filter((res) => res.is_cloned);
+    }
+  }, [tableData, activeTabKey]);
+
+  // Process table data with proper serial numbers
   const processedTableData = useMemo(() => {
-    return tableData.map((item, index) => ({
+    return getCurrentTabData.map((item, index) => ({
       ...item,
-      serialNumber: (currentPage - 1) * pageSize + index + 1,
+      serialNumber: index + 1, // Add serial number here
       totalStock: getTotalStock(item),
       prices: {
         customerPrice: getProductPrice(item, 'customer'),
@@ -795,7 +896,7 @@ const Products = () => {
         corporatePrice: getProductPrice(item, 'corporate'),
       }
     }));
-  }, [tableData, currentPage, pageSize]);
+  }, [getCurrentTabData]);
 
   // Filter options
   const productType = [
@@ -817,23 +918,41 @@ const Products = () => {
     setFilterByType("");
     setVisibilityFilter("");
     setSubcategoryDataFilter([]);
-    setCurrentPage(1);
     setSearch("");
+    
+    // Reset to first page when clearing filters
+    handlePageChange(1);
+    
+    // Clear filters from localStorage
+    localStorage.removeItem(STORAGE_KEYS.FILTERS);
+    setInitialFilters({});
   };
 
   const handleTableChange = (pagination, filters, sorter) => {
-    setCurrentPage(pagination.current);
-    setPageSize(pagination.pageSize);
+    console.log("Table change:", pagination);
+    
+    // Update current page
+    if (pagination.current !== paginationConfig.currentPage) {
+      handlePageChange(pagination.current);
+    }
+    
+    // Update page size if changed
+    if (pagination.pageSize !== paginationConfig.pageSize) {
+      handlePageSizeChange(pagination.pageSize);
+    }
   };
 
   const userRole = JSON.parse(localStorage.getItem("userprofile")) || {};
 
+  // FIXED: Simplified S.No column - Use dataIndex instead of render function
   const columns = [
     {
       title: "S.No",
       dataIndex: "serialNumber",
+      key: "serialNumber",
       align: "center",
       width: 80,
+      fixed: 'left',
       render: (serialNumber) => (
         <span className="text-gray-700 font-semibold">{serialNumber}</span>
       ),
@@ -864,7 +983,7 @@ const Products = () => {
         </Tooltip>
       ),
     },
-    {
+    ...(activeTabKey === "1" ? [{
       title: "Clone",
       align: "center",
       width: 80,
@@ -879,7 +998,7 @@ const Products = () => {
           <MdContentCopy />
         </div>
       ),
-    },
+    }] : []),
     ...(userRole?.role === "super admin"
       ? [
         {
@@ -1095,8 +1214,8 @@ const Products = () => {
               }
               loading={updatingProductId === record._id}
               className={`flex items-center justify-center w-full text-xs ${record.new_product
-                ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-300"
+                  ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-300"
                 }`}
             >
               New
@@ -1115,8 +1234,8 @@ const Products = () => {
               }
               loading={updatingProductId === record._id}
               className={`flex items-center justify-center w-full text-xs ${record.popular_product
-                ? "bg-green-600 text-white border-green-600 hover:bg-green-700"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-300"
+                  ? "bg-green-600 text-white border-green-600 hover:bg-green-700"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-300"
                 }`}
             >
               Popular
@@ -1135,8 +1254,8 @@ const Products = () => {
               }
               loading={updatingProductId === record._id}
               className={`flex items-center justify-center w-full text-xs ${record.recommended_product
-                ? "bg-amber-600 text-white border-amber-600 hover:bg-amber-700"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-300"
+                  ? "bg-amber-600 text-white border-amber-600 hover:bg-amber-700"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-300"
                 }`}
             >
               Recommended
@@ -1215,6 +1334,7 @@ const Products = () => {
     collectVendors();
   }, []);
 
+  // Fetch data when dependencies change
   useEffect(() => {
     fetchData();
     if (!formStatus) setId("");
@@ -1461,6 +1581,8 @@ const Products = () => {
               type="card"
               size="large"
               className="px-4 md:px-8 pt-4 md:pt-6"
+              activeKey={activeTabKey}
+              onChange={handleTabChange}
               items={[
                 {
                   key: "1",
@@ -1475,20 +1597,19 @@ const Products = () => {
                   children: (
                     <CustomTable
                       loading={loading}
-                      dataSource={processedTableData.filter(
-                        (res) => !res.is_cloned
-                      )}
+                      dataSource={processedTableData}
                       columns={columns}
                       scroll={{ x: 1200 }}
                       className="rounded-b-3xl"
                       onChange={handleTableChange}
                       pagination={{
-                        current: currentPage,
-                        pageSize: pageSize,
+                        current: paginationConfig.currentPage,
+                        pageSize: paginationConfig.pageSize,
                         showSizeChanger: true,
                         showQuickJumper: true,
                         showTotal: (total, range) =>
                           `${range[0]}-${range[1]} of ${total} items`,
+                        pageSizeOptions: ['10', '20', '50', '100'],
                       }}
                     />
                   ),
@@ -1507,18 +1628,19 @@ const Products = () => {
                   children: (
                     <CustomTable
                       loading={loading}
-                      dataSource={processedTableData.filter((res) => res.is_cloned)}
+                      dataSource={processedTableData}
                       columns={columns.filter((col) => col.title !== "Clone")}
                       scroll={{ x: 1100 }}
                       className="rounded-b-3xl"
                       onChange={handleTableChange}
                       pagination={{
-                        current: currentPage,
-                        pageSize: pageSize,
+                        current: paginationConfig.currentPage,
+                        pageSize: paginationConfig.pageSize,
                         showSizeChanger: true,
                         showQuickJumper: true,
                         showTotal: (total, range) =>
                           `${range[0]}-${range[1]} of ${total} items`,
+                        pageSizeOptions: ['10', '20', '50', '100'],
                       }}
                     />
                   ),
