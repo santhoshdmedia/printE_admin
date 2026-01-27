@@ -263,4 +263,6 @@ export const editCoupen = async (formdata, id) =>
   await custom_request.put(`${BASE_URL}/coupen/${id}`, formdata);
 export const deleteCoupen = async (id) =>
   await custom_request.delete(`${BASE_URL}/coupen/${id}`);
+export const verifyUser = async (id, data) =>
+  await custom_request.put(`${BASE_URL}/client_user/update_client_user/${id}`, data);
 

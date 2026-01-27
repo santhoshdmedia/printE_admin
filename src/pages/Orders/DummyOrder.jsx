@@ -80,7 +80,7 @@ const { Step } = Steps;
 const { TextArea } = Input;
 const { Title, Text } = Typography;
 
-const Orders = () => {
+const DummyOrder = () => {
   // State management
   const { user } = useSelector((state) => state.authSlice);
   const [orderData, setOrderData] = useState([]);
@@ -192,8 +192,13 @@ const Orders = () => {
         return orderDate.isBetween(startDate, endDate, null, "[]");
       });
     }
+    const FilterCanceled=filtered.filter((order)=>{
+        const orderCancel=order.Is_cancelledOrder
+        return orderCancel
+    })
+    
 
-    setFilteredOrders(filtered);
+    setFilteredOrders(FilterCanceled);
   }, [orderData, activeTab, search, orderStatus, dateFilter]);
 
   // Fetch orders data
@@ -205,8 +210,6 @@ const Orders = () => {
         order_status: orderStatus,
       };
       const result = await collectallorders(JSON.stringify(searchData));
-      console.log(result.data.data,"res");
-      
       setOrderData(_.get(result, "data.data", []));
     } catch (err) {
       console.error("Error fetching orders:", err);
@@ -630,7 +633,7 @@ const Orders = () => {
       </motion.div>
 
       {/* Stats Cards */}
-      <motion.div
+      {/* <motion.div
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
         variants={containerVariants}
         initial="hidden"
@@ -639,7 +642,6 @@ const Orders = () => {
         <motion.div variants={itemVariants}>
           <Card className="shadow-md border-0 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
             <div className="flex items-center">
-              <div className="bg-white bg-opacity-20 p-3 rounded-full">
                 <FiShoppingBag className="text-white text-xl" />
               </div>
               <div className="ml-4">
@@ -690,36 +692,9 @@ const Orders = () => {
             </div>
           </Card>
         </motion.div>
-      </motion.div>
+      </motion.div> */}
 
-      {/* Order Pipeline Visualization */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="bg-white p-6 rounded-lg shadow-md mb-6"
-      >
-        <h2 className="text-lg font-semibold mb-4">Order Pipeline</h2>
-        <Steps current={-1} labelPlacement="vertical" className="px-8">
-          {statusFlow.map((status, index) => (
-            <Step
-              key={status.key}
-              title={_.startCase(status.label)}
-              icon={status.icon}
-              description={
-                <span className="text-xs">
-                  {
-                    orderData.filter(
-                      (order) => order.order_status === status.label
-                    ).length
-                  }{" "}
-                  orders
-                </span>
-              }
-            />
-          ))}
-        </Steps>
-      </motion.div>
+     
 
       {/* Filters and Search */}
       <motion.div
@@ -1530,4 +1505,4 @@ const Orders = () => {
   );
 };
 
-export default Orders;
+export default DummyOrder;

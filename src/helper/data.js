@@ -10,18 +10,34 @@ export const MENU_DATA = [
     special: ["dashboard"],
     for: ["super admin", "accounting team", "designing team", "production team", "delivery team","Frontend admin"],
   },
+  // {
+  //   id: 2,
+  //   name: "Dashboard",
+  //   icon: ICON_HELPER.HOME_ICON,
+  //   to: "/Invoice-genaration",
+  //   special: ["dashboard"],
+  //   for: ["super admin", "accounting team", "designing team", "production team", "delivery team","Frontend admin"],
+  // },
 
   {
-    id: 2,
+    id: 3,
     name: "Orders",
     icon: ICON_HELPER.ORDERS_ICON,
     to: "/orders",
     special: ["orders","assigned-order", "order_explore"],
     for: ["super admin", "accounting team", "designing team", "production team", "delivery team","quality check","packing team"],
   },
+  // {
+  //   id: 18,
+  //   name: "Dummy Orders",
+  //   icon: ICON_HELPER.ORDERS_ICON,
+  //   to: "/cancelled-orders",
+  //   special: ["orders","assigned-order", "order_explore"],
+  //   for: ["super admin", "accounting team", "designing team", "production team", "delivery team","quality check","packing team"],
+  // },
   
   {
-    id: 3,
+    id: 4,
     name: "Categories",
     icon: ICON_HELPER.CATEGORY_ICON,
     to: "/categories",
@@ -50,7 +66,7 @@ export const MENU_DATA = [
   },
 
   {
-    id: 4,
+    id: 5,
     name: "Products",
     icon: ICON_HELPER.PRODUCT_ICON,
     to: "/product-details",
@@ -58,7 +74,7 @@ export const MENU_DATA = [
     for: ["super admin"],
   },
   {
-    id: 55,
+    id: 6,
     name: "Vendor Products",
     icon: ICON_HELPER.PRODUCT_ICON,
     to: "/Vendor-product-details",
@@ -88,7 +104,7 @@ export const MENU_DATA = [
   //   ],
   // },
   {
-    id:5,
+    id:7,
     name: "Homepage",
     icon: ICON_HELPER.BANNER_ICON,
     special: ["banners", "product-section"],
@@ -109,7 +125,7 @@ export const MENU_DATA = [
     ],
   },
   {
-    id: 15,
+    id: 8,
     name: "Coupons",
     icon: ICON_HELPER.COUPON_ICON,
     to: "/coupons",
@@ -118,7 +134,7 @@ export const MENU_DATA = [
   },
 
   {
-    id: 6,
+    id: 9,
     name: "Admin Users",
     icon: ICON_HELPER.ADMIN_ICON,
     to: "/admin-users",
@@ -127,7 +143,7 @@ export const MENU_DATA = [
   },
 
   {
-    id: 7,
+    id: 10,
     name: "Customers",
     icon: ICON_HELPER.USER_ICON,
     to: "/client-users",
@@ -135,16 +151,16 @@ export const MENU_DATA = [
     for: ["super admin"],
   },
   {
-    id: 8,
-    name: "Dealers",
+    id: 11,
+    name: "BNI",
     icon: ICON_HELPER.VENDORS_ICON,
-    to: "/Dealers",
+    to: "/BNI",
     special: ["client-users", "user_details"],
     for: ["super admin","Frontend admin"],
   },
 
   {
-    id: 9,
+    id: 12,
     name: "Vendors",
     icon: ICON_HELPER.VENDORS_ICON,
     to: "/vendors",
@@ -152,7 +168,7 @@ export const MENU_DATA = [
     for: ["super admin","frontend admin"],
   },
   {
-    id: 10,
+    id: 13,
     name: "Blogs",
     icon: ICON_HELPER.BLOG_ICONS,
     to: "/blogs",
@@ -161,7 +177,7 @@ export const MENU_DATA = [
   },
 
   {
-    id: 11,
+    id: 14,
     name: "Review",
     icon: ICON_HELPER.REVIEW_ICON,
     to: "/review",
@@ -169,7 +185,7 @@ export const MENU_DATA = [
     for: ["super admin"],
   },
   {
-    id: 12,
+    id: 15,
     name: "Enquires",
     icon: ICON_HELPER.MAIL_ICON,
     to: "/enquires",
@@ -177,7 +193,7 @@ export const MENU_DATA = [
     for: ["super admin"],
   },
   {
-    id: 14,
+    id: 16,
     name: "Bulk Enquires",
     icon: ICON_HELPER.MAIL_ICON,
     to: "/bulk-enquires",
@@ -185,7 +201,7 @@ export const MENU_DATA = [
     for: ["super admin"]
   },
   {
-    id: 13,
+    id: 17,
     name: "Setting",
     icon: ICON_HELPER.SETTINGS_ICON,
     to: "/settings",

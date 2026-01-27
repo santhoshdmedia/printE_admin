@@ -29,6 +29,9 @@ import UserPanel from "../pages/userPanel/UserPanel";
 import BulkEnquirey from "../pages/Enquries/BulkEnquirey";
 import AddForms from "../pages/Products/AddForms";
 import Coupen from "../pages/coupen/Coupen";
+import AdminCreateOrder from "../pages/InvoiceGenration/AdminCreateOrder";
+import DummyOrder from "../pages/Orders/DummyOrder";
+import BNIPanel from "../pages/userPanel/BNIPanel";
 
 export const router = createBrowserRouter([
   {
@@ -76,6 +79,11 @@ export const router = createBrowserRouter([
     path: "/orders",
     element: <Layout />,
     children: [{ path: "/orders", element: <Orders /> }],
+  },
+  {
+    path: "/cancelled-orders",
+    element: <Layout />,
+    children: [{ path: "/cancelled-orders", element: <DummyOrder /> }],
   },
   {
     path: "/assigned-order",
@@ -138,6 +146,11 @@ export const router = createBrowserRouter([
     children: [{ path: "/Dealers", element: <UserPanel /> }],
   },
   {
+    path: "/BNI",
+    element: <Layout />,
+    children: [{ path: "/BNI", element: <BNIPanel /> }],
+  },
+  {
     path: "/vendors",
     element: <Layout />,
     children: [{ path: "/vendors", element: <Vendors /> }],
@@ -171,5 +184,10 @@ export const router = createBrowserRouter([
     path: "/homepage/product-section",
     element: <Layout />,
     children: [{ path: "/homepage/product-section", element: <CustomerPage /> }],
+  },
+  {
+    path: "/Invoice-genaration",
+    element: <Layout />,
+    children: [{ path: "/Invoice-genaration", element: <AdminCreateOrder /> }],
   },
 ]);

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import DefaultTile from "../../components/DefaultTile";
-import { Button, Card, Divider, Empty, Form, Image, Input, Modal, Select, Spin, Switch, Tag } from "antd";
+import { Button, Card, Divider, Empty, Form, Image, Input, Modal, Select, Spin, Switch, Tag, message } from "antd";
 import ShowImages from "../../helper/ShowImages";
 import UploadHelper from "../../helper/UploadHelper";
 import { formValidation } from "../../helper/formvalidation";
@@ -13,12 +13,10 @@ import { ICON_HELPER } from "../../helper/iconhelper";
 const Banner = () => {
   const [formStatus, setFormStatus] = useState(false);
   const [id, setId] = useState(null);
-  const [image_path, setImagePath] = useState(null);
   const [productData, setProductData] = useState([]);
   const [banners, setAllBanners] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [features, setFeatures] = useState([]);
-  const [currentFeature, setCurrentFeature] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const [form] = Form.useForm();
 
@@ -41,13 +39,21 @@ const Banner = () => {
 
   const handleFinish = async (values) => {
     try {
-      if (!image_path) {
+      setSubmitting(true);
+      
+      if (!values.banner_image) {
         CUSTOM_ERROR_NOTIFICATION("Please Upload Banner image");
         return;
       }
-      
-      values.banner_image = image_path;
-      values.feature = features;
+
+      // Convert features string to array if it's a string
+      if (typeof values.feature === 'string' && values.feature.trim()) {
+        values.feature = values.feature.split(',').map(item => item.trim()).filter(item => item);
+      } else if (Array.isArray(values.feature)) {
+        values.feature = values.feature.filter(item => item && item.trim());
+      } else {
+        values.feature = [];
+      }
 
       let result = "";
 
@@ -64,14 +70,15 @@ const Banner = () => {
       collectBanners();
     } catch (err) {
       console.log(err);
+      ERROR_NOTIFICATION(err);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleCancel = () => {
     setFormStatus(false);
     setId(null);
-    setImagePath(null);
-    setFeatures([]);
     form.resetFields();
   };
 
@@ -90,15 +97,21 @@ const Banner = () => {
 
   const handleEdit = (res) => {
     try {
-      form.setFieldsValue({
-        banner_name: res?.banner_name,
-        tag: res?.tag,
-        banner_products: res?.banner_products
-      });
+      // Prepare initial values for form
+      const initialValues = {
+        banner_name: res?.banner_name || "",
+        tag: res?.tag || "",
+        banner_products: res?.banner_products || [],
+        banner_image: res?.banner_image || null,
+        feature: res?.feature ? res.feature.join(', ') : "",
+        is_reward: res?.is_reward || false,
+        banner_slug: res?.banner_slug || "",
+        rating: res?.rating || ""
+      };
+
+      form.setFieldsValue(initialValues);
       setId(res?._id);
       setFormStatus(true);
-      setImagePath(res?.banner_image);
-      setFeatures(res?.feature || []);
     } catch (err) {
       ERROR_NOTIFICATION(err);
     }
@@ -118,21 +131,16 @@ const Banner = () => {
     window.open(`${CLIENT_URL}/`);
   };
 
-  const addFeature = () => {
-    if (currentFeature.trim() && !features.includes(currentFeature.trim())) {
-      setFeatures([...features, currentFeature.trim()]);
-      setCurrentFeature("");
-    }
-  };
-
-  const removeFeature = (featureToRemove) => {
-    setFeatures(features.filter(feature => feature !== featureToRemove));
-  };
-
   return (
     <Spin spinning={loading}>
       <div className="w-full">
-        <DefaultTile title={"Banner"} add={true} addText="Banner" formStatus={formStatus} setFormStatus={setFormStatus} />
+        <DefaultTile 
+          title={"Banner"} 
+          add={true} 
+          addText="Banner" 
+          formStatus={formStatus} 
+          setFormStatus={setFormStatus} 
+        />
         {_.isEmpty(banners) ? (
           <div className="!mx-auto !h-[600px] center_div">
             <Empty />
@@ -177,6 +185,7 @@ const Banner = () => {
                       description={
                         <div className="mt-2">
                           <Tag color="blue">{res.tag}</Tag>
+                          {res.is_reward && <Tag color="gold">Reward</Tag>}
                           <div className="mt-2">
                             {res.feature?.slice(0, 3).map((feat, i) => (
                               <Tag key={i} className="mb-1">{feat}</Tag>
@@ -192,74 +201,163 @@ const Banner = () => {
             </div>
           </>
         )}
-        <Modal open={formStatus} footer={false} closable={true} title={`${id ? "Update" : "Add"} Banner`} onCancel={handleCancel}>
-          <Form layout="vertical" form={form} onFinish={handleFinish}>
-           <div className="flex justify-between">
-             <Form.Item className="w-full " name="banner_image" label={<CustomLabel name="Banner Image" />}>
-              {image_path ? <ShowImages path={image_path} setImage={setImagePath} /> : <UploadHelper setImagePath={setImagePath} />}
+        <Modal 
+          open={formStatus} 
+          footer={false} 
+          closable={true} 
+          title={`${id ? "Update" : "Add"} Banner`} 
+          onCancel={handleCancel}
+          width={600}
+        >
+          <Form 
+            layout="vertical" 
+            form={form} 
+            onFinish={handleFinish}
+            initialValues={{
+              is_reward: false,
+              feature: ""
+            }}
+          >
+            {/* Image Upload Field */}
+            <Form.Item 
+              label={<CustomLabel name="Banner Image" />}
+              name="banner_image"
+              rules={[formValidation("Please upload banner image")]}
+            >
+              <UploadHelper 
+                setImagePath={(path) => {
+                  form.setFieldsValue({ banner_image: path });
+                }}
+              />
             </Form.Item>
-            {/* <Form.Item className="w-full " name="is_reward" label={<CustomLabel name="Reward" />}>
-                <Switch/>
-            </Form.Item> */}
-           </div>
-            
-            <Form.Item label="Banner Name" name="banner_name" rules={[formValidation("Enter Banner Name")]}>
-              <Input className="h-[45px]" placeholder="Enter Banner Name" />
+
+            {/* Show uploaded image */}
+            <Form.Item shouldUpdate noStyle>
+              {() => {
+                const image = form.getFieldValue('banner_image');
+                return image ? (
+                  <div className="mb-4">
+                    <Image 
+                      src={image} 
+                      alt="Banner preview" 
+                      className="max-h-40 object-contain"
+                    />
+                  </div>
+                ) : null;   
+              }}
             </Form.Item>
-            {/* <Form.Item label="Banner rating" name="rating" rules={[formValidation("Enter Banner Name")]}>
-              <Input className="h-[45px]" placeholder="Enter Banner rating" />
-            </Form.Item> */}
-            {/* <Form.Item label="Banner Slug" name="banner_slug" rules={[formValidation("Enter Banner Slug")]}>
-              <Input className="h-[45px]" placeholder="Enter Banner Slug" />
-            </Form.Item> */}
-            
-            <Form.Item label="Tag" name="tag" rules={[formValidation("Enter Tag")]}>
-              <Input className="h-[45px]" placeholder="Enter Tag" />
-            </Form.Item>
-            
-            <Form.Item label="Features">
-              <div className="flex mb-2">
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* Banner Name */}
+              <Form.Item 
+                label="Banner Name" 
+                name="banner_name" 
+                rules={[formValidation("Enter Banner Name")]}
+              >
+                <Input className="h-[45px]" placeholder="Enter Banner Name" />
+              </Form.Item>
+
+              {/* Tag */}
+              <Form.Item 
+                label="Tag" 
+                name="tag" 
+                rules={[formValidation("Enter Tag")]}
+              >
+                <Input className="h-[45px]" placeholder="Enter Tag" />
+              </Form.Item>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* Banner Slug */}
+              <Form.Item 
+                label="Banner Slug" 
+                name="banner_slug"
+              >
+                <Input className="h-[45px]" placeholder="Enter Banner Slug" />
+              </Form.Item>
+
+              {/* Rating */}
+              <Form.Item 
+                label="Banner Rating" 
+                name="rating"
+              >
                 <Input 
-                  value={currentFeature}
-                  onChange={(e) => setCurrentFeature(e.target.value)}
-                  className="h-[45px] mr-2" 
-                  placeholder="Enter feature" 
+                  className="h-[45px]" 
+                  placeholder="Enter Banner Rating" 
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="5"
                 />
-                <Button onClick={addFeature} type="primary">Add</Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {features.map((feature, index) => (
-                  <Tag 
-                    key={index} 
-                    closable 
-                    onClose={() => removeFeature(feature)}
-                    className="!text-sm !py-1 !px-2"
-                  >
-                    {feature}
-                  </Tag>
-                ))}
-              </div>
+              </Form.Item>
+            </div>
+
+            {/* Features - Comma separated input */}
+            <Form.Item 
+              label="Features" 
+              name="feature"
+              tooltip="Enter features separated by commas"
+            >
+              <Input.TextArea 
+                placeholder="Enter features separated by commas (e.g., Feature 1, Feature 2, Feature 3)"
+                rows={3}
+              />
             </Form.Item>
-            
-            <Form.Item label="Products" name="banner_products" rules={[formValidation("Select Products")]}>
-              <Select mode="multiple" className="w-full h-[45px]" allowClear maxTagCount={1}>
+
+            {/* Reward Switch */}
+            <Form.Item 
+              label="Is Reward?" 
+              name="is_reward"
+              valuePropName="checked"
+            >
+              <Switch />
+            </Form.Item>
+
+            {/* Products Selection */}
+            <Form.Item 
+              label="Products" 
+              name="banner_products" 
+              rules={[formValidation("Select Products")]}
+            >
+              <Select 
+                mode="multiple" 
+                className="w-full" 
+                allowClear 
+                maxTagCount={2}
+                placeholder="Select products"
+                optionLabelProp="label"
+              >
                 {productData
                   .filter((res) => !res.is_cloned)
                   .map((res, index) => {
                     return (
-                      <Select.Option key={index} value={res._id}>
-                        <span className="center_div justify-between">
-                          {res.name} <img src={_.get(res, "images[0].path", "")} className="!size-[30px] rounded-full" />
-                        </span>
+                      <Select.Option 
+                        key={index} 
+                        value={res._id}
+                        label={res.name}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span>{res.name}</span>
+                          <img 
+                            src={_.get(res, "images[0].path", "")} 
+                            className="!size-[30px] rounded-full ml-2" 
+                            alt={res.name}
+                          />
+                        </div>
                       </Select.Option>
-                      
                     );
                   })}
               </Select>
             </Form.Item>
 
+            {/* Submit Button */}
             <Form.Item>
-              <Button htmlType="submit" className="button !w-full !h-[50px]" loading={loading}>
+              <Button 
+                htmlType="submit" 
+                className="button !w-full !h-[50px]" 
+                loading={submitting}
+                type="primary"
+              >
                 {id ? "Update" : "Add"} Banner
               </Button>
             </Form.Item>
