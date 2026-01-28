@@ -11,7 +11,11 @@ import {
     Popconfirm,
     message,
     Table,
-    Empty
+    Empty,
+    Descriptions,
+    Divider,
+    Row,
+    Col
 } from "antd";
 import {
     MailOutlined,
@@ -19,7 +23,12 @@ import {
     EyeOutlined,
     SendOutlined,
     CheckCircleOutlined,
-    CloseCircleOutlined
+    CloseCircleOutlined,
+    UserOutlined,
+    CalendarOutlined,
+    EnvironmentOutlined,
+    IdcardOutlined,
+    BookOutlined // Add this icon for chapter name
 } from "@ant-design/icons";
 import { ERROR_NOTIFICATION, SUCCESS_NOTIFICATION } from "../../helper/notification_helper";
 import { getCustomUser, sendMailDealer, verifyUser } from "../../api";
@@ -32,6 +41,8 @@ const BNIPanel = () => {
     const [sendingMail, setSendingMail] = useState({});
     const [verifying, setVerifying] = useState({});
     const [allCustomUser, setAllCustomUser] = useState([]);
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [viewModalVisible, setViewModalVisible] = useState(false);
     const navigate = useNavigate();
 
     const [pagination, setPagination] = useState({
@@ -41,11 +52,12 @@ const BNIPanel = () => {
     });
     const [sortedData, setSortedData] = useState([]);
 
-    const handleView = (id) => {
+    const handleView = (user) => {
         try {
-            navigate("/user_details", { state: id });
+            setSelectedUser(user);
+            setViewModalVisible(true);
         } catch (error) {
-            console.error("Navigation error:", error);
+            console.error("Error opening modal:", error);
         }
     };
 
@@ -157,6 +169,17 @@ const BNIPanel = () => {
             render: (name) => <div className="font-medium">{name}</div>,
         },
         {
+            title: "Chapter Name",
+            dataIndex: "chapter_Name",
+            sorter: (a, b) => (a.chapter_Name || "").localeCompare(b.chapter_Name || ""),
+            render: (chapter_Name) => (
+                <div className="flex items-center">
+                    <BookOutlined className="mr-1 text-gray-400" />
+                    {chapter_Name || "N/A"}
+                </div>
+            ),
+        },
+        {
             title: "Verification Status",
             dataIndex: "Dealer_verification",
             sorter: (a, b) => (a.Dealer_verification ? 1 : 0) - (b.Dealer_verification ? 1 : 0),
@@ -227,7 +250,7 @@ const BNIPanel = () => {
                         <Button
                             icon={<EyeOutlined />}
                             className="text-yellow-600 border-yellow-400 hover:bg-yellow-50"
-                            onClick={() => handleView(record._id)}
+                            onClick={() => handleView(record)}
                         >
                             View
                         </Button>
@@ -347,6 +370,209 @@ const BNIPanel = () => {
                         )}
                     </div>
                 </Card>
+
+                {/* View User Details Modal */}
+                <Modal
+                    title={
+                        <div className="flex items-center">
+                            <UserOutlined className="mr-2 text-yellow-600" />
+                            <span>BNI User Details</span>
+                        </div>
+                    }
+                    open={viewModalVisible}
+                    onCancel={() => setViewModalVisible(false)}
+                    footer={[
+                        <Button key="close" onClick={() => setViewModalVisible(false)}>
+                            Close
+                        </Button>,
+                        selectedUser && !selectedUser.Dealer_verification && (
+                            <Popconfirm
+                                key="verify"
+                                title="Verify this user?"
+                                description={`This will verify ${selectedUser.name} and send them an email.`}
+                                onConfirm={() => {
+                                    handleVerify(selectedUser._id, selectedUser.email);
+                                    setViewModalVisible(false);
+                                }}
+                                okText="Yes"
+                                cancelText="No"
+                            >
+                                <Button
+                                    type="primary"
+                                    icon={<CheckCircleOutlined />}
+                                    loading={verifying[selectedUser._id]}
+                                    className="bg-green-600 hover:bg-green-700"
+                                >
+                                    Verify User
+                                </Button>
+                            </Popconfirm>
+                        ),
+                        selectedUser && selectedUser.Dealer_verification && (
+                            <Popconfirm
+                                key="mail"
+                                title="Send mail to this user?"
+                                description={`Send an email to ${selectedUser.email}?`}
+                                onConfirm={() => {
+                                    handleSendMail(selectedUser._id, selectedUser.email);
+                                    setViewModalVisible(false);
+                                }}
+                                okText="Yes"
+                                cancelText="No"
+                            >
+                                <Button
+                                    type="primary"
+                                    icon={<SendOutlined />}
+                                    loading={sendingMail[selectedUser._id]}
+                                    className="bg-blue-600 hover:bg-blue-700"
+                                >
+                                    Send Mail
+                                </Button>
+                            </Popconfirm>
+                        )
+                    ]}
+                    width={800}
+                    centered
+                >
+                    {selectedUser && (
+                        <div className="p-4">
+                            <Descriptions bordered column={2}>
+                                <Descriptions.Item label="Name" span={2}>
+                                    <div className="flex items-center">
+                                        <UserOutlined className="mr-2 text-gray-400" />
+                                        {selectedUser.name || "N/A"}
+                                    </div>
+                                </Descriptions.Item>
+                                
+                                <Descriptions.Item label="Email">
+                                    <div className="flex items-center">
+                                        <MailOutlined className="mr-2 text-gray-400" />
+                                        {selectedUser.email || "N/A"}
+                                    </div>
+                                </Descriptions.Item>
+                                
+                                <Descriptions.Item label="Chapter Name">
+                                    <div className="flex items-center">
+                                        <BookOutlined className="mr-2 text-gray-400" />
+                                        {selectedUser.chapter_Name || "N/A"}
+                                    </div>
+                                </Descriptions.Item>
+                                
+                                <Descriptions.Item label="Phone">
+                                    <div className="flex items-center">
+                                        <PhoneOutlined className="mr-2 text-gray-400" />
+                                        {selectedUser.phone || "N/A"}
+                                    </div>
+                                </Descriptions.Item>
+                                
+                                <Descriptions.Item label="Verification Status">
+                                    {selectedUser.Dealer_verification ? (
+                                        <Tag icon={<CheckCircleOutlined />} color="success">
+                                            Verified
+                                        </Tag>
+                                    ) : (
+                                        <Tag icon={<CloseCircleOutlined />} color="error">
+                                            Not Verified
+                                        </Tag>
+                                    )}
+                                </Descriptions.Item>
+                                
+                                <Descriptions.Item label="Role">
+                                    <Tag color="blue">
+                                        {selectedUser.role || "N/A"}
+                                    </Tag>
+                                </Descriptions.Item>
+                                
+                                <Descriptions.Item label="User ID">
+                                    <div className="flex items-center">
+                                        <IdcardOutlined className="mr-2 text-gray-400" />
+                                        <code className="text-xs">{selectedUser._id}</code>
+                                    </div>
+                                </Descriptions.Item>
+                                
+                                <Descriptions.Item label="Created Date">
+                                    <div className="flex items-center">
+                                        <CalendarOutlined className="mr-2 text-gray-400" />
+                                        {selectedUser.createdAt ? (
+                                            new Date(selectedUser.createdAt).toLocaleString('en-GB', {
+                                                day: '2-digit',
+                                                month: 'short',
+                                                year: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                            })
+                                        ) : "N/A"}
+                                    </div>
+                                </Descriptions.Item>
+                                
+                                <Descriptions.Item label="Verified Date">
+                                    <div className="flex items-center">
+                                        <CalendarOutlined className="mr-2 text-gray-400" />
+                                        {selectedUser.verified_at ? (
+                                            new Date(selectedUser.verified_at).toLocaleString('en-GB', {
+                                                day: '2-digit',
+                                                month: 'short',
+                                                year: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                            })
+                                        ) : "Not verified yet"}
+                                    </div>
+                                </Descriptions.Item>
+                            </Descriptions>
+
+                            {/* Additional Information Section */}
+                            {/* <Divider orientation="left">Additional Information</Divider>
+                            <Row gutter={16}>
+                                <Col span={12}>
+                                    <div className="mb-3">
+                                        <strong className="block text-gray-600">Country:</strong>
+                                        <span>{selectedUser.country || "N/A"}</span>
+                                    </div>
+                                    <div className="mb-3">
+                                        <strong className="block text-gray-600">State:</strong>
+                                        <span>{selectedUser.state || "N/A"}</span>
+                                    </div>
+                                </Col>
+                                <Col span={12}>
+                                    <div className="mb-3">
+                                        <strong className="block text-gray-600">City:</strong>
+                                        <span>{selectedUser.city || "N/A"}</span>
+                                    </div>
+                                    <div className="mb-3">
+                                        <strong className="block text-gray-600">Pincode:</strong>
+                                        <span>{selectedUser.pincode || "N/A"}</span>
+                                    </div>
+                                </Col>
+                            </Row> */}
+
+                            {/* Display any other fields that might exist */}
+                            {Object.keys(selectedUser).filter(key => 
+                                !['_id', 'name', 'email', 'phone', 'role', 'Dealer_verification', 
+                                  'createdAt', 'verified_at', 'country', 'state', 'city', 'pincode',
+                                  'chapter_Name', '__v'].includes(key)
+                            ).length > 0 && (
+                                <>
+                                    {/* <Divider orientation="left">Other Details</Divider>
+                                    <div className="bg-gray-50 p-3 rounded">
+                                        <pre className="text-xs overflow-auto max-h-40">
+                                            {JSON.stringify(
+                                                Object.fromEntries(
+                                                    Object.entries(selectedUser).filter(([key]) => 
+                                                        !['_id', 'name', 'email', 'phone', 'role', 'Dealer_verification', 
+                                                          'createdAt', 'verified_at', 'country', 'state', 'city', 'pincode',
+                                                          'chapter_Name', '__v'].includes(key)
+                                                    )
+                                                ), 
+                                                null, 
+                                                2
+                                            )}  
+                                        </pre>
+                                    </div> */}
+                                </>
+                            )}
+                        </div>
+                    )}
+                </Modal>
 
                 <style jsx>{`
                     .ant-card-head-title {
