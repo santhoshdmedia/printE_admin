@@ -154,6 +154,34 @@ export const editBanner = async (formdata, id) =>
   await custom_request.put(`${BASE_URL}/banner/edit_banner/${id}`, formdata);
 export const getAllBanners = async (id = "") =>
   await custom_request.get(`${BASE_URL}/banner/get_all_banners/${id}`);
+export const reorderBanners = async (formdata) =>
+  await custom_request.put(`${BASE_URL}/banner/reorder`, formdata);
+// Toggle banner visibility
+export const toggleBannerVisibility = async (id) => {
+  try {
+  await custom_request.put(`${BASE_URL}/banner/${id}/toggle-visibility`,);
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Get visible banners only (for frontend/public)
+export const getVisibleBanners = async () => {
+  try {
+      await custom_request.get(`${BASE_URL}/banner/visible`,);
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Get banner statistics
+export const getBannerStats = async () => {
+  try {
+      await custom_request.get(`${BASE_URL}/banner/stats`,);
+  } catch (error) {
+    throw error;
+  }
+};
 export const deleteBanner = async (id) =>
   await custom_request.delete(`${BASE_URL}/banner/delete_banner/${id}`);
 

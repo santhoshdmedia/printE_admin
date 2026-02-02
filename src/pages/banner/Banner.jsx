@@ -1,14 +1,44 @@
 import { useEffect, useState } from "react";
 import DefaultTile from "../../components/DefaultTile";
-import { Button, Card, Divider, Empty, Form, Image, Input, Modal, Select, Spin, Switch, Tag, message } from "antd";
+import { Button, Card, Divider, Empty, Form, Image, Input, Modal, Select, Spin, Switch, Tag, message, DatePicker, Badge, Tooltip } from "antd";
 import ShowImages from "../../helper/ShowImages";
 import UploadHelper from "../../helper/UploadHelper";
 import { formValidation } from "../../helper/formvalidation";
 import CustomLabel from "../../components/CustomLabel";
 import { CUSTOM_ERROR_NOTIFICATION, ERROR_NOTIFICATION, SUCCESS_NOTIFICATION } from "../../helper/notification_helper";
-import { addBanner, CLIENT_URL, deleteBanner, editBanner, getAllBannerProducts, getAllBanners } from "../../api";
+import { addBanner, CLIENT_URL, deleteBanner, editBanner, getAllBannerProducts, getAllBanners, reorderBanners, toggleBannerVisibility } from "../../api";
 import _ from "lodash";
 import { ICON_HELPER } from "../../helper/iconhelper";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { HolderOutlined, EyeOutlined, EyeInvisibleOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
+
+// Sortable Card Component
+const SortableCard = ({ id, children }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    cursor: 'move',
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {children}
+    </div>
+  );
+};
 
 const Banner = () => {
   const [formStatus, setFormStatus] = useState(false);
@@ -19,6 +49,18 @@ const Banner = () => {
   const [submitting, setSubmitting] = useState(false);
 
   const [form] = Form.useForm();
+
+  // Setup sensors for drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const fetchProductDetails = async () => {
     try {
@@ -53,6 +95,11 @@ const Banner = () => {
         values.feature = values.feature.filter(item => item && item.trim());
       } else {
         values.feature = [];
+      }
+
+      // Format expiry date
+      if (values.expiry_date) {
+        values.expiry_date = values.expiry_date.toISOString();
       }
 
       let result = "";
@@ -97,16 +144,29 @@ const Banner = () => {
 
   const handleEdit = (res) => {
     try {
+      // Extract product IDs - handle both populated and non-populated cases
+      let productIds = [];
+      if (res?.banner_products) {
+        productIds = res.banner_products.map(product => {
+          if (typeof product === 'object' && product._id) {
+            return product._id;
+          }
+          return product;
+        });
+      }
+
       // Prepare initial values for form
       const initialValues = {
         banner_name: res?.banner_name || "",
+        banner_slug: res?.banner_slug || "",
         tag: res?.tag || "",
-        banner_products: res?.banner_products || [],
+        banner_products: productIds,
         banner_image: res?.banner_image || null,
         feature: res?.feature ? res.feature.join(', ') : "",
         is_reward: res?.is_reward || false,
-        banner_slug: res?.banner_slug || "",
-        rating: res?.rating || ""
+        is_visible: res?.is_visible !== undefined ? res.is_visible : true,
+        rating: res?.rating || "",
+        expiry_date: res?.expiry_date ? dayjs(res.expiry_date) : null
       };
 
       form.setFieldsValue(initialValues);
@@ -118,8 +178,27 @@ const Banner = () => {
   };
 
   const handleDelete = async (id) => {
+    Modal.confirm({
+      title: 'Delete Banner',
+      content: 'Are you sure you want to delete this banner?',
+      okText: 'Yes, Delete',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      onOk: async () => {
+        try {
+          const result = await deleteBanner(id);
+          SUCCESS_NOTIFICATION(result);
+          collectBanners();
+        } catch (err) {
+          ERROR_NOTIFICATION(err);
+        }
+      }
+    });
+  };
+
+  const handleToggleVisibility = async (bannerId, currentVisibility) => {
     try {
-      const result = await deleteBanner(id);
+      const result = await toggleBannerVisibility(bannerId);
       SUCCESS_NOTIFICATION(result);
       collectBanners();
     } catch (err) {
@@ -131,83 +210,243 @@ const Banner = () => {
     window.open(`${CLIENT_URL}/`);
   };
 
+  // Handle drag end
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+
+    if (!over) return;
+
+    if (active.id !== over.id) {
+      const oldIndex = banners.findIndex((banner) => banner._id === active.id);
+      const newIndex = banners.findIndex((banner) => banner._id === over.id);
+
+      const newBanners = arrayMove(banners, oldIndex, newIndex);
+      setAllBanners(newBanners);
+
+      try {
+        const orderedIds = newBanners.map((banner) => banner._id);
+        const result = await reorderBanners({ order: orderedIds });
+        message.success('Banner order updated successfully');
+        collectBanners();
+      } catch (err) {
+        console.log(err);
+        ERROR_NOTIFICATION(err);
+        collectBanners();
+      }
+    }
+  };
+
+  // Calculate days until expiry
+  const getDaysUntilExpiry = (expiryDate) => {
+    if (!expiryDate) return null;
+    const now = new Date();
+    const expiry = new Date(expiryDate);
+    const diffTime = expiry - now;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  // Get expiry status
+  const getExpiryStatus = (expiryDate) => {
+    if (!expiryDate) return null;
+    const days = getDaysUntilExpiry(expiryDate);
+    
+    if (days < 0) {
+      return { color: 'red', text: 'Expired', icon: '🔴' };
+    } else if (days === 0) {
+      return { color: 'orange', text: 'Expires Today', icon: '⚠️' };
+    } else if (days <= 3) {
+      return { color: 'orange', text: `${days} days left`, icon: '⚠️' };
+    } else if (days <= 7) {
+      return { color: 'gold', text: `${days} days left`, icon: '⏰' };
+    } else {
+      return { color: 'blue', text: `${days} days left`, icon: '📅' };
+    }
+  };
+
   return (
     <Spin spinning={loading}>
       <div className="w-full">
         <DefaultTile 
-          title={"Banner"} 
+          title={"Banner Management"} 
           add={true} 
           addText="Banner" 
           formStatus={formStatus} 
           setFormStatus={setFormStatus} 
         />
+        
+        {/* Statistics Bar */}
+        <div className="bg-white rounded-lg p-4 mb-4 mx-14">
+          <div className="flex gap-6">
+            <div className="flex items-center gap-2">
+              <span className="text-gray-600">Total:</span>
+              <Tag color="blue">{banners.length}</Tag>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-600">Visible:</span>
+              <Tag color="green">{banners.filter(b => b.is_visible).length}</Tag>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-600">Hidden:</span>
+              <Tag color="red">{banners.filter(b => !b.is_visible).length}</Tag>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-600">Auto-Hidden:</span>
+              <Tag color="orange">{banners.filter(b => b.auto_hidden).length}</Tag>
+            </div>
+          </div>
+        </div>
+
         {_.isEmpty(banners) ? (
           <div className="!mx-auto !h-[600px] center_div">
             <Empty />
           </div>
         ) : (
           <>
-            <div className="w-full max-h-fit bg-white rounded-lg grid grid-cols-4 p-14 gap-x-4 gap-y-4">
-              {banners.map((res, index) => {
-                return (
-                  <Card
-                    key={index}
-                    hoverable
-                    actions={[
-                      <div className="center_div justify-between px-10 group" key={2}>
-                        <ICON_HELPER.EDIT_ICON
-                          onClick={() => {
-                            handleEdit(res);
-                          }}
-                          className="!text-xl group-hover:text-gray-500 hover:!text-primary"
-                        />
-                        <Divider type="vertical" />
-                        <ICON_HELPER.EYE_ICON
-                          className="!text-xl group-hover:text-gray-500 hover:!text-primary"
-                          onClick={() => {
-                            handleView(res);
-                          }}
-                        />
-                        <Divider type="vertical" />
-                        <ICON_HELPER.DELETE_ICON
-                          onClick={() => {
-                            handleDelete(res?._id);
-                          }}
-                          className="!text-xl group-hover:text-gray-500 hover:!text-primary"
-                        />
-                      </div>,
-                    ]}
-                    className="!w-full !h-fit"
-                    cover={<Image className="!h-[300px] !rounded-t-lg" src={res.banner_image} />}
-                  >
-                    <Card.Meta 
-                      title={<h1 className="!font-medium !text-sm">{res?.banner_name}</h1>}
-                      description={
-                        <div className="mt-2">
-                          <Tag color="blue">{res.tag}</Tag>
-                          {res.is_reward && <Tag color="gold">Reward</Tag>}
-                          <div className="mt-2">
-                            {res.feature?.slice(0, 3).map((feat, i) => (
-                              <Tag key={i} className="mb-1">{feat}</Tag>
-                            ))}
-                            {res.feature?.length > 3 && <Tag>+{res.feature.length - 3} more</Tag>}
-                          </div>
-                        </div>
-                      }
-                    />
-                  </Card>
-                );
-              })}
+            <div className="mb-4 px-14">
+              <Tag color="blue" icon={<HolderOutlined />}>
+                Drag and drop cards to reorder banners
+              </Tag>
             </div>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={banners.map((banner) => banner._id)}
+                strategy={rectSortingStrategy}
+              >
+                <div className="w-full max-h-fit bg-white rounded-lg grid grid-cols-4 p-14 gap-x-4 gap-y-4">
+                  {banners.map((res, index) => {
+                    const expiryStatus = getExpiryStatus(res.expiry_date);
+                    const isExpired = res.expiry_date && new Date(res.expiry_date) < new Date();
+                    
+                    return (
+                      <SortableCard key={res._id} id={res._id}>
+                        <Badge.Ribbon 
+                          text={res.is_visible ? "Visible" : "Hidden"} 
+                          color={res.is_visible ? "green" : "red"}
+                        >
+                          <Card
+                            hoverable
+                            className={`!w-full !h-fit ${!res.is_visible ? 'opacity-60' : ''}`}
+                            actions={[
+                              <div className="center_div justify-between px-6 group" key="actions">
+                                <Tooltip title={res.is_visible ? "Hide Banner" : "Show Banner"}>
+                                  {res.is_visible ? (
+                                    <EyeOutlined
+                                      onClick={() => handleToggleVisibility(res._id, res.is_visible)}
+                                      className="!text-xl group-hover:text-gray-500 hover:!text-green-500"
+                                    />
+                                  ) : (
+                                    <EyeInvisibleOutlined
+                                      onClick={() => handleToggleVisibility(res._id, res.is_visible)}
+                                      className="!text-xl group-hover:text-gray-500 hover:!text-red-500"
+                                    />
+                                  )}
+                                </Tooltip>
+                                <Divider type="vertical" />
+                                <Tooltip title="Edit Banner">
+                                  <ICON_HELPER.EDIT_ICON
+                                    onClick={() => handleEdit(res)}
+                                    className="!text-xl group-hover:text-gray-500 hover:!text-primary"
+                                  />
+                                </Tooltip>
+                                <Divider type="vertical" />
+                                <Tooltip title="View on Site">
+                                  <ICON_HELPER.EYE_ICON
+                                    className="!text-xl group-hover:text-gray-500 hover:!text-primary"
+                                    onClick={() => handleView(res)}
+                                  />
+                                </Tooltip>
+                                <Divider type="vertical" />
+                                <Tooltip title="Delete Banner">
+                                  <ICON_HELPER.DELETE_ICON
+                                    onClick={() => handleDelete(res?._id)}
+                                    className="!text-xl group-hover:text-gray-500 hover:!text-primary"
+                                  />
+                                </Tooltip>
+                              </div>,
+                            ]}
+                            cover={
+                              <div className="relative">
+                                <Image 
+                                  className="!h-[300px] !rounded-t-lg" 
+                                  src={res.banner_image}
+                                  preview={true}
+                                />
+                                <div className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md">
+                                  <HolderOutlined className="text-gray-500" />
+                                </div>
+                                <div className="absolute top-2 left-2 bg-black/70 text-white rounded-full px-2 py-1 text-xs font-bold">
+                                  #{res.position !== undefined ? res.position : index}
+                                </div>
+                                {isExpired && (
+                                  <div className="absolute top-12 left-2 bg-red-500 text-white rounded px-2 py-1 text-xs font-bold">
+                                    EXPIRED
+                                  </div>
+                                )}
+                              </div>
+                            }
+                          >
+                            <Card.Meta 
+                              title={<h1 className="!font-medium !text-sm">{res?.banner_name}</h1>}
+                              description={
+                                <div className="mt-2">
+                                  <div className="mb-2">
+                                    <Tag color="blue">{res.tag}</Tag>
+                                    {res.is_reward && <Tag color="gold">Reward</Tag>}
+                                    {res.rating && <Tag color="green">⭐ {res.rating}</Tag>}
+                                    {res.auto_hidden && <Tag color="orange">Auto-Hidden</Tag>}
+                                  </div>
+                                  
+                                  {res.banner_slug && (
+                                    <div className="mt-1">
+                                      <Tag color="purple" className="text-xs">/{res.banner_slug}</Tag>
+                                    </div>
+                                  )}
+                                  
+                                  {expiryStatus && (
+                                    <div className="mt-2">
+                                      <Tag 
+                                        color={expiryStatus.color} 
+                                        icon={<ClockCircleOutlined />}
+                                      >
+                                        {expiryStatus.icon} {expiryStatus.text}
+                                      </Tag>
+                                    </div>
+                                  )}
+                                  
+                                  <div className="mt-2">
+                                    {res.feature?.slice(0, 2).map((feat, i) => (
+                                      <Tag key={i} className="mb-1">{feat}</Tag>
+                                    ))}
+                                    {res.feature?.length > 2 && (
+                                      <Tag>+{res.feature.length - 2} more</Tag>
+                                    )}
+                                  </div>
+                                </div>
+                              }
+                            />
+                          </Card>
+                        </Badge.Ribbon>
+                      </SortableCard>
+                    );
+                  })}
+                </div>
+              </SortableContext>
+            </DndContext>
           </>
         )}
+        
         <Modal 
           open={formStatus} 
           footer={false} 
           closable={true} 
           title={`${id ? "Update" : "Add"} Banner`} 
           onCancel={handleCancel}
-          width={600}
+          width={700}
         >
           <Form 
             layout="vertical" 
@@ -215,6 +454,7 @@ const Banner = () => {
             onFinish={handleFinish}
             initialValues={{
               is_reward: false,
+              is_visible: true,
               feature: ""
             }}
           >
@@ -247,16 +487,31 @@ const Banner = () => {
               }}
             </Form.Item>
 
-            <div className="grid grid-cols-2 gap-4">
-              {/* Banner Name */}
-              <Form.Item 
-                label="Banner Name" 
-                name="banner_name" 
-                rules={[formValidation("Enter Banner Name")]}
-              >
-                <Input className="h-[45px]" placeholder="Enter Banner Name" />
-              </Form.Item>
+            {/* Banner Name */}
+            <Form.Item 
+              label="Banner Name" 
+              name="banner_name" 
+              rules={[formValidation("Enter Banner Name")]}
+            >
+              <Input 
+                className="h-[45px]" 
+                placeholder="Enter Banner Name"
+              />
+            </Form.Item>
 
+            {/* Banner Slug */}
+            <Form.Item 
+              label="Banner Slug" 
+              name="banner_slug"
+              tooltip="URL-friendly version of the banner name"
+            >
+              <Input 
+                className="h-[45px]" 
+                placeholder="e.g., summer-sale-2024"
+              />
+            </Form.Item>
+
+            <div className="grid grid-cols-2 gap-4">
               {/* Tag */}
               <Form.Item 
                 label="Tag" 
@@ -265,25 +520,15 @@ const Banner = () => {
               >
                 <Input className="h-[45px]" placeholder="Enter Tag" />
               </Form.Item>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              {/* Banner Slug */}
-              <Form.Item 
-                label="Banner Slug" 
-                name="banner_slug"
-              >
-                <Input className="h-[45px]" placeholder="Enter Banner Slug" />
-              </Form.Item>
 
               {/* Rating */}
               <Form.Item 
-                label="Banner Rating" 
+                label="Rating" 
                 name="rating"
               >
                 <Input 
                   className="h-[45px]" 
-                  placeholder="Enter Banner Rating" 
+                  placeholder="Enter Rating" 
                   type="number"
                   step="0.1"
                   min="0"
@@ -292,26 +537,57 @@ const Banner = () => {
               </Form.Item>
             </div>
 
-            {/* Features - Comma separated input */}
+            {/* Expiry Date */}
+            <Form.Item 
+              label="Expiry Date" 
+              name="expiry_date"
+              tooltip="Banner will automatically hide after this date"
+            >
+              <DatePicker 
+                className="w-full h-[45px]"
+                format="YYYY-MM-DD HH:mm"
+                showTime
+                placeholder="Select expiry date and time"
+              />
+            </Form.Item>
+
+            {/* Features */}
             <Form.Item 
               label="Features" 
               name="feature"
               tooltip="Enter features separated by commas"
+              rules={[formValidation("Enter at least one feature")]}
             >
               <Input.TextArea 
-                placeholder="Enter features separated by commas (e.g., Feature 1, Feature 2, Feature 3)"
+                placeholder="e.g., Free Shipping, 24/7 Support, Money Back Guarantee"
                 rows={3}
               />
             </Form.Item>
 
-            {/* Reward Switch */}
-            <Form.Item 
-              label="Is Reward?" 
-              name="is_reward"
-              valuePropName="checked"
-            >
-              <Switch />
-            </Form.Item>
+            <div className="grid grid-cols-2 gap-4">
+              {/* Visibility Switch */}
+              <Form.Item 
+                label="Visible on Site?" 
+                name="is_visible"
+                valuePropName="checked"
+                tooltip="Control whether this banner is shown to users"
+              >
+                <Switch 
+                  checkedChildren={<EyeOutlined />}
+                  unCheckedChildren={<EyeInvisibleOutlined />}
+                />
+              </Form.Item>
+
+              {/* Reward Switch */}
+              <Form.Item 
+                label="Is Reward?" 
+                name="is_reward"
+                valuePropName="checked"
+                tooltip="Reward banners require login"
+              >
+                <Switch />
+              </Form.Item>
+            </div>
 
             {/* Products Selection */}
             <Form.Item 
