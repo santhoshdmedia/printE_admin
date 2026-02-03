@@ -125,6 +125,8 @@ export const deleteProduct = async (id) =>
 // order
 export const collectallorders = async (query) =>
   await custom_request.get(`${BASE_URL}/order/collect_all_orders/${query}`);
+export const toggleOrderCancellation = async (query) =>
+  await custom_request.put(`${BASE_URL}/order/toggle-cancellation`,query);
 export const getAssignedOrders = (userId) =>
   custom_request.get(`${BASE_URL}/team/Get-task/${userId}`);
 export const updateorderstatus = async (formdata) =>
@@ -159,7 +161,7 @@ export const reorderBanners = async (formdata) =>
 // Toggle banner visibility
 export const toggleBannerVisibility = async (id) => {
   try {
-  await custom_request.put(`${BASE_URL}/banner/${id}/toggle-visibility`,);
+    await custom_request.put(`${BASE_URL}/banner/${id}/toggle-visibility`,);
   } catch (error) {
     throw error;
   }
@@ -168,7 +170,7 @@ export const toggleBannerVisibility = async (id) => {
 // Get visible banners only (for frontend/public)
 export const getVisibleBanners = async () => {
   try {
-      await custom_request.get(`${BASE_URL}/banner/visible`,);
+    await custom_request.get(`${BASE_URL}/banner/visible`,);
   } catch (error) {
     throw error;
   }
@@ -177,7 +179,7 @@ export const getVisibleBanners = async () => {
 // Get banner statistics
 export const getBannerStats = async () => {
   try {
-      await custom_request.get(`${BASE_URL}/banner/stats`,);
+    await custom_request.get(`${BASE_URL}/banner/stats`,);
   } catch (error) {
     throw error;
   }
@@ -276,9 +278,9 @@ export const deleteProductDescription = async (id) =>
 
 //order update
 export const updateDesign = async (formdata) =>
-  await custom_request.put(`${BASE_URL}/order/update-design`, formdata); 
+  await custom_request.put(`${BASE_URL}/order/update-design`, formdata);
 export const assignVendorToOrder = async (formdata) =>
-  await custom_request.put(`${BASE_URL}/order/update-vendor`, formdata); 
+  await custom_request.put(`${BASE_URL}/order/update-vendor`, formdata);
 
 // coupen
 export const addCoupen = async (formdata) =>

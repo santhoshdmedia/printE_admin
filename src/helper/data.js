@@ -27,14 +27,14 @@ export const MENU_DATA = [
     special: ["orders","assigned-order", "order_explore"],
     for: ["super admin", "accounting team", "designing team", "production team", "delivery team","quality check","packing team"],
   },
-  // {
-  //   id: 18,
-  //   name: "Dummy Orders",
-  //   icon: ICON_HELPER.ORDERS_ICON,
-  //   to: "/cancelled-orders",
-  //   special: ["orders","assigned-order", "order_explore"],
-  //   for: ["super admin", "accounting team", "designing team", "production team", "delivery team","quality check","packing team"],
-  // },
+  {
+    id: 18,
+    name: "cancelled Orders",
+    icon: ICON_HELPER.ORDERS_ICON,
+    to: "/cancelled-orders",
+    special: ["orders","assigned-order", "order_explore"],
+    for: ["super admin", "accounting team", "designing team", "production team", "delivery team","quality check","packing team"],
+  },
   
   {
     id: 4,

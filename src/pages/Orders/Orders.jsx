@@ -53,6 +53,9 @@ import {
   FiPlay,
   FiPause,
   FiStopCircle,
+  FiXCircle,
+  FiRefreshCw,
+  FiAlertTriangle,
 } from "react-icons/fi";
 import { FaRupeeSign } from "react-icons/fa";
 import { CiShoppingBasket } from "react-icons/ci";
@@ -66,6 +69,7 @@ import {
   uploadImage,
   updateDesign,
   assignVendorToOrder,
+  toggleOrderCancellation,
 } from "../../api";
 import _ from "lodash";
 import moment from "moment";
@@ -93,12 +97,14 @@ const Orders = () => {
   const [isDesignModalVisible, setIsDesignModalVisible] = useState(false);
   const [isQualityModalVisible, setIsQualityModalVisible] = useState(false);
   const [isDetailsModalVisible, setIsDetailsModalVisible] = useState(false);
+  const [isCancellationModalVisible, setIsCancellationModalVisible] = useState(false);
   const [currentOrder, setCurrentOrder] = useState(null);
   const [vendors, setVendors] = useState([]);
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [activeTab, setActiveTab] = useState("all");
   const [designForm] = Form.useForm();
   const [qualityForm] = Form.useForm();
+  const [cancellationForm] = Form.useForm();
   const navigation = useNavigate();
   const [image_path, setImagePath] = useState(null);
   const userRole = JSON.parse(localStorage.getItem("userprofile")) || {};
@@ -119,16 +125,17 @@ const Orders = () => {
     },
     { key: "3", label: "designing team", color: "#722ed1", icon: <FiUsers /> },
     { key: "4", label: "production team", color: "#faad14", icon: <FiBox /> },
-    { key: "4", label: "vendor assigned", color: "#0088cc", icon: <CiShoppingBasket /> },
+    { key: "5", label: "vendor assigned", color: "#0088cc", icon: <CiShoppingBasket /> },
     {
-      key: "5",
+      key: "6",
       label: "quality check",
       color: "#13c2c2",
       icon: <FiClipboard />,
     },
-    { key: "6", label: "packing team", color: "#52c41a", icon: <FiPackage /> },
-    { key: "7", label: "delivery team", color: "#52c41a", icon: <FiTruck /> },
-    { key: "8", label: "completed", color: "#52c41a", icon: <FiCheck /> },
+    { key: "7", label: "packing team", color: "#52c41a", icon: <FiPackage /> },
+    { key: "8", label: "delivery team", color: "#52c41a", icon: <FiTruck /> },
+    { key: "9", label: "completed", color: "#52c41a", icon: <FiCheck /> },
+    { key: "10", label: "cancelled", color: "#ff0000", icon: <FiXCircle /> },
   ];
 
   // Animation variants
@@ -192,8 +199,11 @@ const Orders = () => {
         return orderDate.isBetween(startDate, endDate, null, "[]");
       });
     }
+    const FilterCanceled = filtered.filter((order) => {
+    return order.cancellation_requested === false || order.order_status !== "cancelled";
+});
 
-    setFilteredOrders(filtered);
+    setFilteredOrders(FilterCanceled);
   }, [orderData, activeTab, search, orderStatus, dateFilter]);
 
   // Fetch orders data
@@ -275,6 +285,77 @@ const Orders = () => {
     }
   };
 
+  // Show cancellation modal with options
+  const showCancellationModal = (order) => {
+    setCurrentOrder(order);
+    setIsCancellationModalVisible(true);
+    
+    // Pre-fill form if uncancelling
+    if (order.cancellation_requested) {
+      cancellationForm.setFieldsValue({
+        action: 'restore',
+        restore_status: order.status_before_cancellation || order.order_status,
+      });
+    } else {
+      cancellationForm.setFieldsValue({
+        action: 'cancel',
+        change_status: 'cancelled',
+      });
+    }
+  };
+
+  // Enhanced toggle cancellation with status management
+  const handleCancellationSubmit = async (values) => {
+    try {
+      setLoading(true);
+      
+      const requestData = {
+        order_id: currentOrder._id,
+        admin_id: userRole._id,
+      };
+
+      // Add appropriate fields based on action
+      if (values.action === 'cancel') {
+        requestData.cancellation_reason = values.cancellation_reason;
+        requestData.change_status = values.change_status || 'cancelled';
+      } else {
+        requestData.restore_to_status = values.restore_status;
+      }
+      console.log(requestData,"bnjhbjb");
+      
+
+      const response = await toggleOrderCancellation(requestData);
+
+      if (response && response.data) {
+        // Update local state with response data
+        setOrderData((prev) =>
+          prev.map((order) =>
+            order._id === currentOrder._id
+              ? {
+                  ...order,
+                  cancellation_requested: response.data.data.cancellation_requested,
+                  order_status: response.data.data.order_status,
+                  cancellation_reason: response.data.data.cancellation_reason,
+                  status_before_cancellation: response.data.data.status_before_cancellation,
+                }
+              : order
+          )
+        );
+
+        message.success(response.data.message || "Operation completed successfully");
+        setIsCancellationModalVisible(false);
+        cancellationForm.resetFields();
+      } else {
+        message.error("Failed to process cancellation request");
+      }
+    } catch (err) {
+      console.error("Error processing cancellation:", err);
+      message.error(err.response?.data?.message || "Failed to process request");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Format time for display (hh:mm:ss)
   const formatTime = (milliseconds) => {
     const totalSeconds = Math.floor(milliseconds / 1000);
@@ -330,17 +411,14 @@ const Orders = () => {
     try {
       setLoading(true);
 
-      // Format elapsed time as hh.mm
       const designTime = formatTimeForSubmission(elapsedTime);
 
-      // Prepare data in required JSON format
       const designData = {
         order_id: currentOrder._id,
-        designFile: image_path, // This should be a base64 encoded string or URL
+        designFile: image_path,
         member_id: userRole._id,
         design_time: designTime,
       };
-
 
       const success = await updateDesign(designData);
 
@@ -454,7 +532,6 @@ const Orders = () => {
       message.warning("Please select a vendor");
       return;
     }
-  
 
     try {
       setLoading(true);
@@ -500,13 +577,14 @@ const Orders = () => {
       .length,
     inProgress: orderData.filter(
       (order) =>
-        order.order_status !== "completed" && order.order_status !== "placed"
+        order.order_status !== "completed" && 
+        order.order_status !== "placed" &&
+        order.order_status !== "cancelled"
     ).length,
     placed: orderData.filter((order) => order.order_status === "placed").length,
     Pending: orderData.filter((order) => order.payment_status === "pending").length,
+    cancelled: orderData.filter((order) => order.cancellation_requested === true || order.order_status === "cancelled").length,
   };
-
-  
 
   // Get current status index for progress
   const getStatusIndex = (status) => {
@@ -552,10 +630,8 @@ const Orders = () => {
   // Export to CSV functionality
   const exportToExcel = () => {
     try {
-      // Create CSV content
       let csvContent = "data:text/csv;charset=utf-8,";
 
-      // Define columns
       const columns = [
         "Order ID",
         "Invoice Number",
@@ -575,26 +651,21 @@ const Orders = () => {
         "Total Price",
       ];
 
-      // Add header row
       csvContent += columns.join(",") + "\r\n";
 
-      // Add data rows
       provideOrderContent().forEach((row) => {
         const values = columns.map((col) => {
           const key = col.toLowerCase().replace(/\s+/g, "_");
-          return `"${row[key] || ""}"`; // Wrap in quotes to handle commas
+          return `"${row[key] || ""}"`;
         });
         csvContent += values.join(",") + "\r\n";
       });
 
-      // Create download link
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
       link.setAttribute("download", "orders_export.csv");
       document.body.appendChild(link);
-
-      // Trigger download
       link.click();
       document.body.removeChild(link);
 
@@ -605,7 +676,6 @@ const Orders = () => {
     }
   };
 
-  // Custom upload button for design file
   const uploadButton = (
     <div>
       <FiFile className="text-2xl mb-2" />
@@ -631,7 +701,7 @@ const Orders = () => {
 
       {/* Stats Cards */}
       <motion.div
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -677,6 +747,21 @@ const Orders = () => {
             </div>
           </Card>
         </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <Card className="shadow-md border-0 bg-gradient-to-r from-orange-500 to-orange-600 text-white">
+            <div className="flex items-center">
+              <div className="bg-white bg-opacity-20 p-3 rounded-full">
+                <FiXCircle className="text-white text-xl" />
+              </div>
+              <div className="ml-4">
+                <h3 className="text-white text-opacity-80">Cancelled</h3>
+                <p className="text-2xl font-bold">{orderStats.cancelled}</p>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+
         <motion.div variants={itemVariants}>
           <Card className="shadow-md border-0 bg-gradient-to-r from-green-500 to-green-600 text-white">
             <div className="flex items-center">
@@ -701,7 +786,7 @@ const Orders = () => {
       >
         <h2 className="text-lg font-semibold mb-4">Order Pipeline</h2>
         <Steps current={-1} labelPlacement="vertical" className="px-8">
-          {statusFlow.map((status, index) => (
+          {statusFlow.filter(s => s.label !== "cancelled").map((status, index) => (
             <Step
               key={status.key}
               title={_.startCase(status.label)}
@@ -851,13 +936,16 @@ const Orders = () => {
               layout
             >
               <Card
-                className="shadow-sm hover:shadow-md transition-shadow duration-300 border-0 overflow-hidden"
-                bodyStyle={{ padding: 0 }}
+                className={`shadow-sm hover:shadow-md transition-shadow duration-300 border-0 overflow-hidden ${
+                  order.cancellation_requested || order.order_status === "cancelled" 
+                    ? 'border-l-4 border-l-red-500' 
+                    : ''
+                }`}
               >
                 <div className="p-5">
                   <div className="flex flex-col md:flex-row md:items-center justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center mb-2">
+                      <div className="flex items-center mb-2 flex-wrap gap-2">
                         <Badge
                           color={getStatusColor(order.order_status)}
                           text={
@@ -866,14 +954,24 @@ const Orders = () => {
                             </span>
                           }
                         />
-                        <span className="text-gray-400 mx-2">•</span>
+                        <span className="text-gray-400">•</span>
                         <span className="text-gray-500">
                           #{order.invoice_no}
                         </span>
-                        <span className="text-gray-400 mx-2">•</span>
+                        <span className="text-gray-400">•</span>
                         <span className="text-gray-500">
                           {moment(order.createdAt).format("MMM D, YYYY h:mm A")}
                         </span>
+                        {(order.cancellation_requested || order.order_status === "cancelled") && (
+                          <>
+                            <span className="text-gray-400">•</span>
+                            <Tag color="red" icon={<FiXCircle />}>
+                              {order.order_status === "cancelled" 
+                                ? "Cancelled" 
+                                : "Cancellation Requested"}
+                            </Tag>
+                          </>
+                        )}
                       </div>
 
                       <div className="flex items-center mb-3">
@@ -903,22 +1001,23 @@ const Orders = () => {
                           <span>Order Progress</span>
                           <span>
                             {getStatusIndex(order.order_status) + 1} of{" "}
-                            {statusFlow.length} steps
+                            {statusFlow.filter(s => s.label !== "cancelled").length} steps
                           </span>
                         </div>
                         <Progress
                           percent={Math.round(
                             ((getStatusIndex(order.order_status) + 1) /
-                              statusFlow.length) *
+                              statusFlow.filter(s => s.label !== "cancelled").length) *
                               100
                           )}
                           showInfo={false}
                           strokeColor={getStatusColor(order.order_status)}
+                          status={order.order_status === "cancelled" ? "exception" : "active"}
                         />
                       </div>
 
                       <div className="flex justify-between text-xs text-gray-500">
-                        {statusFlow.map((status, idx) => (
+                        {statusFlow.filter(s => s.label !== "cancelled").map((status, idx) => (
                           <Tooltip
                             key={status.key}
                             title={_.startCase(status.label)}
@@ -938,10 +1037,11 @@ const Orders = () => {
                     </div>
 
                     <div className="flex flex-col md:items-end mt-4 md:mt-0 space-y-3 md:ml-4">
-                      <div className="flex space-x-2">
+                      <div className="flex space-x-2 flex-wrap gap-2">
                         {user.role !== "super admin" && (
                           <>
-                            {order.order_status !== "completed" && (
+                            {order.order_status !== "completed" && 
+                             order.order_status !== "cancelled" && (
                               <Popconfirm
                                 title={`Forward to ${
                                   statusFlow[
@@ -1006,6 +1106,26 @@ const Orders = () => {
                               Assign Vendor
                             </Button>
                           )}
+
+                        {/* Enhanced Cancellation Button */}
+                        {(user.role === "super admin" || userRole.role === "super admin") && 
+                         order.order_status !== "completed" && (
+                          <Button
+                            size="middle"
+                            
+                            type={order.cancellation_requested || order.order_status === "cancelled" ? "default" : "primary"}
+                            className={
+                              order.cancellation_requested || order.order_status === "cancelled"
+                                ? "bg-yellow-500 hover:bg-yellow-600 text-white border-0"
+                                : "bg-green-500"
+                            }
+                            onClick={() => showCancellationModal(order)}
+                          >
+                            {order.cancellation_requested || order.order_status === "cancelled"
+                              ? "Restore Order"
+                              : "Change Status"}
+                          </Button>
+                        )}
 
                         <Button
                           size="middle"
@@ -1093,6 +1213,146 @@ const Orders = () => {
         )}
       </motion.div>
 
+      {/* Enhanced Cancellation Modal */}
+      <Modal
+        title={
+          <div className="flex items-center">
+            <FiAlertTriangle className="mr-2 text-orange-500" />
+            {currentOrder?.cancellation_requested || currentOrder?.order_status === "cancelled"
+              ? "Restore Order"
+              : "Cancel Order"}
+          </div>
+        }
+        open={isCancellationModalVisible}
+        onCancel={() => {
+          setIsCancellationModalVisible(false);
+          cancellationForm.resetFields();
+        }}
+        footer={null}
+        width={600}
+      >
+        {currentOrder && (
+          <Form
+            form={cancellationForm}
+            layout="vertical"
+            onFinish={handleCancellationSubmit}
+            initialValues={{
+              action: currentOrder.cancellation_requested || currentOrder.order_status === "cancelled" ? 'restore' : 'cancel',
+            }}
+          >
+            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+              <Descriptions column={1} size="small">
+                <Descriptions.Item label="Order ID">
+                  {currentOrder.invoice_no}
+                </Descriptions.Item>
+                <Descriptions.Item label="Current Status">
+                  <Tag color={getStatusColor(currentOrder.order_status)}>
+                    {_.startCase(currentOrder.order_status)}
+                  </Tag>
+                </Descriptions.Item>
+                <Descriptions.Item label="Customer">
+                  {_.get(currentOrder, "user_details[0].name", "N/A")}
+                </Descriptions.Item>
+              </Descriptions>
+            </div>
+
+            <Form.Item name="action" hidden>
+              <Input />
+            </Form.Item>
+
+            {!(currentOrder.cancellation_requested || currentOrder.order_status === "cancelled") ? (
+              <>
+                <Form.Item
+                  label="Cancellation Reason"
+                  name="cancellation_reason"
+                  rules={[{ required: true, message: "Please provide a reason" }]}
+                >
+                  <TextArea
+                    rows={4}
+                    placeholder="Enter reason for cancellation..."
+                  />
+                </Form.Item>
+
+                <Form.Item
+                  label="Change Order Status To"
+                  name="change_status"
+                  initialValue="cancelled"
+                >
+                  <Select>
+                    <Option value="cancelled">Cancelled</Option>
+                    {statusFlow
+                      .filter(s => s.label !== "completed" && s.label !== "cancelled")
+                      .map(status => (
+                        <Option key={status.key} value={status.label}>
+                          {_.startCase(status.label)}
+                        </Option>
+                      ))}
+                  </Select>
+                </Form.Item>
+              </>
+            ) : (
+              <>
+                <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    <strong>Original Status:</strong>{" "}
+                    {_.startCase(currentOrder.status_before_cancellation || currentOrder.order_status)}
+                  </p>
+                  {currentOrder.cancellation_reason && (
+                    <p className="text-sm text-yellow-800 mt-2">
+                      <strong>Reason:</strong> {currentOrder.cancellation_reason}
+                    </p>
+                  )}
+                </div>
+
+                <Form.Item
+                  label="Restore Order Status To"
+                  name="restore_status"
+                  initialValue={currentOrder.status_before_cancellation || "placed"}
+                >
+                  <Select>
+                    {statusFlow
+                      .filter(s => s.label !== "cancelled" && s.label !== "completed")
+                      .map(status => (
+                        <Option key={status.key} value={status.label}>
+                          {_.startCase(status.label)}
+                        </Option>
+                      ))}
+                  </Select>
+                </Form.Item>
+              </>
+            )}
+
+            <Form.Item>
+              <div className="flex justify-end space-x-3">
+                <Button
+                  onClick={() => {
+                    setIsCancellationModalVisible(false);
+                    cancellationForm.resetFields();
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={loading}
+                  danger={!(currentOrder.cancellation_requested || currentOrder.order_status === "cancelled")}
+                  className={
+                    currentOrder.cancellation_requested || currentOrder.order_status === "cancelled"
+                      ? "bg-green-500 hover:bg-green-600 border-0"
+                      : ""
+                  }
+                >
+                  {currentOrder.cancellation_requested || currentOrder.order_status === "cancelled"
+                    ? "Restore Order"
+                    : "Confirm Cancellation"}
+                </Button>
+              </div>
+            </Form.Item>
+          </Form>
+        )}
+      </Modal>
+
       {/* Vendor Assignment Modal */}
       <Modal
         title="Assign Vendor to Order"
@@ -1178,8 +1438,6 @@ const Orders = () => {
                         <FiPhone className="mr-2 text-gray-400" />
                         {vendor.vendor_contact_number || "Phone not specified"}
                       </p>
-                      {/* <p>Specialization: {vendor.specialization || "N/A"}</p> */}
-                      {/* <p>Capacity: {vendor.capacity || "N/A"} orders/day</p> */}
                       {vendor.rating && (
                         <div className="flex items-center">
                           <span className="mr-2">Rating:</span>
@@ -1419,6 +1677,13 @@ const Orders = () => {
               <Descriptions.Item label="Total Amount" span={2}>
                 <Text strong>₹{_.get(currentOrder, "total_price", "0")}</Text>
               </Descriptions.Item>
+              {currentOrder.cancellation_requested && (
+                <Descriptions.Item label="Cancellation Status" span={2}>
+                  <Tag color="red" icon={<FiXCircle />}>
+                    Cancellation Requested
+                  </Tag>
+                </Descriptions.Item>
+              )}
             </Descriptions>
 
             <Divider />
@@ -1438,8 +1703,6 @@ const Orders = () => {
               </Descriptions.Item>
               <Descriptions.Item label="Delivery Address" span={2}>
                 {_.get(currentOrder, "delivery_address.street", "N/A")},{" "}
-                {/* {_.get(currentOrder, "delivery_address.city", "N/A")},{" "} */}
-                {/* {_.get(currentOrder, "delivery_address.state", "N/A")} -{" "} */}
                 {_.get(currentOrder, "delivery_address.pincode", "N/A")}
               </Descriptions.Item>
             </Descriptions>
@@ -1507,8 +1770,6 @@ const Orders = () => {
                 </Descriptions>
               </>
             )}
-
-            
 
             {currentOrder.quality_rating && (
               <>
