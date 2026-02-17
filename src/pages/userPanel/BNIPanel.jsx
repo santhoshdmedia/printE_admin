@@ -15,7 +15,8 @@ import {
     Descriptions,
     Divider,
     Row,
-    Col
+    Col,
+    Tooltip
 } from "antd";
 import {
     MailOutlined,
@@ -28,13 +29,88 @@ import {
     CalendarOutlined,
     EnvironmentOutlined,
     IdcardOutlined,
-    BookOutlined // Add this icon for chapter name
+    BookOutlined,
+    DownloadOutlined,
 } from "@ant-design/icons";
 import { ERROR_NOTIFICATION, SUCCESS_NOTIFICATION } from "../../helper/notification_helper";
 import { getCustomUser, sendMailDealer, verifyUser } from "../../api";
 import _ from "lodash";
 import { useNavigate } from "react-router-dom";
 
+// ─────────────────────────────────────────────
+// CSV Export Helper
+// ─────────────────────────────────────────────
+const exportToCSV = (data, filename = "bni_users.csv") => {
+    if (!data || data.length === 0) {
+        message.warning("No data available to export.");
+        return;
+    }
+
+    const headers = [
+        "S.No",
+        "Name",
+        "Chapter Name",
+        "Email",
+        "Phone",
+        "Verification Status",
+        "Role",
+        "Created Date",
+        "Verified Date",
+    ];
+
+    const rows = data.map((user, index) => [
+        index + 1,
+        user.name || "N/A",
+        user.chapter_Name || "N/A",
+        user.email || "N/A",
+        user.phone || "N/A",
+        user.Dealer_verification ? "Verified" : "Not Verified",
+        user.role || "N/A",
+        user.createdAt
+            ? new Date(user.createdAt).toLocaleDateString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+              })
+            : "N/A",
+        user.verified_at
+            ? new Date(user.verified_at).toLocaleDateString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+              })
+            : "Not verified yet",
+    ]);
+
+    // Escape any commas or quotes inside cell values
+    const escapeCell = (val) => {
+        const str = String(val);
+        if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+            return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+    };
+
+    const csvContent = [headers, ...rows]
+        .map((row) => row.map(escapeCell).join(","))
+        .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    message.success(`Exported ${data.length} users to ${filename}`);
+};
+
+// ─────────────────────────────────────────────
+// BNI Panel Component
+// ─────────────────────────────────────────────
 const BNIPanel = () => {
     const [search, setSearch] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -63,7 +139,7 @@ const BNIPanel = () => {
 
     const handleVerify = async (userId, userEmail) => {
         try {
-            setVerifying(prev => ({ ...prev, [userId]: true }));
+            setVerifying((prev) => ({ ...prev, [userId]: true }));
 
             const data = {
                 Dealer_verification: true,
@@ -72,29 +148,27 @@ const BNIPanel = () => {
 
             await verifyUser(userId, data);
 
-            // Update local state
-            setAllCustomUser(prevUsers =>
-                prevUsers.map(user =>
+            setAllCustomUser((prevUsers) =>
+                prevUsers.map((user) =>
                     user._id === userId ? { ...user, ...data } : user
                 )
             );
-            setSortedData(prevUsers =>
-                prevUsers.map(user =>
+            setSortedData((prevUsers) =>
+                prevUsers.map((user) =>
                     user._id === userId ? { ...user, ...data } : user
                 )
             );
 
-            SUCCESS_NOTIFICATION({ message: 'User verified successfully!' });
+            SUCCESS_NOTIFICATION({ message: "User verified successfully!" });
 
-            // After successful verification, send mail
             if (userEmail) {
                 await handleSendMail(userId, userEmail);
             }
         } catch (err) {
-            console.error('Error verifying user:', err);
+            console.error("Error verifying user:", err);
             ERROR_NOTIFICATION(err);
         } finally {
-            setVerifying(prev => ({ ...prev, [userId]: false }));
+            setVerifying((prev) => ({ ...prev, [userId]: false }));
         }
     };
 
@@ -104,19 +178,12 @@ const BNIPanel = () => {
             const result = await getCustomUser(search);
             const data = _.get(result, "data.data", []);
 
-            const sorted = _.orderBy(
-                data,
-                ['createdAt', '_id'],
-                ['desc', 'desc']
-            );
+            const sorted = _.orderBy(data, ["createdAt", "_id"], ["desc", "desc"]);
             const BNIUsers = sorted.filter((user) => user.role === "bni_user");
 
             setAllCustomUser(BNIUsers);
             setSortedData(BNIUsers);
-            setPagination({
-                ...pagination,
-                total: BNIUsers.length,
-            });
+            setPagination((prev) => ({ ...prev, total: BNIUsers.length }));
         } catch (err) {
             console.log(err);
             ERROR_NOTIFICATION(err);
@@ -136,17 +203,15 @@ const BNIPanel = () => {
         }
 
         try {
-            setSendingMail(prev => ({ ...prev, [userId]: true }));
-
+            setSendingMail((prev) => ({ ...prev, [userId]: true }));
             const payload = { mail_id: userEmail };
             const result = await sendMailDealer(payload);
-
             SUCCESS_NOTIFICATION(result || { message: "Mail sent successfully!" });
         } catch (err) {
             console.error("Error sending mail:", err);
             ERROR_NOTIFICATION(err);
         } finally {
-            setSendingMail(prev => ({ ...prev, [userId]: false }));
+            setSendingMail((prev) => ({ ...prev, [userId]: false }));
         }
     };
 
@@ -171,7 +236,8 @@ const BNIPanel = () => {
         {
             title: "Chapter Name",
             dataIndex: "chapter_Name",
-            sorter: (a, b) => (a.chapter_Name || "").localeCompare(b.chapter_Name || ""),
+            sorter: (a, b) =>
+                (a.chapter_Name || "").localeCompare(b.chapter_Name || ""),
             render: (chapter_Name) => (
                 <div className="flex items-center">
                     <BookOutlined className="mr-1 text-gray-400" />
@@ -182,26 +248,18 @@ const BNIPanel = () => {
         {
             title: "Verification Status",
             dataIndex: "Dealer_verification",
-            sorter: (a, b) => (a.Dealer_verification ? 1 : 0) - (b.Dealer_verification ? 1 : 0),
-            render: (verified) => {
-                return verified ? (
-                    <Tag
-                        icon={<CheckCircleOutlined />}
-                        color="success"
-                        className="flex items-center"
-                    >
+            sorter: (a, b) =>
+                (a.Dealer_verification ? 1 : 0) - (b.Dealer_verification ? 1 : 0),
+            render: (verified) =>
+                verified ? (
+                    <Tag icon={<CheckCircleOutlined />} color="success" className="flex items-center">
                         Verified
                     </Tag>
                 ) : (
-                    <Tag
-                        icon={<CloseCircleOutlined />}
-                        color="error"
-                        className="flex items-center"
-                    >
+                    <Tag icon={<CloseCircleOutlined />} color="error" className="flex items-center">
                         Not Verified
                     </Tag>
-                );
-            },
+                ),
         },
         {
             title: "Email",
@@ -228,14 +286,15 @@ const BNIPanel = () => {
         {
             title: "Created Date",
             dataIndex: "createdAt",
-            sorter: (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0),
-            defaultSortOrder: 'descend',
+            sorter: (a, b) =>
+                new Date(a.createdAt || 0) - new Date(b.createdAt || 0),
+            defaultSortOrder: "descend",
             render: (date) => {
                 if (!date) return "N/A";
-                return new Date(date).toLocaleDateString('en-GB', {
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric'
+                return new Date(date).toLocaleDateString("en-GB", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
                 });
             },
         },
@@ -244,7 +303,6 @@ const BNIPanel = () => {
             key: "action",
             render: (text, record) => {
                 const isVerified = record.Dealer_verification;
-                
                 return (
                     <div className="flex space-x-2">
                         <Button
@@ -277,7 +335,9 @@ const BNIPanel = () => {
                             <Popconfirm
                                 title="Send mail to this user?"
                                 description={`Send an email to ${record.email}?`}
-                                onConfirm={() => handleSendMail(record._id, record.email)}
+                                onConfirm={() =>
+                                    handleSendMail(record._id, record.email)
+                                }
                                 okText="Yes"
                                 cancelText="No"
                             >
@@ -297,26 +357,35 @@ const BNIPanel = () => {
     ];
 
     const handleTableChange = (newPagination, filters, sorter) => {
-        setPagination({
-            ...pagination,
+        setPagination((prev) => ({
+            ...prev,
             current: newPagination.current,
             pageSize: newPagination.pageSize,
-        });
+        }));
 
         if (sorter.field) {
-            const data = [...allCustomUser];
             const sorted = _.orderBy(
-                data,
+                [...allCustomUser],
                 [sorter.field],
-                [sorter.order === 'ascend' ? 'asc' : 'desc']
+                [sorter.order === "ascend" ? "asc" : "desc"]
             );
             setSortedData(sorted);
         } else {
-            const data = [...allCustomUser];
-            const sorted = _.orderBy(data, ['createdAt', '_id'], ['desc', 'desc']);
+            const sorted = _.orderBy(
+                [...allCustomUser],
+                ["createdAt", "_id"],
+                ["desc", "desc"]
+            );
             setSortedData(sorted);
         }
     };
+
+    // ── Filename with today's date e.g. bni_users_17-Feb-2026.csv
+    const csvFilename = `bni_users_${new Date().toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+    }).replace(/ /g, "-")}.csv`;
 
     return (
         <Spin spinning={loading}>
@@ -331,7 +400,8 @@ const BNIPanel = () => {
                     }
                     className="rounded-lg shadow-sm border-0 border-t-4 border-t-yellow-400"
                 >
-                    <div className="mb-4 flex justify-between">
+                    {/* ── Toolbar: Search | Total | Export ── */}
+                    <div className="mb-4 flex flex-wrap justify-between items-center gap-3">
                         <Input.Search
                             placeholder="Search users..."
                             allowClear
@@ -339,9 +409,25 @@ const BNIPanel = () => {
                             className="w-64"
                             size="large"
                         />
-                        <div className="text-sm text-yellow-700">
-                            Total Users:{" "}
-                            <span className="font-semibold">{pagination.total}</span>
+
+                        <div className="flex items-center gap-4">
+                            <span className="text-sm text-yellow-700">
+                                Total Users:{" "}
+                                <span className="font-semibold">{pagination.total}</span>
+                            </span>
+
+                            {/* ── CSV Download Button ── */}
+                            {/* <Tooltip title="Download all BNI users as CSV">
+                                <Button
+                                    icon={<DownloadOutlined />}
+                                    size="large"
+                                    onClick={() => exportToCSV(sortedData, csvFilename)}
+                                    disabled={sortedData.length === 0}
+                                    className="!border-yellow-400 !text-yellow-700 hover:!bg-yellow-100 hover:!border-yellow-500 font-medium"
+                                >
+                                    Export CSV
+                                </Button>
+                            </Tooltip> */}
                         </div>
                     </div>
 
@@ -353,7 +439,7 @@ const BNIPanel = () => {
                                 pagination={{
                                     ...pagination,
                                     showSizeChanger: true,
-                                    pageSizeOptions: ['10', '20', '30', '50'],
+                                    pageSizeOptions: ["10", "20", "30", "50"],
                                     showTotal: (total, range) =>
                                         `${range[0]}-${range[1]} of ${total} users`,
                                 }}
@@ -371,7 +457,7 @@ const BNIPanel = () => {
                     </div>
                 </Card>
 
-                {/* View User Details Modal */}
+                {/* ── View User Details Modal ── */}
                 <Modal
                     title={
                         <div className="flex items-center">
@@ -428,7 +514,7 @@ const BNIPanel = () => {
                                     Send Mail
                                 </Button>
                             </Popconfirm>
-                        )
+                        ),
                     ]}
                     width={800}
                     centered
@@ -442,28 +528,28 @@ const BNIPanel = () => {
                                         {selectedUser.name || "N/A"}
                                     </div>
                                 </Descriptions.Item>
-                                
+
                                 <Descriptions.Item label="Email">
                                     <div className="flex items-center">
                                         <MailOutlined className="mr-2 text-gray-400" />
                                         {selectedUser.email || "N/A"}
                                     </div>
                                 </Descriptions.Item>
-                                
+
                                 <Descriptions.Item label="Chapter Name">
                                     <div className="flex items-center">
                                         <BookOutlined className="mr-2 text-gray-400" />
                                         {selectedUser.chapter_Name || "N/A"}
                                     </div>
                                 </Descriptions.Item>
-                                
+
                                 <Descriptions.Item label="Phone">
                                     <div className="flex items-center">
                                         <PhoneOutlined className="mr-2 text-gray-400" />
                                         {selectedUser.phone || "N/A"}
                                     </div>
                                 </Descriptions.Item>
-                                
+
                                 <Descriptions.Item label="Verification Status">
                                     {selectedUser.Dealer_verification ? (
                                         <Tag icon={<CheckCircleOutlined />} color="success">
@@ -475,101 +561,54 @@ const BNIPanel = () => {
                                         </Tag>
                                     )}
                                 </Descriptions.Item>
-                                
+
                                 <Descriptions.Item label="Role">
-                                    <Tag color="blue">
-                                        {selectedUser.role || "N/A"}
-                                    </Tag>
+                                    <Tag color="blue">{selectedUser.role || "N/A"}</Tag>
                                 </Descriptions.Item>
-                                
+
                                 <Descriptions.Item label="User ID">
                                     <div className="flex items-center">
                                         <IdcardOutlined className="mr-2 text-gray-400" />
                                         <code className="text-xs">{selectedUser._id}</code>
                                     </div>
                                 </Descriptions.Item>
-                                
+
                                 <Descriptions.Item label="Created Date">
                                     <div className="flex items-center">
                                         <CalendarOutlined className="mr-2 text-gray-400" />
-                                        {selectedUser.createdAt ? (
-                                            new Date(selectedUser.createdAt).toLocaleString('en-GB', {
-                                                day: '2-digit',
-                                                month: 'short',
-                                                year: 'numeric',
-                                                hour: '2-digit',
-                                                minute: '2-digit'
-                                            })
-                                        ) : "N/A"}
+                                        {selectedUser.createdAt
+                                            ? new Date(selectedUser.createdAt).toLocaleString(
+                                                  "en-GB",
+                                                  {
+                                                      day: "2-digit",
+                                                      month: "short",
+                                                      year: "numeric",
+                                                      hour: "2-digit",
+                                                      minute: "2-digit",
+                                                  }
+                                              )
+                                            : "N/A"}
                                     </div>
                                 </Descriptions.Item>
-                                
+
                                 <Descriptions.Item label="Verified Date">
                                     <div className="flex items-center">
                                         <CalendarOutlined className="mr-2 text-gray-400" />
-                                        {selectedUser.verified_at ? (
-                                            new Date(selectedUser.verified_at).toLocaleString('en-GB', {
-                                                day: '2-digit',
-                                                month: 'short',
-                                                year: 'numeric',
-                                                hour: '2-digit',
-                                                minute: '2-digit'
-                                            })
-                                        ) : "Not verified yet"}
+                                        {selectedUser.verified_at
+                                            ? new Date(selectedUser.verified_at).toLocaleString(
+                                                  "en-GB",
+                                                  {
+                                                      day: "2-digit",
+                                                      month: "short",
+                                                      year: "numeric",
+                                                      hour: "2-digit",
+                                                      minute: "2-digit",
+                                                  }
+                                              )
+                                            : "Not verified yet"}
                                     </div>
                                 </Descriptions.Item>
                             </Descriptions>
-
-                            {/* Additional Information Section */}
-                            {/* <Divider orientation="left">Additional Information</Divider>
-                            <Row gutter={16}>
-                                <Col span={12}>
-                                    <div className="mb-3">
-                                        <strong className="block text-gray-600">Country:</strong>
-                                        <span>{selectedUser.country || "N/A"}</span>
-                                    </div>
-                                    <div className="mb-3">
-                                        <strong className="block text-gray-600">State:</strong>
-                                        <span>{selectedUser.state || "N/A"}</span>
-                                    </div>
-                                </Col>
-                                <Col span={12}>
-                                    <div className="mb-3">
-                                        <strong className="block text-gray-600">City:</strong>
-                                        <span>{selectedUser.city || "N/A"}</span>
-                                    </div>
-                                    <div className="mb-3">
-                                        <strong className="block text-gray-600">Pincode:</strong>
-                                        <span>{selectedUser.pincode || "N/A"}</span>
-                                    </div>
-                                </Col>
-                            </Row> */}
-
-                            {/* Display any other fields that might exist */}
-                            {Object.keys(selectedUser).filter(key => 
-                                !['_id', 'name', 'email', 'phone', 'role', 'Dealer_verification', 
-                                  'createdAt', 'verified_at', 'country', 'state', 'city', 'pincode',
-                                  'chapter_Name', '__v'].includes(key)
-                            ).length > 0 && (
-                                <>
-                                    {/* <Divider orientation="left">Other Details</Divider>
-                                    <div className="bg-gray-50 p-3 rounded">
-                                        <pre className="text-xs overflow-auto max-h-40">
-                                            {JSON.stringify(
-                                                Object.fromEntries(
-                                                    Object.entries(selectedUser).filter(([key]) => 
-                                                        !['_id', 'name', 'email', 'phone', 'role', 'Dealer_verification', 
-                                                          'createdAt', 'verified_at', 'country', 'state', 'city', 'pincode',
-                                                          'chapter_Name', '__v'].includes(key)
-                                                    )
-                                                ), 
-                                                null, 
-                                                2
-                                            )}  
-                                        </pre>
-                                    </div> */}
-                                </>
-                            )}
                         </div>
                     )}
                 </Modal>
@@ -578,7 +617,8 @@ const BNIPanel = () => {
                     .ant-card-head-title {
                         font-weight: 600;
                     }
-                    .ant-input:focus, .ant-input-focused {
+                    .ant-input:focus,
+                    .ant-input-focused {
                         border-color: #f59e0b;
                         box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
                     }

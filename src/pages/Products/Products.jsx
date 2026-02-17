@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
 import {
   MdDelete,
   MdContentCopy,
@@ -31,7 +32,8 @@ import {
   Menu,
   message,
 } from "antd";
-import { FaEdit, FaEye, FaFilter } from "react-icons/fa";
+import { FaEdit, FaEye, FaFilter, FaLock } from "react-icons/fa";
+import { LockOutlined } from "@ant-design/icons";
 import _ from "lodash";
 import {
   addproduct,
@@ -53,6 +55,7 @@ import CustomTable from "../../components/CustomTable";
 import DefaultTile from "../../components/DefaultTile";
 import { useForm } from "antd/es/form/Form";
 import AddForms from "./AddForms";
+import { canEditPage, canDeletePage, isSuperAdmin } from "../../helper/permissionHelper";
 
 const { Title, Text } = Typography;
 
@@ -65,6 +68,7 @@ const STORAGE_KEYS = {
 };
 
 const Products = () => {
+  const { user } = useSelector((state) => state.authSlice);
   const [formStatus, setFormStatus] = useState(false);
   const [tableData, setTableData] = useState([]);
   const [search, setSearch] = useState("");
@@ -90,6 +94,10 @@ const Products = () => {
   const [exportLoading, setExportLoading] = useState(false);
   const [visibilityFilter, setVisibilityFilter] = useState("");
   const [activeTabKey, setActiveTabKey] = useState("1");
+
+  // Check permissions
+  const hasEditPermission = isSuperAdmin(user.role) || canEditPage(user.pagePermissions, "product-details");
+  const hasDeletePermission = isSuperAdmin(user.role) || canDeletePage(user.pagePermissions, "product-details");
 
   // Load pagination from localStorage or use defaults
   const [paginationConfig, setPaginationConfig] = useState(() => {
@@ -180,8 +188,13 @@ const Products = () => {
     saveFiltersToStorage(filters);
   }, [filterByProductCategory, filterByProductSubcategory, vendorFilter, filterByType, visibilityFilter, search]);
 
-  // Fixed visibility handler with optimistic updates
+  // Fixed visibility handler with optimistic updates and permission check
   const handleOnChangeLabel = async (data, product) => {
+    if (!hasEditPermission) {
+      ERROR_NOTIFICATION({ message: "You don't have permission to modify products" });
+      return;
+    }
+
     const productId = _.get(product, "_id", "");
     
     try {
@@ -233,8 +246,6 @@ const Products = () => {
         visibility: visibilityFilter || ""
       };
 
-      console.log("Fetching data with filters:", filters);
-
       const result = await getProduct(
         "", // id
         filters.search, // search
@@ -247,7 +258,6 @@ const Products = () => {
       );
       
       const data = _.get(result, "data.data", []);
-      console.log("Fetched data:", data.length, "products");
       setTableData(data.reverse());
     } catch (err) {
       console.error("Error fetching data:", err);
@@ -257,8 +267,13 @@ const Products = () => {
     }
   };
 
-  // Export functions
+  // Export functions with permission check
   const exportToCSV = () => {
+    if (!hasEditPermission) {
+      ERROR_NOTIFICATION({ message: "You don't have permission to export products" });
+      return;
+    }
+
     try {
       setExportLoading(true);
       let csvContent = "data:text/csv;charset=utf-8,";
@@ -309,6 +324,11 @@ const Products = () => {
   };
 
   const exportFilteredToCSV = () => {
+    if (!hasEditPermission) {
+      ERROR_NOTIFICATION({ message: "You don't have permission to export products" });
+      return;
+    }
+
     try {
       setExportLoading(true);
 
@@ -388,6 +408,11 @@ const Products = () => {
   };
 
   const exportAllToCSV = async () => {
+    if (!hasEditPermission) {
+      ERROR_NOTIFICATION({ message: "You don't have permission to export products" });
+      return;
+    }
+
     try {
       setExportLoading(true);
       const result = await getProduct("", "", false, "", "", "", "", "");
@@ -608,6 +633,11 @@ const Products = () => {
   };
 
   const handleOpenModal = (productData) => {
+    if (!hasEditPermission) {
+      ERROR_NOTIFICATION({ message: "You don't have permission to clone products" });
+      return;
+    }
+
     const product = { ...productData };
     delete product.category_details;
     delete product.sub_category_details;
@@ -711,11 +741,20 @@ const Products = () => {
   };
 
   const handleUpdate = (data) => {
+    if (!hasEditPermission) {
+      ERROR_NOTIFICATION({ message: "You don't have permission to edit products" });
+      return;
+    }
     setId(data);
     setFormStatus(true);
   };
 
   const handleDelete = async (data) => {
+    if (!hasDeletePermission) {
+      ERROR_NOTIFICATION({ message: "You don't have permission to delete products" });
+      return;
+    }
+
     try {
       const payload = {
         product_id: data._id,
@@ -888,7 +927,7 @@ const Products = () => {
   const processedTableData = useMemo(() => {
     return getCurrentTabData.map((item, index) => ({
       ...item,
-      serialNumber: index + 1, // Add serial number here
+      serialNumber: index + 1,
       totalStock: getTotalStock(item),
       prices: {
         customerPrice: getProductPrice(item, 'customer'),
@@ -929,8 +968,6 @@ const Products = () => {
   };
 
   const handleTableChange = (pagination, filters, sorter) => {
-    console.log("Table change:", pagination);
-    
     // Update current page
     if (pagination.current !== paginationConfig.currentPage) {
       handlePageChange(pagination.current);
@@ -942,9 +979,7 @@ const Products = () => {
     }
   };
 
-  const userRole = JSON.parse(localStorage.getItem("userprofile")) || {};
-
-  // FIXED: Simplified S.No column - Use dataIndex instead of render function
+  // Columns with permission checks
   const columns = [
     {
       title: "S.No",
@@ -983,23 +1018,25 @@ const Products = () => {
         </Tooltip>
       ),
     },
-    ...(activeTabKey === "1" ? [{
+    ...(activeTabKey === "1" && hasEditPermission ? [{
       title: "Clone",
       align: "center",
       width: 80,
       render: (data) => (
-        <div
-          onClick={() => {
-            setCloneProductDetails(data);
-            handleOpenModal(data);
-          }}
-          className="text-2xl text-teal-600 cursor-pointer hover:text-teal-800 transition-transform duration-300 transform hover:scale-125 flex justify-center"
-        >
-          <MdContentCopy />
-        </div>
+        <Tooltip title="Clone Product">
+          <div
+            onClick={() => {
+              setCloneProductDetails(data);
+              handleOpenModal(data);
+            }}
+            className="text-2xl text-teal-600 cursor-pointer hover:text-teal-800 transition-transform duration-300 transform hover:scale-125 flex justify-center"
+          >
+            <MdContentCopy />
+          </div>
+        </Tooltip>
       ),
     }] : []),
-    ...(userRole?.role === "super admin"
+    ...(isSuperAdmin(user.role) || hasEditPermission
       ? [
         {
           title: "Visibility",
@@ -1012,10 +1049,10 @@ const Products = () => {
                 size="small"
                 checked={isVisible}
                 onChange={(checked) => {
-                  console.log("Changing visibility for:", record._id, "to:", checked);
                   handleOnChangeLabel({ is_visible: checked }, record);
                 }}
                 loading={updatingProductId === record._id}
+                disabled={!hasEditPermission}
                 className={`${isVisible ? 'bg-green-600' : 'bg-gray-300'} hover:bg-teal-500 transition-colors duration-300`}
               />
             </Tooltip>
@@ -1201,11 +1238,11 @@ const Products = () => {
       width: 150,
       render: (record) => (
         <div className="flex flex-col space-y-2">
-          <Tooltip title="New Product">
+          <Tooltip title={hasEditPermission ? "New Product" : "No permission to modify"}>
             <Button
               size="small"
               type={record.new_product ? "primary" : "default"}
-              icon={<MdNewReleases />}
+              icon={hasEditPermission ? <MdNewReleases /> : <LockOutlined />}
               onClick={() =>
                 handleOnChangeLabel(
                   { new_product: !record.new_product },
@@ -1213,6 +1250,7 @@ const Products = () => {
                 )
               }
               loading={updatingProductId === record._id}
+              disabled={!hasEditPermission}
               className={`flex items-center justify-center w-full text-xs ${record.new_product
                   ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-300"
@@ -1221,11 +1259,11 @@ const Products = () => {
               New
             </Button>
           </Tooltip>
-          <Tooltip title="Popular Product">
+          <Tooltip title={hasEditPermission ? "Popular Product" : "No permission to modify"}>
             <Button
               size="small"
               type={record.popular_product ? "primary" : "default"}
-              icon={<MdThumbUp />}
+              icon={hasEditPermission ? <MdThumbUp /> : <LockOutlined />}
               onClick={() =>
                 handleOnChangeLabel(
                   { popular_product: !record.popular_product },
@@ -1233,6 +1271,7 @@ const Products = () => {
                 )
               }
               loading={updatingProductId === record._id}
+              disabled={!hasEditPermission}
               className={`flex items-center justify-center w-full text-xs ${record.popular_product
                   ? "bg-green-600 text-white border-green-600 hover:bg-green-700"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-300"
@@ -1241,11 +1280,11 @@ const Products = () => {
               Popular
             </Button>
           </Tooltip>
-          <Tooltip title="Recommended Product">
+          <Tooltip title={hasEditPermission ? "Recommended Product" : "No permission to modify"}>
             <Button
               size="small"
               type={record.recommended_product ? "primary" : "default"}
-              icon={<MdStar />}
+              icon={hasEditPermission ? <MdStar /> : <LockOutlined />}
               onClick={() =>
                 handleOnChangeLabel(
                   { recommended_product: !record.recommended_product },
@@ -1253,6 +1292,7 @@ const Products = () => {
                 )
               }
               loading={updatingProductId === record._id}
+              disabled={!hasEditPermission}
               className={`flex items-center justify-center w-full text-xs ${record.recommended_product
                   ? "bg-amber-600 text-white border-amber-600 hover:bg-amber-700"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-300"
@@ -1273,7 +1313,7 @@ const Products = () => {
         <Dropdown
           overlay={
             <Menu className="rounded-xl shadow-2xl bg-white border border-gray-100 p-2 min-w-[120px]">
-              {!_.get(data, "is_cloned", false) && (
+              {hasEditPermission && !_.get(data, "is_cloned", false) && (
                 <Menu.Item key="edit">
                   <Button
                     type="text"
@@ -1285,24 +1325,26 @@ const Products = () => {
                   </Button>
                 </Menu.Item>
               )}
-              <Menu.Item key="delete">
-                <Popconfirm
-                  title="Delete Product"
-                  description="Are you sure you want to delete this product?"
-                  onConfirm={() => handleDelete(data)}
-                  okText="Yes"
-                  cancelText="No"
-                  okButtonProps={{ danger: true }}
-                >
-                  <Button
-                    type="text"
-                    icon={<MdDelete className="text-red-600" />}
-                    className="flex items-center text-red-600 hover:bg-red-50 w-full text-left px-3 py-2 rounded-lg font-medium text-xs"
+              {hasDeletePermission && (
+                <Menu.Item key="delete">
+                  <Popconfirm
+                    title="Delete Product"
+                    description="Are you sure you want to delete this product?"
+                    onConfirm={() => handleDelete(data)}
+                    okText="Yes"
+                    cancelText="No"
+                    okButtonProps={{ danger: true }}
                   >
-                    Delete
-                  </Button>
-                </Popconfirm>
-              </Menu.Item>
+                    <Button
+                      type="text"
+                      icon={<MdDelete className="text-red-600" />}
+                      className="flex items-center text-red-600 hover:bg-red-50 w-full text-left px-3 py-2 rounded-lg font-medium text-xs"
+                    >
+                      Delete
+                    </Button>
+                  </Popconfirm>
+                </Menu.Item>
+              )}
               <Menu.Item key="view">
                 <Button
                   type="text"
@@ -1362,7 +1404,7 @@ const Products = () => {
     <div className="min-h-screen bg-gradient-to-br from-teal-50 to-blue-50 p-4 md:p-8 font-sans">
       <DefaultTile
         title="Products Dashboard"
-        add={true}
+        add={hasEditPermission}
         addText="New Product"
         formStatus={formStatus}
         setFormStatus={setFormStatus}
@@ -1370,59 +1412,70 @@ const Products = () => {
         setSearch={setSearch}
         className="bg-white shadow-2xl rounded-3xl p-6 md:p-8 mb-6 md:mb-8 border border-teal-100"
         extra={
-          <Dropdown
-            overlay={
-              <Menu className="rounded-xl shadow-2xl bg-white border border-gray-100 p-2 min-w-[200px]">
-                <Menu.Item key="all">
-                  <Button
-                    type="text"
-                    icon={<MdFileDownload className="text-green-600" />}
-                    onClick={exportAllToCSV}
-                    loading={exportLoading}
-                    className="flex items-center text-green-600 hover:bg-green-50 w-full text-left px-3 py-2 rounded-lg font-medium text-sm"
-                  >
-                    Export All Products (CSV)
-                  </Button>
-                </Menu.Item>
-                <Menu.Item key="filtered">
-                  <Button
-                    type="text"
-                    icon={<MdFileDownload className="text-blue-600" />}
-                    onClick={exportFilteredToCSV}
-                    loading={exportLoading}
-                    disabled={tableData.length === 0}
-                    className="flex items-center text-blue-600 hover:bg-blue-50 w-full text-left px-3 py-2 rounded-lg font-medium text-sm"
-                  >
-                    Export Filtered Products (CSV)
-                  </Button>
-                </Menu.Item>
-                <Menu.Item key="current">
-                  <Button
-                    type="text"
-                    icon={<MdFileDownload className="text-teal-600" />}
-                    onClick={exportToCSV}
-                    loading={exportLoading}
-                    className="flex items-center text-teal-600 hover:bg-teal-50 w-full text-left px-3 py-2 rounded-lg font-medium text-sm"
-                  >
-                    Export Current View (CSV)
-                  </Button>
-                </Menu.Item>
-              </Menu>
-            }
-            trigger={["click"]}
-            placement="bottomRight"
-          >
-            <Button
-              type="primary"
-              icon={<MdFileDownload className="text-white" />}
-              loading={exportLoading}
-              className="bg-teal-600 hover:bg-teal-700 border-none rounded-xl font-semibold px-4 flex items-center shadow-lg"
+          hasEditPermission && (
+            <Dropdown
+              overlay={
+                <Menu className="rounded-xl shadow-2xl bg-white border border-gray-100 p-2 min-w-[200px]">
+                  <Menu.Item key="all">
+                    <Button
+                      type="text"
+                      icon={<MdFileDownload className="text-green-600" />}
+                      onClick={exportAllToCSV}
+                      loading={exportLoading}
+                      className="flex items-center text-green-600 hover:bg-green-50 w-full text-left px-3 py-2 rounded-lg font-medium text-sm"
+                    >
+                      Export All Products (CSV)
+                    </Button>
+                  </Menu.Item>
+                  <Menu.Item key="filtered">
+                    <Button
+                      type="text"
+                      icon={<MdFileDownload className="text-blue-600" />}
+                      onClick={exportFilteredToCSV}
+                      loading={exportLoading}
+                      disabled={tableData.length === 0}
+                      className="flex items-center text-blue-600 hover:bg-blue-50 w-full text-left px-3 py-2 rounded-lg font-medium text-sm"
+                    >
+                      Export Filtered Products (CSV)
+                    </Button>
+                  </Menu.Item>
+                  <Menu.Item key="current">
+                    <Button
+                      type="text"
+                      icon={<MdFileDownload className="text-teal-600" />}
+                      onClick={exportToCSV}
+                      loading={exportLoading}
+                      className="flex items-center text-teal-600 hover:bg-teal-50 w-full text-left px-3 py-2 rounded-lg font-medium text-sm"
+                    >
+                      Export Current View (CSV)
+                    </Button>
+                  </Menu.Item>
+                </Menu>
+              }
+              trigger={["click"]}
+              placement="bottomRight"
             >
-              Export CSV
-            </Button>
-          </Dropdown>
+              <Button
+                type="primary"
+                icon={<MdFileDownload className="text-white" />}
+                loading={exportLoading}
+                className="bg-teal-600 hover:bg-teal-700 border-none rounded-xl font-semibold px-4 flex items-center shadow-lg"
+              >
+                Export CSV
+              </Button>
+            </Dropdown>
+          )
         }
       />
+
+      {!hasEditPermission && !hasDeletePermission && (
+        <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-yellow-800 font-medium flex items-center gap-2">
+            <LockOutlined />
+            You have view-only access to products. Contact an administrator to request edit permissions.
+          </p>
+        </div>
+      )}
 
       {formStatus ? (
         <AddForms
@@ -1699,103 +1752,105 @@ const Products = () => {
             </div>
           </Modal>
 
-          <Modal
-            title={
-              <span className="text-xl md:text-2xl font-extrabold text-gray-900 tracking-tight">
-                Clone Product
-              </span>
-            }
-            open={cloneModal}
-            onCancel={handleCloseModal}
-            footer={null}
-            className="rounded-3xl"
-            bodyStyle={{ padding: "24px" }}
-            width={500}
-          >
-            <Form form={form} layout="vertical" onFinish={handleSubmit}>
-              <Form.Item
-                label={
-                  <span className="text-sm font-semibold text-gray-700">
-                    Category
-                  </span>
-                }
-                name="category_details"
-                rules={[
-                  {
-                    required: true,
-                    message: "Please select a product category!",
-                  },
-                ]}
-              >
-                <Select
-                  placeholder="Select Product Category"
-                  className="w-full rounded-xl"
-                  onChange={onCloneCategoryChange}
+          {hasEditPermission && (
+            <Modal
+              title={
+                <span className="text-xl md:text-2xl font-extrabold text-gray-900 tracking-tight">
+                  Clone Product
+                </span>
+              }
+              open={cloneModal}
+              onCancel={handleCloseModal}
+              footer={null}
+              className="rounded-3xl"
+              bodyStyle={{ padding: "24px" }}
+              width={500}
+            >
+              <Form form={form} layout="vertical" onFinish={handleSubmit}>
+                <Form.Item
+                  label={
+                    <span className="text-sm font-semibold text-gray-700">
+                      Category
+                    </span>
+                  }
+                  name="category_details"
+                  rules={[
+                    {
+                      required: true,
+                      message: "Please select a product category!",
+                    },
+                  ]}
                 >
-                  {categoryData
-                    .filter(
-                      (res) =>
-                        res._id !==
-                        _.get(cloneProductDetails, "category_details._id", "")
-                    )
-                    .map((item) => (
+                  <Select
+                    placeholder="Select Product Category"
+                    className="w-full rounded-xl"
+                    onChange={onCloneCategoryChange}
+                  >
+                    {categoryData
+                      .filter(
+                        (res) =>
+                          res._id !==
+                          _.get(cloneProductDetails, "category_details._id", "")
+                      )
+                      .map((item) => (
+                        <Select.Option key={item._id} value={item._id}>
+                          {item.main_category_name}
+                        </Select.Option>
+                      ))}
+                  </Select>
+                </Form.Item>
+
+                <Form.Item
+                  label={
+                    <span className="text-sm font-semibold text-gray-700">
+                      Sub Category
+                    </span>
+                  }
+                  name="sub_category_details"
+                  rules={[
+                    {
+                      required: true,
+                      message: "Please select a product sub-category!",
+                    },
+                  ]}
+                >
+                  <Select
+                    placeholder="Select Product Sub Category"
+                    className="w-full rounded-xl"
+                    disabled={
+                      !form.getFieldValue("category_details") ||
+                      subcategoryDataFilter.length === 0
+                    }
+                  >
+                    {subcategoryDataFilter.map((item) => (
                       <Select.Option key={item._id} value={item._id}>
-                        {item.main_category_name}
+                        {item.sub_category_name}
                       </Select.Option>
                     ))}
-                </Select>
-              </Form.Item>
+                  </Select>
+                </Form.Item>
 
-              <Form.Item
-                label={
-                  <span className="text-sm font-semibold text-gray-700">
-                    Sub Category
-                  </span>
-                }
-                name="sub_category_details"
-                rules={[
-                  {
-                    required: true,
-                    message: "Please select a product sub-category!",
-                  },
-                ]}
-              >
-                <Select
-                  placeholder="Select Product Sub Category"
-                  className="w-full rounded-xl"
-                  disabled={
-                    !form.getFieldValue("category_details") ||
-                    subcategoryDataFilter.length === 0
-                  }
-                >
-                  {subcategoryDataFilter.map((item) => (
-                    <Select.Option key={item._id} value={item._id}>
-                      {item.sub_category_name}
-                    </Select.Option>
-                  ))}
-                </Select>
-              </Form.Item>
-
-              <Form.Item className="mb-0">
-                <div className="flex justify-end gap-4">
-                  <Button
-                    onClick={handleCloseModal}
-                    className="bg-gray-200 text-gray-900 hover:bg-gray-300 border-none rounded-xl font-semibold px-6"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="primary"
-                    htmlType="submit"
-                    className="bg-teal-600 hover:bg-teal-700 border-none rounded-xl font-semibold px-6"
-                    loading={loading}
-                  >
-                    Clone Product
-                  </Button>
-                </div>
-              </Form.Item>
-            </Form>
-          </Modal>
+                <Form.Item className="mb-0">
+                  <div className="flex justify-end gap-4">
+                    <Button
+                      onClick={handleCloseModal}
+                      className="bg-gray-200 text-gray-900 hover:bg-gray-300 border-none rounded-xl font-semibold px-6"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="primary"
+                      htmlType="submit"
+                      className="bg-teal-600 hover:bg-teal-700 border-none rounded-xl font-semibold px-6"
+                      loading={loading}
+                    >
+                      Clone Product
+                    </Button>
+                  </div>
+                </Form.Item>
+              </Form>
+            </Modal>
+          )}
         </>
       )}
     </div>

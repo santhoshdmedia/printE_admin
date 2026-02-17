@@ -7,7 +7,8 @@ const initialState = {
     email: "",
     role: "",
     phone: "",
-    profileImg:""
+    profileImg: "",
+    pagePermissions: [],
   },
 };
 
@@ -18,8 +19,11 @@ const authSlice = createSlice({
     isLoginSuccess: (state, action) => {
       state.user = action.payload;
     },
+    updateUserPermissions: (state, action) => {
+      state.user.pagePermissions = action.payload;
+    },
   },
 });
 
-export const { isLoginSuccess } = authSlice.actions;
+export const { isLoginSuccess, updateUserPermissions } = authSlice.actions;
 export default authSlice.reducer;

@@ -1,5 +1,6 @@
 import { Button, Checkbox, Form, Input, message, Modal, Select, Switch, Table, Tooltip, Collapse } from "antd";
 import { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
 import { addSubCategory, deleteSubCategory, editSubCategory, getMainCategory, getSubCategory } from "../../api";
 import { CUSTOM_ERROR_NOTIFICATION, ERROR_NOTIFICATION, SUCCESS_NOTIFICATION } from "../../helper/notification_helper";
 import _ from "lodash";
@@ -12,6 +13,7 @@ import CustomTable from "../../components/CustomTable";
 import DefaultTile from "../../components/DefaultTile";
 import { ICON_HELPER } from "../../helper/iconhelper";
 import { formValidation } from "../../helper/formvalidation";
+import { canEditPage, canDeletePage, isSuperAdmin } from "../../helper/permissionHelper";
 import {
   DndContext,
   closestCenter,
@@ -89,6 +91,7 @@ const SortableItem = ({ item, index }) => {
 };
 
 const SubCategory = () => {
+  const { user } = useSelector((state) => state.authSlice);
   const [form] = Form.useForm();
   const [subData, setSubData] = useState([]);
   const [id, setId] = useState(null);
@@ -103,6 +106,10 @@ const SubCategory = () => {
   const [reorderModalStatus, setReorderModalStatus] = useState(false);
   const [reorderData, setReorderData] = useState([]);
   const [groupedSubcategories, setGroupedSubcategories] = useState({});
+
+  // Check permissions
+  const hasEditPermission = isSuperAdmin(user.role) || canEditPage(user.pagePermissions, "sub-category");
+  const hasDeletePermission = isSuperAdmin(user.role) || canDeletePage(user.pagePermissions, "sub-category");
 
   // DnD Kit Sensors
   const sensors = useSensors(
@@ -352,7 +359,6 @@ const SubCategory = () => {
         );
       },
     },
-
     {
       title: "Position",
       dataIndex: "position",
@@ -363,7 +369,13 @@ const SubCategory = () => {
       dataIndex: "show",
       align: "center",
       render: (data, record, index) => {
-        return <Checkbox checked={data} onChange={(e) => handleOnChangeShowBrowseAllCategory(e, record._id ?? "")} />;
+        return (
+          <Checkbox 
+            checked={data} 
+            onChange={(e) => handleOnChangeShowBrowseAllCategory(e, record._id ?? "")}
+            disabled={!hasEditPermission}
+          />
+        );
       },
     },
     {
@@ -462,22 +474,21 @@ const SubCategory = () => {
         );
       },
     },
-
     {
       title: "Actions",
       render: (data) => {
         return (
           <div className="flex gap-2">
-            <div className="">
+            {hasEditPermission && (
               <Button className="text-green-500 border-green-300" onClick={() => handleUpdate(data)}>
                 Edit
               </Button>
-            </div>
-            <div className="">
-              <Button className="text-red-600  border-red-300" variant="filled" onClick={() => handleDelete(data._id)}>
+            )}
+            {hasDeletePermission && (
+              <Button className="text-red-600 border-red-300" variant="filled" onClick={() => handleDelete(data._id)}>
                 Delete
               </Button>
-            </div>
+            )}
           </div>
         );
       },
@@ -495,24 +506,26 @@ const SubCategory = () => {
         handleFilterChange={handleFilterChange}
         filterData={subData}
         title={"Add Sub Category"}
-        addModal={true}
+        addModal={hasEditPermission}
         addModalText="Sub Category"
         modalFormStatus={modalStatus}
         setModalFormStatus={setModalStatus}
       />
 
       {/* Reorder Buttons */}
-      <div className="mb-4 flex justify-end gap-2">
-        <Button
-          type="primary"
-          onClick={openReorderModalAll}
-          className="bg-blue-500 hover:bg-blue-600"
-          icon={<MdDragIndicator />}
-          disabled={tableData.length === 0}
-        >
-          Reorder All Subcategories
-        </Button>
-      </div>
+      {hasEditPermission && (
+        <div className="mb-4 flex justify-end gap-2">
+          <Button
+            type="primary"
+            onClick={openReorderModalAll}
+            className="bg-blue-500 hover:bg-blue-600"
+            icon={<MdDragIndicator />}
+            disabled={tableData.length === 0}
+          >
+            Reorder All Subcategories
+          </Button>
+        </div>
+      )}
 
       {/* Grouped Display by Main Category */}
       <div className="mb-6">
@@ -527,18 +540,20 @@ const SubCategory = () => {
                     <span className="font-semibold text-lg">
                       {group.mainCategoryName} ({group.subcategories.length} subcategories)
                     </span>
-                    <Button
-                      size="small"
-                      type="primary"
-                      icon={<MdDragIndicator />}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openReorderModal(mainCategoryId);
-                      }}
-                      className="bg-green-500 hover:bg-green-600"
-                    >
-                      Reorder
-                    </Button>
+                    {hasEditPermission && (
+                      <Button
+                        size="small"
+                        type="primary"
+                        icon={<MdDragIndicator />}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openReorderModal(mainCategoryId);
+                        }}
+                        className="bg-green-500 hover:bg-green-600"
+                      >
+                        Reorder
+                      </Button>
+                    )}
                   </div>
                 }
                 key={mainCategoryId}
@@ -597,20 +612,24 @@ const SubCategory = () => {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button
-                          size="small"
-                          className="text-green-500 border-green-300"
-                          onClick={() => handleUpdate(subcat)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          size="small"
-                          className="text-red-600 border-red-300"
-                          onClick={() => handleDelete(subcat._id)}
-                        >
-                          Delete
-                        </Button>
+                        {hasEditPermission && (
+                          <Button
+                            size="small"
+                            className="text-green-500 border-green-300"
+                            onClick={() => handleUpdate(subcat)}
+                          >
+                            Edit
+                          </Button>
+                        )}
+                        {hasDeletePermission && (
+                          <Button
+                            size="small"
+                            className="text-red-600 border-red-300"
+                            onClick={() => handleDelete(subcat._id)}
+                          >
+                            Delete
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -621,114 +640,88 @@ const SubCategory = () => {
         </Collapse>
       </div>
 
-      {/* Original Table View */}
-      {/* <div className="mt-6">
-        <h2 className="text-xl font-bold mb-4">All Subcategories (Table View)</h2>
-        <CustomTable loading={loading} dataSource={tableData} columns={columns} />
-      </div> */}
-
       {/* Add/Edit Modal */}
-      <Modal title="Sub Category" closable={false} open={modalStatus} footer={null} width={900}>
-        <Form form={form} layout="vertical" onFinish={handleFinish}>
-          <Form.Item name="select_main_category" label="Select Main Category" rules={[formValidation("Select Main Category")]}>
-            <Select placeholder="Select Main Category" className="!h-[50px]">
-              {subData.map((res) => (
-                <Select.Option key={res._id} value={res._id}>
-                  {res.main_category_name}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item name="sub_category_name" label="Sub Category Name" rules={[{ required: true, message: "Please enter a subcategory name!" }]}>
-            <Input placeholder="Enter Sub Category Name" className="!h-[50px]" />
-          </Form.Item>
-
-          <div className="flex gap-4">
-            <Form.Item className="w-full" name="sub_category_image" label="Subcategory Image">
-              {image_path ? <ShowImages path={image_path} setImage={setImagePath} /> : <UploadHelper setImagePath={setImagePath} />}
+      {hasEditPermission && (
+        <Modal title="Sub Category" closable={false} open={modalStatus} footer={null} width={900}>
+          <Form form={form} layout="vertical" onFinish={handleFinish}>
+            <Form.Item name="select_main_category" label="Select Main Category" rules={[formValidation("Select Main Category")]}>
+              <Select placeholder="Select Main Category" className="!h-[50px]">
+                {subData.map((res) => (
+                  <Select.Option key={res._id} value={res._id}>
+                    {res.main_category_name}
+                  </Select.Option>
+                ))}
+              </Select>
             </Form.Item>
 
-            <Form.Item className="w-full" name="sub_category_banner_image" label="Banner Image">
-              {banner_image_path ? <ShowImages path={banner_image_path} setImage={setBannerImage} /> : <UploadHelper setImagePath={setBannerImage} />}
+            <Form.Item name="sub_category_name" label="Sub Category Name" rules={[{ required: true, message: "Please enter a subcategory name!" }]}>
+              <Input placeholder="Enter Sub Category Name" className="!h-[50px]" />
             </Form.Item>
-          </div>
 
-          <div className="border-t pt-4 mt-4">
-           
-            
-            {/* <div className="flex gap-4">
-              <Form.Item className="w-full" name="nav_menu_square_image" label="Square Image (For 1 Empty Box)">
-                {nav_square_image_path ? (
-                  <ShowImages path={nav_square_image_path} setImage={setNavSquareImage} />
-                ) : (
-                  <UploadHelper setImagePath={setNavSquareImage} />
-                )}
-                <p className="text-xs text-gray-500 mt-1">Recommended: Square aspect ratio (e.g., 300x300px)</p>
+            <div className="flex gap-4">
+              <Form.Item className="w-full" name="sub_category_image" label="Subcategory Image">
+                {image_path ? <ShowImages path={image_path} setImage={setImagePath} /> : <UploadHelper setImagePath={setImagePath} />}
               </Form.Item>
 
-              <Form.Item className="w-full" name="nav_menu_horizontal_image" label="Horizontal Image (For 2-3 Empty Boxes)">
-                {nav_horizontal_image_path ? (
-                  <ShowImages path={nav_horizontal_image_path} setImage={setNavHorizontalImage} />
-                ) : (
-                  <UploadHelper setImagePath={setNavHorizontalImage} />
-                )}
-                <p className="text-xs text-gray-500 mt-1">Recommended: Wide aspect ratio (e.g., 600x300px)</p>
+              <Form.Item className="w-full" name="sub_category_banner_image" label="Banner Image">
+                {banner_image_path ? <ShowImages path={banner_image_path} setImage={setBannerImage} /> : <UploadHelper setImagePath={setBannerImage} />}
               </Form.Item>
-            </div> */}
-          </div>
+            </div>
 
-          <div className="flex justify-end gap-2 mt-4">
-            <Button type="default" onClick={handleClose}>
-              Close
-            </Button>
-            <Button type="primary" htmlType="submit" className="bg-primary">
-              {id ? "Edit" : "Add"}
-            </Button>
-          </div>
-        </Form>
-      </Modal>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button type="default" onClick={handleClose}>
+                Close
+              </Button>
+              <Button type="primary" htmlType="submit" className="bg-primary">
+                {id ? "Edit" : "Add"}
+              </Button>
+            </div>
+          </Form>
+        </Modal>
+      )}
 
       {/* Reorder Modal with DnD Kit */}
-      <Modal
-        title={
-          <div className="flex items-center gap-2">
-            <MdDragIndicator className="text-blue-500 text-xl" />
-            <span>Reorder Subcategories</span>
-          </div>
-        }
-        open={reorderModalStatus}
-        onCancel={() => setReorderModalStatus(false)}
-        width={800}
-        footer={[
-          <Button key="cancel" onClick={() => setReorderModalStatus(false)}>
-            Cancel
-          </Button>,
-          <Button key="save" type="primary" onClick={saveReorder} loading={loading} className="bg-primary">
-            Save Order
-          </Button>,
-        ]}
-      >
-        <div className="py-4">
-          <p className="mb-4 text-gray-600">
-            <strong>Drag and drop</strong> to reorder subcategories. The new order will be saved across your entire application.
-          </p>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={reorderData.map((item) => item._id)} strategy={verticalListSortingStrategy}>
-              <div className="max-h-[500px] overflow-y-auto pr-2">
-                {reorderData.map((item, index) => (
-                  <SortableItem key={item._id} item={item} index={index} />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-          {reorderData.length === 0 && (
-            <div className="text-center py-8 text-gray-400">
-              <p>No subcategories available to reorder</p>
+      {hasEditPermission && (
+        <Modal
+          title={
+            <div className="flex items-center gap-2">
+              <MdDragIndicator className="text-blue-500 text-xl" />
+              <span>Reorder Subcategories</span>
             </div>
-          )}
-        </div>
-      </Modal>
+          }
+          open={reorderModalStatus}
+          onCancel={() => setReorderModalStatus(false)}
+          width={800}
+          footer={[
+            <Button key="cancel" onClick={() => setReorderModalStatus(false)}>
+              Cancel
+            </Button>,
+            <Button key="save" type="primary" onClick={saveReorder} loading={loading} className="bg-primary">
+              Save Order
+            </Button>,
+          ]}
+        >
+          <div className="py-4">
+            <p className="mb-4 text-gray-600">
+              <strong>Drag and drop</strong> to reorder subcategories. The new order will be saved across your entire application.
+            </p>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={reorderData.map((item) => item._id)} strategy={verticalListSortingStrategy}>
+                <div className="max-h-[500px] overflow-y-auto pr-2">
+                  {reorderData.map((item, index) => (
+                    <SortableItem key={item._id} item={item} index={index} />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+            {reorderData.length === 0 && (
+              <div className="text-center py-8 text-gray-400">
+                <p>No subcategories available to reorder</p>
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

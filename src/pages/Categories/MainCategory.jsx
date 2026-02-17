@@ -1,5 +1,6 @@
 import { Button, Checkbox, Form, Input, Modal, Spin, Switch, Table } from "antd";
 import React, { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
 import { MdDelete } from "react-icons/md";
 import { FaEdit } from "react-icons/fa";
 import { CUSTOM_ERROR_NOTIFICATION, ERROR_NOTIFICATION, SUCCESS_NOTIFICATION } from "../../helper/notification_helper";
@@ -9,8 +10,10 @@ import CustomTable from "../../components/CustomTable";
 import DefaultTile from "../../components/DefaultTile";
 import ShowImages from "../../helper/ShowImages";
 import UploadHelper from "../../helper/UploadHelper";
+import { canEditPage, canDeletePage, isSuperAdmin } from "../../helper/permissionHelper";
 
 const MainCategory = () => {
+  const { user } = useSelector((state) => state.authSlice);
   const [formStatus, setFormStatus] = useState(false);
   const [form] = Form.useForm();
   const [id, setId] = useState(null);
@@ -19,6 +22,10 @@ const MainCategory = () => {
   const [loading, setLoading] = useState(false);
   const [navSquareImage, setNavSquareImage] = useState(null);
   const [navHorizontalImage, setNavHorizontalImage] = useState(null);
+
+  // Check permissions
+  const hasEditPermission = isSuperAdmin(user.role) || canEditPage(user.pagePermissions, "main-category");
+  const hasDeletePermission = isSuperAdmin(user.role) || canDeletePage(user.pagePermissions, "main-category");
 
   const handleFinish = async (values) => {
     try {
@@ -134,6 +141,7 @@ const MainCategory = () => {
           onChange={(e) => {
             handleTopBarChange(e?.target?.checked, status?._id);
           }}
+          disabled={!hasEditPermission}
         />
       ),
     },
@@ -190,16 +198,16 @@ const MainCategory = () => {
       render: (data) => {
         return (
           <div className="flex gap-1">
-            <div>
+            {hasEditPermission && (
               <Button onClick={() => onEditButtonHandler(data)} className="text-green-600">
                 Edit
               </Button>
-            </div>
-            <div>
+            )}
+            {hasDeletePermission && (
               <Button onClick={() => onDeleteButtonHandler(data._id)} className="text-red-500">
                 Delete
               </Button>
-            </div>
+            )}
           </div>
         );
       },
@@ -208,7 +216,13 @@ const MainCategory = () => {
 
   return (
     <>
-      <DefaultTile title={"Add Main Category"} addModal={true} addModalText="Main Category" formStatus={formStatus} setModalFormStatus={setFormStatus} />
+      <DefaultTile 
+        title={"Add Main Category"} 
+        addModal={hasEditPermission} 
+        addModalText="Main Category" 
+        formStatus={formStatus} 
+        setModalFormStatus={setFormStatus} 
+      />
 
       <div>
         <CustomTable loading={loading} dataSource={mainCategoryData} columns={columns} />

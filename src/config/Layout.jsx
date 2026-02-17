@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import React, { useEffect, useState } from "react";
 import { Layout, Menu } from "antd";
 import { Outlet, useHref, useNavigate } from "react-router-dom";
@@ -10,6 +9,7 @@ import { checkloginstatus } from "../api";
 import { useDispatch, useSelector } from "react-redux";
 import TopNavbar from "../components/TopNavbar";
 import { IMAGE_HELPER } from "../helper/imagehelper";
+import { canViewPage, getAccessiblePages, isSuperAdmin } from "../helper/permissionHelper";
 
 const { Sider } = Layout;
 
@@ -18,15 +18,44 @@ const App = () => {
   const navigate = useNavigate();
   const path = useHref();
   const dispatch = useDispatch();
-  const [new_menu_data, setNew_menu_data] = useState(MENU_DATA);
+  const [new_menu_data, setNew_menu_data] = useState([]);
   const { user } = useSelector((state) => state.authSlice);
   const [openKeys, setOpenKeys] = useState([]);
 
   useEffect(() => {
-    const updatedMenuData = MENU_DATA.filter((menu) => 
-      menu.for.includes(user.role)
-    );
-    setNew_menu_data(updatedMenuData);
+    if (isSuperAdmin(user.role)) {
+      // Super admin sees all menus
+      setNew_menu_data(MENU_DATA);
+    } else if (user.pagePermissions && user.pagePermissions.length > 0) {
+      // Filter menu based on page permissions
+      const accessiblePages = getAccessiblePages(user.pagePermissions);
+      
+      const filteredMenuData = MENU_DATA.filter((menu) => {
+        // Check if user has access to parent menu
+        const hasParentAccess = menu.special.some(special => 
+          accessiblePages.includes(special)
+        );
+        
+        if (!hasParentAccess) return false;
+
+        // If menu has children, filter them too
+        if (menu.children && menu.children.length > 0) {
+          menu.children = menu.children.filter(child =>
+            child.special.some(special => accessiblePages.includes(special))
+          );
+        }
+
+        return true;
+      });
+
+      setNew_menu_data(filteredMenuData);
+    } else {
+      // Fallback to role-based menu (old system)
+      const updatedMenuData = MENU_DATA.filter((menu) => 
+        menu.for.includes(user.role)
+      );
+      setNew_menu_data(updatedMenuData);
+    }
   }, [user]);
 
   const fetchdata = async () => {

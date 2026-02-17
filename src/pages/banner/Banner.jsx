@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
 import DefaultTile from "../../components/DefaultTile";
 import { Button, Card, Divider, Empty, Form, Image, Input, Modal, Select, Spin, Switch, Tag, message, DatePicker, Badge, Tooltip } from "antd";
 import ShowImages from "../../helper/ShowImages";
@@ -12,11 +13,12 @@ import { ICON_HELPER } from "../../helper/iconhelper";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { HolderOutlined, EyeOutlined, EyeInvisibleOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { HolderOutlined, EyeOutlined, EyeInvisibleOutlined, ClockCircleOutlined, LockOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { canEditPage, canDeletePage, isSuperAdmin } from "../../helper/permissionHelper";
 
 // Sortable Card Component
-const SortableCard = ({ id, children }) => {
+const SortableCard = ({ id, children, disabled }) => {
   const {
     attributes,
     listeners,
@@ -24,23 +26,24 @@ const SortableCard = ({ id, children }) => {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id });
+  } = useSortable({ id, disabled });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-    cursor: 'move',
+    cursor: disabled ? 'default' : 'move',
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div ref={setNodeRef} style={style} {...(disabled ? {} : { ...attributes, ...listeners })}>
       {children}
     </div>
   );
 };
 
 const Banner = () => {
+  const { user } = useSelector((state) => state.authSlice);
   const [formStatus, setFormStatus] = useState(false);
   const [id, setId] = useState(null);
   const [productData, setProductData] = useState([]);
@@ -49,6 +52,10 @@ const Banner = () => {
   const [submitting, setSubmitting] = useState(false);
 
   const [form] = Form.useForm();
+
+  // Check permissions
+  const hasEditPermission = isSuperAdmin(user.role) || canEditPage(user.pagePermissions, "banners");
+  const hasDeletePermission = isSuperAdmin(user.role) || canDeletePage(user.pagePermissions, "banners");
 
   // Setup sensors for drag and drop
   const sensors = useSensors(
@@ -80,6 +87,11 @@ const Banner = () => {
   }, []);
 
   const handleFinish = async (values) => {
+    if (!hasEditPermission) {
+      ERROR_NOTIFICATION({ message: "You don't have permission to modify banners" });
+      return;
+    }
+
     try {
       setSubmitting(true);
       
@@ -143,6 +155,11 @@ const Banner = () => {
   }, []);
 
   const handleEdit = (res) => {
+    if (!hasEditPermission) {
+      ERROR_NOTIFICATION({ message: "You don't have permission to edit banners" });
+      return;
+    }
+
     try {
       // Extract product IDs - handle both populated and non-populated cases
       let productIds = [];
@@ -177,7 +194,12 @@ const Banner = () => {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (bannerId) => {
+    if (!hasDeletePermission) {
+      ERROR_NOTIFICATION({ message: "You don't have permission to delete banners" });
+      return;
+    }
+
     Modal.confirm({
       title: 'Delete Banner',
       content: 'Are you sure you want to delete this banner?',
@@ -186,7 +208,7 @@ const Banner = () => {
       cancelText: 'Cancel',
       onOk: async () => {
         try {
-          const result = await deleteBanner(id);
+          const result = await deleteBanner(bannerId);
           SUCCESS_NOTIFICATION(result);
           collectBanners();
         } catch (err) {
@@ -197,6 +219,11 @@ const Banner = () => {
   };
 
   const handleToggleVisibility = async (bannerId, currentVisibility) => {
+    if (!hasEditPermission) {
+      ERROR_NOTIFICATION({ message: "You don't have permission to modify banner visibility" });
+      return;
+    }
+
     try {
       const result = await toggleBannerVisibility(bannerId);
       SUCCESS_NOTIFICATION(result);
@@ -212,6 +239,11 @@ const Banner = () => {
 
   // Handle drag end
   const handleDragEnd = async (event) => {
+    if (!hasEditPermission) {
+      ERROR_NOTIFICATION({ message: "You don't have permission to reorder banners" });
+      return;
+    }
+
     const { active, over } = event;
 
     if (!over) return;
@@ -269,12 +301,22 @@ const Banner = () => {
       <div className="w-full">
         <DefaultTile 
           title={"Banner Management"} 
-          add={true} 
+          add={hasEditPermission} 
           addText="Banner" 
           formStatus={formStatus} 
           setFormStatus={setFormStatus} 
         />
         
+        {/* Permission Warning */}
+        {!hasEditPermission && !hasDeletePermission && (
+          <div className="mb-4 mx-14 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-yellow-800 font-medium flex items-center gap-2">
+              <LockOutlined />
+              You have view-only access to banners. Contact an administrator to request edit permissions.
+            </p>
+          </div>
+        )}
+
         {/* Statistics Bar */}
         <div className="bg-white rounded-lg p-4 mb-4 mx-14">
           <div className="flex gap-6">
@@ -299,15 +341,17 @@ const Banner = () => {
 
         {_.isEmpty(banners) ? (
           <div className="!mx-auto !h-[600px] center_div">
-            <Empty />
+            <Empty description="No banners found. Create your first banner to get started!" />
           </div>
         ) : (
           <>
-            <div className="mb-4 px-14">
-              <Tag color="blue" icon={<HolderOutlined />}>
-                Drag and drop cards to reorder banners
-              </Tag>
-            </div>
+            {hasEditPermission && (
+              <div className="mb-4 px-14">
+                <Tag color="blue" icon={<HolderOutlined />}>
+                  Drag and drop cards to reorder banners
+                </Tag>
+              </div>
+            )}
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
@@ -323,7 +367,11 @@ const Banner = () => {
                     const isExpired = res.expiry_date && new Date(res.expiry_date) < new Date();
                     
                     return (
-                      <SortableCard key={res._id} id={res._id}>
+                      <SortableCard 
+                        key={res._id} 
+                        id={res._id}
+                        disabled={!hasEditPermission}
+                      >
                         <Badge.Ribbon 
                           text={res.is_visible ? "Visible" : "Hidden"} 
                           color={res.is_visible ? "green" : "red"}
@@ -333,40 +381,58 @@ const Banner = () => {
                             className={`!w-full !h-fit ${!res.is_visible ? 'opacity-60' : ''}`}
                             actions={[
                               <div className="center_div justify-between px-6 group" key="actions">
-                                <Tooltip title={res.is_visible ? "Hide Banner" : "Show Banner"}>
-                                  {res.is_visible ? (
-                                    <EyeOutlined
-                                      onClick={() => handleToggleVisibility(res._id, res.is_visible)}
-                                      className="!text-xl group-hover:text-gray-500 hover:!text-green-500"
-                                    />
-                                  ) : (
-                                    <EyeInvisibleOutlined
-                                      onClick={() => handleToggleVisibility(res._id, res.is_visible)}
-                                      className="!text-xl group-hover:text-gray-500 hover:!text-red-500"
-                                    />
-                                  )}
-                                </Tooltip>
+                                {hasEditPermission ? (
+                                  <Tooltip title={res.is_visible ? "Hide Banner" : "Show Banner"}>
+                                    {res.is_visible ? (
+                                      <EyeOutlined
+                                        onClick={() => handleToggleVisibility(res._id, res.is_visible)}
+                                        className="!text-xl group-hover:text-gray-500 hover:!text-green-500 cursor-pointer"
+                                      />
+                                    ) : (
+                                      <EyeInvisibleOutlined
+                                        onClick={() => handleToggleVisibility(res._id, res.is_visible)}
+                                        className="!text-xl group-hover:text-gray-500 hover:!text-red-500 cursor-pointer"
+                                      />
+                                    )}
+                                  </Tooltip>
+                                ) : (
+                                  <Tooltip title="No permission to modify visibility">
+                                    <LockOutlined className="!text-xl text-gray-400" />
+                                  </Tooltip>
+                                )}
                                 <Divider type="vertical" />
-                                <Tooltip title="Edit Banner">
-                                  <ICON_HELPER.EDIT_ICON
-                                    onClick={() => handleEdit(res)}
-                                    className="!text-xl group-hover:text-gray-500 hover:!text-primary"
-                                  />
-                                </Tooltip>
+                                {hasEditPermission ? (
+                                  <Tooltip title="Edit Banner">
+                                    <ICON_HELPER.EDIT_ICON
+                                      onClick={() => handleEdit(res)}
+                                      className="!text-xl group-hover:text-gray-500 hover:!text-primary cursor-pointer"
+                                    />
+                                  </Tooltip>
+                                ) : (
+                                  <Tooltip title="No permission to edit">
+                                    <LockOutlined className="!text-xl text-gray-400" />
+                                  </Tooltip>
+                                )}
                                 <Divider type="vertical" />
                                 <Tooltip title="View on Site">
                                   <ICON_HELPER.EYE_ICON
-                                    className="!text-xl group-hover:text-gray-500 hover:!text-primary"
+                                    className="!text-xl group-hover:text-gray-500 hover:!text-primary cursor-pointer"
                                     onClick={() => handleView(res)}
                                   />
                                 </Tooltip>
                                 <Divider type="vertical" />
-                                <Tooltip title="Delete Banner">
-                                  <ICON_HELPER.DELETE_ICON
-                                    onClick={() => handleDelete(res?._id)}
-                                    className="!text-xl group-hover:text-gray-500 hover:!text-primary"
-                                  />
-                                </Tooltip>
+                                {hasDeletePermission ? (
+                                  <Tooltip title="Delete Banner">
+                                    <ICON_HELPER.DELETE_ICON
+                                      onClick={() => handleDelete(res?._id)}
+                                      className="!text-xl group-hover:text-gray-500 hover:!text-primary cursor-pointer"
+                                    />
+                                  </Tooltip>
+                                ) : (
+                                  <Tooltip title="No permission to delete">
+                                    <LockOutlined className="!text-xl text-gray-400" />
+                                  </Tooltip>
+                                )}
                               </div>,
                             ]}
                             cover={
@@ -376,9 +442,11 @@ const Banner = () => {
                                   src={res.banner_image}
                                   preview={true}
                                 />
-                                <div className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md">
-                                  <HolderOutlined className="text-gray-500" />
-                                </div>
+                                {hasEditPermission && (
+                                  <div className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md">
+                                    <HolderOutlined className="text-gray-500" />
+                                  </div>
+                                )}
                                 <div className="absolute top-2 left-2 bg-black/70 text-white rounded-full px-2 py-1 text-xs font-bold">
                                   #{res.position !== undefined ? res.position : index}
                                 </div>
@@ -440,205 +508,217 @@ const Banner = () => {
           </>
         )}
         
-        <Modal 
-          open={formStatus} 
-          footer={false} 
-          closable={true} 
-          title={`${id ? "Update" : "Add"} Banner`} 
-          onCancel={handleCancel}
-          width={700}
-        >
-          <Form 
-            layout="vertical" 
-            form={form} 
-            onFinish={handleFinish}
-            initialValues={{
-              is_reward: false,
-              is_visible: true,
-              feature: ""
-            }}
+        {hasEditPermission && (
+          <Modal 
+            open={formStatus} 
+            footer={false} 
+            closable={true} 
+            title={
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-semibold">
+                  {id ? "Update" : "Add"} Banner
+                </span>
+              </div>
+            }
+            onCancel={handleCancel}
+            width={700}
           >
-            {/* Image Upload Field */}
-            <Form.Item 
-              label={<CustomLabel name="Banner Image" />}
-              name="banner_image"
-              rules={[formValidation("Please upload banner image")]}
-            >
-              <UploadHelper 
-                setImagePath={(path) => {
-                  form.setFieldsValue({ banner_image: path });
-                }}
-              />
-            </Form.Item>
-
-            {/* Show uploaded image */}
-            <Form.Item shouldUpdate noStyle>
-              {() => {
-                const image = form.getFieldValue('banner_image');
-                return image ? (
-                  <div className="mb-4">
-                    <Image 
-                      src={image} 
-                      alt="Banner preview" 
-                      className="max-h-40 object-contain"
-                    />
-                  </div>
-                ) : null;   
+            <Form 
+              layout="vertical" 
+              form={form} 
+              onFinish={handleFinish}
+              initialValues={{
+                is_reward: false,
+                is_visible: true,
+                feature: ""
               }}
-            </Form.Item>
-
-            {/* Banner Name */}
-            <Form.Item 
-              label="Banner Name" 
-              name="banner_name" 
-              rules={[formValidation("Enter Banner Name")]}
             >
-              <Input 
-                className="h-[45px]" 
-                placeholder="Enter Banner Name"
-              />
-            </Form.Item>
-
-            {/* Banner Slug */}
-            <Form.Item 
-              label="Banner Slug" 
-              name="banner_slug"
-              tooltip="URL-friendly version of the banner name"
-            >
-              <Input 
-                className="h-[45px]" 
-                placeholder="e.g., summer-sale-2024"
-              />
-            </Form.Item>
-
-            <div className="grid grid-cols-2 gap-4">
-              {/* Tag */}
+              {/* Image Upload Field */}
               <Form.Item 
-                label="Tag" 
-                name="tag" 
-                rules={[formValidation("Enter Tag")]}
+                label={<CustomLabel name="Banner Image" />}
+                name="banner_image"
+                rules={[formValidation("Please upload banner image")]}
               >
-                <Input className="h-[45px]" placeholder="Enter Tag" />
+                <UploadHelper 
+                  setImagePath={(path) => {
+                    form.setFieldsValue({ banner_image: path });
+                  }}
+                />
               </Form.Item>
 
-              {/* Rating */}
+              {/* Show uploaded image */}
+              <Form.Item shouldUpdate noStyle>
+                {() => {
+                  const image = form.getFieldValue('banner_image');
+                  return image ? (
+                    <div className="mb-4">
+                      <Image 
+                        src={image} 
+                        alt="Banner preview" 
+                        className="max-h-40 object-contain"
+                      />
+                    </div>
+                  ) : null;   
+                }}
+              </Form.Item>
+
+              {/* Banner Name */}
               <Form.Item 
-                label="Rating" 
-                name="rating"
+                label={<span className="font-semibold">Banner Name</span>}
+                name="banner_name" 
+                rules={[formValidation("Enter Banner Name")]}
               >
                 <Input 
                   className="h-[45px]" 
-                  placeholder="Enter Rating" 
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="5"
-                />
-              </Form.Item>
-            </div>
-
-            {/* Expiry Date */}
-            <Form.Item 
-              label="Expiry Date" 
-              name="expiry_date"
-              tooltip="Banner will automatically hide after this date"
-            >
-              <DatePicker 
-                className="w-full h-[45px]"
-                format="YYYY-MM-DD HH:mm"
-                showTime
-                placeholder="Select expiry date and time"
-              />
-            </Form.Item>
-
-            {/* Features */}
-            <Form.Item 
-              label="Features" 
-              name="feature"
-              tooltip="Enter features separated by commas"
-              rules={[formValidation("Enter at least one feature")]}
-            >
-              <Input.TextArea 
-                placeholder="e.g., Free Shipping, 24/7 Support, Money Back Guarantee"
-                rows={3}
-              />
-            </Form.Item>
-
-            <div className="grid grid-cols-2 gap-4">
-              {/* Visibility Switch */}
-              <Form.Item 
-                label="Visible on Site?" 
-                name="is_visible"
-                valuePropName="checked"
-                tooltip="Control whether this banner is shown to users"
-              >
-                <Switch 
-                  checkedChildren={<EyeOutlined />}
-                  unCheckedChildren={<EyeInvisibleOutlined />}
+                  placeholder="Enter Banner Name"
                 />
               </Form.Item>
 
-              {/* Reward Switch */}
+              {/* Banner Slug */}
               <Form.Item 
-                label="Is Reward?" 
-                name="is_reward"
-                valuePropName="checked"
-                tooltip="Reward banners require login"
+                label={<span className="font-semibold">Banner Slug</span>}
+                name="banner_slug"
+                tooltip="URL-friendly version of the banner name"
               >
-                <Switch />
+                <Input 
+                  className="h-[45px]" 
+                  placeholder="e.g., summer-sale-2024"
+                />
               </Form.Item>
-            </div>
 
-            {/* Products Selection */}
-            <Form.Item 
-              label="Products" 
-              name="banner_products" 
-              rules={[formValidation("Select Products")]}
-            >
-              <Select 
-                mode="multiple" 
-                className="w-full" 
-                allowClear 
-                maxTagCount={2}
-                placeholder="Select products"
-                optionLabelProp="label"
-              >
-                {productData
-                  .filter((res) => !res.is_cloned)
-                  .map((res, index) => {
-                    return (
-                      <Select.Option 
-                        key={index} 
-                        value={res._id}
-                        label={res.name}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span>{res.name}</span>
-                          <img 
-                            src={_.get(res, "images[0].path", "")} 
-                            className="!size-[30px] rounded-full ml-2" 
-                            alt={res.name}
-                          />
-                        </div>
-                      </Select.Option>
-                    );
-                  })}
-              </Select>
-            </Form.Item>
+              <div className="grid grid-cols-2 gap-4">
+                {/* Tag */}
+                <Form.Item 
+                  label={<span className="font-semibold">Tag</span>}
+                  name="tag" 
+                  rules={[formValidation("Enter Tag")]}
+                >
+                  <Input className="h-[45px]" placeholder="Enter Tag" />
+                </Form.Item>
 
-            {/* Submit Button */}
-            <Form.Item>
-              <Button 
-                htmlType="submit" 
-                className="button !w-full !h-[50px]" 
-                loading={submitting}
-                type="primary"
+                {/* Rating */}
+                <Form.Item 
+                  label={<span className="font-semibold">Rating</span>}
+                  name="rating"
+                >
+                  <Input 
+                    className="h-[45px]" 
+                    placeholder="Enter Rating" 
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="5"
+                  />
+                </Form.Item>
+              </div>
+
+              {/* Expiry Date */}
+              <Form.Item 
+                label={<span className="font-semibold">Expiry Date</span>}
+                name="expiry_date"
+                tooltip="Banner will automatically hide after this date"
               >
-                {id ? "Update" : "Add"} Banner
-              </Button>
-            </Form.Item>
-          </Form>
-        </Modal>
+                <DatePicker 
+                  className="w-full h-[45px]"
+                  format="YYYY-MM-DD HH:mm"
+                  showTime
+                  placeholder="Select expiry date and time"
+                />
+              </Form.Item>
+
+              {/* Features */}
+              <Form.Item 
+                label={<span className="font-semibold">Features</span>}
+                name="feature"
+                tooltip="Enter features separated by commas"
+                rules={[formValidation("Enter at least one feature")]}
+              >
+                <Input.TextArea 
+                  placeholder="e.g., Free Shipping, 24/7 Support, Money Back Guarantee"
+                  rows={3}
+                />
+              </Form.Item>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Visibility Switch */}
+                <Form.Item 
+                  label={<span className="font-semibold">Visible on Site?</span>}
+                  name="is_visible"
+                  valuePropName="checked"
+                  tooltip="Control whether this banner is shown to users"
+                >
+                  <Switch 
+                    checkedChildren={<EyeOutlined />}
+                    unCheckedChildren={<EyeInvisibleOutlined />}
+                  />
+                </Form.Item>
+
+                {/* Reward Switch */}
+                <Form.Item 
+                  label={<span className="font-semibold">Is Reward?</span>}
+                  name="is_reward"
+                  valuePropName="checked"
+                  tooltip="Reward banners require login"
+                >
+                  <Switch />
+                </Form.Item>
+              </div>
+
+              {/* Products Selection */}
+              <Form.Item 
+                label={<span className="font-semibold">Products</span>}
+                name="banner_products" 
+                rules={[formValidation("Select Products")]}
+              >
+                <Select 
+                  mode="multiple" 
+                  className="w-full" 
+                  allowClear 
+                  maxTagCount={2}
+                  placeholder="Select products"
+                  optionLabelProp="label"
+                  showSearch
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                >
+                  {productData
+                    .filter((res) => !res.is_cloned)
+                    .map((res, index) => {
+                      return (
+                        <Select.Option 
+                          key={index} 
+                          value={res._id}
+                          label={res.name}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span>{res.name}</span>
+                            <img 
+                              src={_.get(res, "images[0].path", "")} 
+                              className="!size-[30px] rounded-full ml-2" 
+                              alt={res.name}
+                            />
+                          </div>
+                        </Select.Option>
+                      );
+                    })}
+                </Select>
+              </Form.Item>
+
+              {/* Submit Button */}
+              <Form.Item>
+                <Button 
+                  htmlType="submit" 
+                  className="button !w-full !h-[50px]" 
+                  loading={submitting}
+                  type="primary"
+                >
+                  {id ? "Update" : "Add"} Banner
+                </Button>
+              </Form.Item>
+            </Form>
+          </Modal>
+        )}
       </div>
     </Spin>
   );

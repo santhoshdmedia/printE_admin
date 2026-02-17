@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
 import { useForm } from "antd/es/form/Form";
-import { Button, Collapse, Form, Input, Modal, Select, Spin, Tag } from "antd";
+import { Button, Collapse, Form, Input, Modal, Select, Spin, Tag, Tooltip } from "antd";
 import { Link } from "react-router-dom";
+import { LockOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import _ from "lodash";
 
 // Components
@@ -18,6 +20,7 @@ import {
   SUCCESS_NOTIFICATION,
 } from "../../helper/notification_helper";
 import { ICON_HELPER } from "../../helper/iconhelper";
+import { canEditPage, canDeletePage, isSuperAdmin } from "../../helper/permissionHelper";
 
 // API
 import {
@@ -31,6 +34,8 @@ import {
 const { Panel } = Collapse;
 
 const CustomerPage = () => {
+  const { user } = useSelector((state) => state.authSlice);
+  
   // State management
   const [modalStatus, setModalStatus] = useState(false);
   const [sectionId, setSectionId] = useState("");
@@ -42,6 +47,10 @@ const CustomerPage = () => {
   const [singleImage, setSingleImage] = useState("");
   const [sectionType, setSectionType] = useState("");
   const [form] = Form.useForm();
+
+  // Check permissions
+  const hasEditPermission = isSuperAdmin(user.role) || canEditPage(user.pagePermissions, "product-section");
+  const hasDeletePermission = isSuperAdmin(user.role) || canDeletePage(user.pagePermissions, "product-section");
 
   // Data fetching
   const fetchData = async () => {
@@ -68,6 +77,11 @@ const CustomerPage = () => {
 
   // Form handling
   const handleSubmit = async (values) => {
+    if (!hasEditPermission) {
+      ERROR_NOTIFICATION({ message: "You don't have permission to modify product sections" });
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -87,20 +101,6 @@ const CustomerPage = () => {
           Product_single_img: singleImage,
         }),
       };
-
-      // Validate required fields based on section type
-      // if (
-      //   sectionType === "banner" &&
-      //   (!payload.banner_count || _.isEmpty(payload.banner_images))
-      // ) {
-      //   return CUSTOM_ERROR_NOTIFICATION(
-      //     "Please provide banner count and upload at least one image"
-      //   );
-      // }
-
-      // if (sectionType === "floating product" && (!coverImage || !singleImage)) {
-      //   return CUSTOM_ERROR_NOTIFICATION("Please upload both product images");
-      // }
 
       // API call
       const result = sectionId
@@ -129,6 +129,11 @@ const CustomerPage = () => {
 
   // Section actions
   const handleEdit = (section) => {
+    if (!hasEditPermission) {
+      ERROR_NOTIFICATION({ message: "You don't have permission to edit product sections" });
+      return;
+    }
+
     setSectionId(section._id);
     setSectionType(section.section_type);
 
@@ -153,23 +158,37 @@ const CustomerPage = () => {
       ...(section.section_type === "banner" && {
         banner_count: section.banner_count,
       }),
-      section_type: section.section_type, // Add this line to set section type in form
+      section_type: section.section_type,
     });
     
     setModalStatus(true);
   };
 
   const handleDelete = async (id) => {
-    try {
-      setLoading(true);
-      const result = await deleteBannerCustomerSections(id);
-      SUCCESS_NOTIFICATION(result);
-      fetchData();
-    } catch (error) {
-      ERROR_NOTIFICATION(error);
-    } finally {
-      setLoading(false);
+    if (!hasDeletePermission) {
+      ERROR_NOTIFICATION({ message: "You don't have permission to delete product sections" });
+      return;
     }
+
+    Modal.confirm({
+      title: 'Delete Product Section',
+      content: 'Are you sure you want to delete this product section?',
+      okText: 'Yes, Delete',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      onOk: async () => {
+        try {
+          setLoading(true);
+          const result = await deleteBannerCustomerSections(id);
+          SUCCESS_NOTIFICATION(result);
+          fetchData();
+        } catch (error) {
+          ERROR_NOTIFICATION(error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
   };
 
   // Handle section type change
@@ -186,19 +205,20 @@ const CustomerPage = () => {
 
   // Render helpers
   const renderProductItem = (product) => (
-    <div className="flex items-center gap-4 py-2 justify-between border px-3">
+    <div className="flex items-center gap-4 py-2 justify-between border px-3 rounded-lg hover:shadow-md transition-shadow">
       <div className="flex items-center gap-2">
-        <img
+        {/* <img
           src={_.get(product, "images[0].path", "")}
           alt={product.name}
           className="w-8 h-8 rounded-full object-cover"
-        />
-        <span>{product.name}</span>
+        /> */}
+        <span className="font-medium">{product.name}</span>
       </div>
       <Link
         to={`/product/${product.seo_url}`}
         target="_blank"
         rel="noopener noreferrer"
+        className="text-blue-600 hover:text-blue-800"
       >
         <ICON_HELPER.LINK_SHARE_ICON />
       </Link>
@@ -209,15 +229,15 @@ const CustomerPage = () => {
     if (section.section_type === "banner") {
       return (
         <div className={`grid grid-cols-${section.banner_count || 1} gap-4`}>
-          {section.banner_images?.map((img, index) => (
+          {/* {section.banner_images?.map((img, index) => (
             <img
               key={`banner-${index}`}
               src={img.path}
               alt={`Banner ${index + 1}`}
-              className="w-full h-auto object-cover rounded-lg"
+              className="w-full h-auto object-cover rounded-lg shadow-md"
               loading="lazy"
             />
-          ))}
+          ))} */}
         </div>
       );
     }
@@ -232,235 +252,242 @@ const CustomerPage = () => {
   };
 
   const renderSectionActions = (section) => (
-    <div className="flex gap-2">
-      <Tag
-        className="border bg-white text-green-500 cursor-pointer"
-        onClick={() => handleEdit(section)}
-      >
-        Edit
-      </Tag>
-      <Tag
-        onClick={() => handleDelete(section._id)}
-        className="border bg-white text-red-500 cursor-pointer"
-      >
-        Delete
-      </Tag>
+    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+      {hasEditPermission ? (
+        <Tooltip title="Edit Section">
+          <Tag
+            icon={<EditOutlined />}
+            className="border bg-white text-green-600 cursor-pointer hover:bg-green-50 transition-colors"
+            onClick={() => handleEdit(section)}
+          >
+            Edit
+          </Tag>
+        </Tooltip>
+      ) : (
+        <Tooltip title="No permission to edit">
+          <Tag
+            icon={<LockOutlined />}
+            className="border bg-gray-100 text-gray-400 cursor-not-allowed"
+          >
+            Edit
+          </Tag>
+        </Tooltip>
+      )}
+      
+      {hasDeletePermission ? (
+        <Tooltip title="Delete Section">
+          <Tag
+            icon={<DeleteOutlined />}
+            onClick={() => handleDelete(section._id)}
+            className="border bg-white text-red-600 cursor-pointer hover:bg-red-50 transition-colors"
+          >
+            Delete
+          </Tag>
+        </Tooltip>
+      ) : (
+        <Tooltip title="No permission to delete">
+          <Tag
+            icon={<LockOutlined />}
+            className="border bg-gray-100 text-gray-400 cursor-not-allowed"
+          >
+            Delete
+          </Tag>
+        </Tooltip>
+      )}
     </div>
   );
 
   return (
     <Spin spinning={loading}>
-      <DefaultTile
-        title="Customer Sections"
-        addModal={true}
-        addModalText="Add Section"
-        modalFormStatus={modalStatus}
-        setModalFormStatus={setModalStatus}
-      />
+      <div className="p-6">
+        <DefaultTile
+          title="Product Sections"
+          addModal={hasEditPermission}
+          addModalText="Add Section"
+          modalFormStatus={modalStatus}
+          setModalFormStatus={setModalStatus}
+        />
 
-      {_.isEmpty(customerSections) ? (
-        <Nodata />
-      ) : (
-        <div className="w-full bg-white p-5">
-          <Collapse defaultActiveKey={["1"]} className="bg-white">
-            {customerSections.map((section, index) => (
-              <Panel
-                key={`section-${index}`}
-                header={section.section_name}
-                extra={renderSectionActions(section)}
-              >
-                {renderSectionContent(section)}
-              </Panel>
-            ))}
-          </Collapse>
-        </div>
-      )}
+        {/* Permission Warning */}
+        {!hasEditPermission && !hasDeletePermission && (
+          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-yellow-800 font-medium flex items-center gap-2">
+              <LockOutlined />
+              You have view-only access to product sections. Contact an administrator to request edit permissions.
+            </p>
+          </div>
+        )}
 
-      <Modal
-        title={`${sectionId ? "Edit" : "Add"} Section`}
-        open={modalStatus}
-        onCancel={resetForm}
-        footer={null}
-        width={800}
-        destroyOnClose
-      >
-        <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          {/* <Form.Item
-            name="section_type"
-            label="Section Type"
-            rules={[formValidation("Please select section type")]}
-          >
-            <Select
-              placeholder="Select section type"
-              onChange={handleSectionTypeChange}
-              className="w-full h-12"
+        {_.isEmpty(customerSections) ? (
+          <div className="bg-white rounded-lg p-8">
+            <Nodata />
+          </div>
+        ) : (
+          <div className="w-full bg-white rounded-lg shadow-sm">
+            <Collapse 
+              defaultActiveKey={["1"]} 
+              className="bg-white"
+              bordered={false}
             >
-              <Select.Option value="floating product">
-                Floating Product
-              </Select.Option>
-              <Select.Option value="banner">Banner</Select.Option>
-            </Select>
-          </Form.Item> */}
+              {customerSections.map((section, index) => (
+                <Panel
+                  key={`section-${index}`}
+                  header={
+                    <div className="flex items-center gap-3">
+                      <span className="font-semibold text-lg">{section.section_name}</span>
+                      <Tag color="blue" className="text-xs">
+                        {section.productDetails?.length || 0} Products
+                      </Tag>
+                      <Tag color="purple" className="text-xs">
+                        Display: {section.product_display === "1" ? "Grid" : section.product_display === "2" ? "List" : "Carousel"}
+                      </Tag>
+                    </div>
+                  }
+                  extra={renderSectionActions(section)}
+                  className="mb-2"
+                >
+                  <div className="pt-4">
+                    {section.sub_title && (
+                      <p className="text-gray-600 mb-4 italic">{section.sub_title}</p>
+                    )}
+                    {renderSectionContent(section)}
+                  </div>
+                </Panel>
+              ))}
+            </Collapse>
+          </div>
+        )}
 
-          {sectionType === "banner" && (
-            <>
-              {/* <Form.Item
-                label="Banner Images"
-                required
+        {hasEditPermission && (
+          <Modal
+            title={
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-semibold">
+                  {sectionId ? "Edit" : "Add"} Product Section
+                </span>
+              </div>
+            }
+            open={modalStatus}
+            onCancel={resetForm}
+            footer={null}
+            width={800}
+            destroyOnClose
+          >
+            <Form form={form} layout="vertical" onFinish={handleSubmit}>
+              <Form.Item
+                name="section_name"
+                label={<span className="font-semibold">Section Name</span>}
+                rules={[
+                  formValidation("Please enter section name"),
+                  { max: 50, message: "Maximum 50 characters allowed" },
+                ]}
               >
-                <div className="flex flex-wrap gap-4 mb-4">
-                  <UploadHelper
-                    multiple={true}
-                    max={4}
-                    setImagePath={setBannerImages}
-                    image_path={bannerImages}
-                  />
-                  <ShowImages
-                    path={bannerImages}
-                    setImage={setBannerImages}
-                    multiple={true}
-                  />
-                </div>
-              </Form.Item> */}
+                <Input
+                  placeholder="Enter section name"
+                  className="h-12"
+                  maxLength={50}
+                />
+              </Form.Item>
 
-              {/* <Form.Item
-                name="banner_count"
-                label="Banner Count"
-                rules={[formValidation("Please select banner count")]}
+              <Form.Item
+                name="sub_title"
+                label={<span className="font-semibold">Sub Title</span>}
+                rules={[
+                  formValidation("Please enter sub title"),
+                  { max: 100, message: "Maximum 100 characters allowed" },
+                ]}
               >
-                <Select placeholder="Select count" className="w-full h-12">
-                  {[1, 2, 3, 4].map((count) => (
-                    <Select.Option key={count} value={count}>
-                      {count} {count > 1 ? "banners" : "banner"}
-                    </Select.Option>
-                  ))}
+                <Input
+                  placeholder="Enter sub title"
+                  className="h-12"
+                  maxLength={100}
+                />
+              </Form.Item>
+
+              <Form.Item
+                name="section_products"
+                label={<span className="font-semibold">Products</span>}
+                rules={[formValidation("Please select at least one product")]}
+                tooltip="Only visible products can be selected"
+              >
+                <Select
+                  mode="multiple"
+                  placeholder="Select products"
+                  className="w-full"
+                  optionFilterProp="children"
+                  showSearch
+                  maxTagCount={3}
+                  filterOption={(input, option) =>
+                    option.children[0]?.props?.children?.[1]?.toLowerCase().includes(input.toLowerCase())
+                  }
+                >
+                  {productData
+                    .filter((product) => !product.is_cloned && product.is_visible)
+                    .map((product) => (
+                      <Select.Option key={product._id} value={product._id}>
+                        <div className="flex items-center gap-2">
+                          <img
+                            src={_.get(product, "images[0].path", "")}
+                            className="w-6 h-6 rounded-full object-cover"
+                            alt={product.name}
+                          />
+                          <span>{product.name}</span>
+                        </div>
+                      </Select.Option>
+                    ))}
                 </Select>
-              </Form.Item> */}
-            </>
-          )}
-{/* 
-          {sectionType === "floating product" && (
-            <>
-              <Form.Item
-                label="Product Cover Image"
-                required
-              >
-                <div className="mb-4">
-                  {coverImage ? (
-                    <ShowImages path={[coverImage]} setImage={setCoverImage} />
-                  ) : (
-                    <UploadHelper 
-                      setImagePath={(images) => setCoverImage(images[0] || "")}
-                      multiple={false}
-                    />
-                  )}
-                </div>
               </Form.Item>
 
               <Form.Item
-                label="Product Single Image"
-                required
+                name="product_display"
+                label={<span className="font-semibold">Display Type</span>}
+                rules={[formValidation("Please select display type")]}
+                tooltip="Choose how products should be displayed in this section"
               >
-                <div className="mb-4">
-                  {singleImage ? (
-                    <ShowImages path={[singleImage]} setImage={setSingleImage} />
-                  ) : (
-                    <UploadHelper 
-                      setImagePath={(images) => setSingleImage(images[0] || "")}
-                      multiple={false}
-                    />
-                  )}
-                </div>
-              </Form.Item>
-            </>
-          )} */}
-
-          <Form.Item
-            name="section_name"
-            label="Section Name"
-            rules={[
-              formValidation("Please enter section name"),
-              { max: 50, message: "Maximum 50 characters allowed" },
-            ]}
-          >
-            <Input
-              placeholder="Enter section name"
-              className="h-12"
-              maxLength={50}
-            />
-          </Form.Item>
-
-          <Form.Item
-            name="sub_title"
-            label="Sub Title"
-            rules={[
-              formValidation("Please enter sub title"),
-              { max: 100, message: "Maximum 100 characters allowed" },
-            ]}
-          >
-            <Input
-              placeholder="Enter sub title"
-              className="h-12"
-              maxLength={100}
-            />
-          </Form.Item>
-
-          <Form.Item
-            name="section_products"
-            label="Products"
-            rules={[formValidation("Please select at least one product")]}
-          >
-            <Select
-              mode="multiple"
-              placeholder="Select products"
-              className="w-full"
-              optionFilterProp="children"
-              showSearch
-              filterOption={(input, option) =>
-                option.children[0].toLowerCase().includes(input.toLowerCase())
-              }
-            >
-              {productData
-                .filter((product) => !product.is_cloned&&product.is_visible)
-                .map((product) => (
-                  <Select.Option key={product._id} value={product._id}>
+                <Select placeholder="Select display type" className="w-full h-12">
+                  <Select.Option value="1">
                     <div className="flex items-center gap-2">
-                      <img
-                        src={_.get(product, "images[0].path", "")}
-                        className="w-6 h-6 rounded-full object-cover"
-                        alt={product.name}
-                      />
-                      {product.name}
+                      <span>📊</span>
+                      <span>Grid View</span>
                     </div>
                   </Select.Option>
-                ))}
-            </Select>
-          </Form.Item>
+                  <Select.Option value="2">
+                    <div className="flex items-center gap-2">
+                      <span>📋</span>
+                      <span>List View</span>
+                    </div>
+                  </Select.Option>
+                  <Select.Option value="3">
+                    <div className="flex items-center gap-2">
+                      <span>🎠</span>
+                      <span>Carousel</span>
+                    </div>
+                  </Select.Option>
+                </Select>
+              </Form.Item>
 
-          <Form.Item
-            name="product_display"
-            label="Display Type"
-            rules={[formValidation("Please select display type")]}
-          >
-            <Select placeholder="Select display type" className="w-full h-12">
-              <Select.Option value="1">Grid View</Select.Option>
-              <Select.Option value="2">List View</Select.Option>
-              <Select.Option value="3">Carousel</Select.Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item>
-            <Button
-              type="primary"
-              htmlType="submit"
-              className="w-full h-12"
-              loading={loading}
-            >
-              {sectionId ? "Update" : "Create"} Section
-            </Button>
-          </Form.Item>
-        </Form>
-      </Modal>
+              <Form.Item>
+                <div className="flex gap-4 justify-end">
+                  <Button
+                    onClick={resetForm}
+                    className="h-12 px-6"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="primary"
+                    htmlType="submit"
+                    className="h-12 px-6"
+                    loading={loading}
+                  >
+                    {sectionId ? "Update" : "Create"} Section
+                  </Button>
+                </div>
+              </Form.Item>
+            </Form>
+          </Modal>
+        )}
+      </div>
     </Spin>
   );
 };

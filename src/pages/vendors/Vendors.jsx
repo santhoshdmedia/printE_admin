@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Button, Form, Image, Input, Modal, Popconfirm, Checkbox, Spin, Card, Tag, Divider } from "antd";
+import { useSelector } from "react-redux";
+import { Button, Form, Image, Input, Modal, Popconfirm, Checkbox, Spin, Card, Tag, Divider, Tooltip } from "antd";
 import { 
   UserOutlined, 
   ShopOutlined, 
@@ -10,7 +11,8 @@ import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
-  EyeOutlined
+  EyeOutlined,
+  LockOutlined
 } from "@ant-design/icons";
 import { formValidation } from "../../helper/formvalidation";
 import ShowImages from "../../helper/ShowImages";
@@ -21,10 +23,12 @@ import { addVendor, editVendor, getAllVendor, deleteVendor } from "../../api";
 import _ from "lodash";
 import CustomTable from "../../components/CustomTable";
 import { Link } from "react-router-dom";
+import { canEditPage, canDeletePage, isSuperAdmin } from "../../helper/permissionHelper";
 
 const { TextArea } = Input;
 
 const Vendors = () => {
+  const { user } = useSelector((state) => state.authSlice);
   const [search, setSearch] = useState(null);
   const [formStatus, setFormStatus] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -34,6 +38,10 @@ const Vendors = () => {
   const [sameAsBilling, setSameAsBilling] = useState(false);
 
   const [form] = Form.useForm();
+
+  // Check permissions
+  const hasEditPermission = isSuperAdmin(user.role) || canEditPage(user.pagePermissions, "vendors");
+  const hasDeletePermission = isSuperAdmin(user.role) || canDeletePage(user.pagePermissions, "vendors");
 
   const generateUniqueCode = () => {
     if (allVendors.length === 0) return "pev0001";
@@ -45,19 +53,19 @@ const Vendors = () => {
   };
 
   const handleFinish = async (values) => {
+    if (!hasEditPermission) {
+      ERROR_NOTIFICATION({ message: "You don't have permission to modify vendors" });
+      return;
+    }
+
     try {
       setLoading(true);
-      // if (!image_path) {
-      //   CUSTOM_ERROR_NOTIFICATION("Please Upload Vendor image");
-      //   return;
-      // }
       values.vendor_image = image_path;
       
-      // If same as billing is checked, copy billing address to shipping
       if (sameAsBilling) {
         values.shipping_address = values.billing_address;
       }
-      values.password=values.vendor_contact_number
+      values.password = values.vendor_contact_number;
 
       let result = "";
 
@@ -73,6 +81,7 @@ const Vendors = () => {
       collectVendors();
     } catch (err) {
       console.log(err);
+      ERROR_NOTIFICATION(err);
     } finally {
       setLoading(false);
     }
@@ -109,6 +118,11 @@ const Vendors = () => {
   }, [formStatus, allVendors]);
 
   const handleEdit = (res) => {
+    if (!hasEditPermission) {
+      ERROR_NOTIFICATION({ message: "You don't have permission to edit vendors" });
+      return;
+    }
+
     try {
       form.setFieldsValue(res);
       setId(res?._id);
@@ -120,10 +134,15 @@ const Vendors = () => {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (vendorId) => {
+    if (!hasDeletePermission) {
+      ERROR_NOTIFICATION({ message: "You don't have permission to delete vendors" });
+      return;
+    }
+
     try {
       setLoading(true);
-      const result = await deleteVendor(id);
+      const result = await deleteVendor(vendorId);
       SUCCESS_NOTIFICATION(result);
       collectVendors();
     } catch (err) {
@@ -133,71 +152,128 @@ const Vendors = () => {
     }
   };
 
+  const handleAddVendor = () => {
+    if (!hasEditPermission) {
+      ERROR_NOTIFICATION({ message: "You don't have permission to add vendors" });
+      return;
+    }
+    setFormStatus(true);
+  };
+
   const columns = [
     {
       title: "S.No",
-      render: (_, __, index) => <div className="text-center">{index + 1}</div>,
+      render: (_, __, index) => (
+        <div className="text-center font-semibold text-gray-600">{index + 1}</div>
+      ),
       width: 70,
     },
-    
     {
       title: "Unique Code",
       dataIndex: "unique_code",
-      render: (code) => <Tag color="blue" className="font-mono">{code}</Tag>,
+      render: (code) => (
+        <Tag color="blue" className="font-mono font-semibold">
+          {code}
+        </Tag>
+      ),
     },
     {
       title: "Vendor Name",
       dataIndex: "vendor_name",
-      render: (name) => <div className="font-medium">{name}</div>,
+      render: (name) => (
+        <div className="font-medium text-gray-800">{name}</div>
+      ),
     },
     {
       title: "Business Name",
       dataIndex: "business_name",
+      render: (name) => (
+        <div className="text-gray-700">{name}</div>
+      ),
     },
     {
       title: "Email",
       dataIndex: "vendor_email",
+      render: (email) => (
+        <div className="text-gray-600 text-sm">{email}</div>
+      ),
     },
     {
       title: "Contact",
       dataIndex: "vendor_contact_number",
+      render: (contact) => (
+        <div className="text-gray-600 text-sm">{contact}</div>
+      ),
     },
     {
       title: "Actions",
       render: (data) => (
         <div className="flex items-center gap-2">
-          <Button 
-            icon={<EditOutlined />} 
-            onClick={() => handleEdit(data)} 
-            className="text-green-600 border-green-200 hover:bg-green-50"
-            size="small"
-          >
-            Edit
-          </Button>
-          <Popconfirm 
-            title="Delete Vendor" 
-            description="Are you sure you want to delete this vendor?" 
-            onConfirm={() => handleDelete(data._id)}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button 
-              icon={<DeleteOutlined />} 
-              className="text-red-600 border-red-200 hover:bg-red-50"
-              size="small"
-            >
-              Delete
-            </Button>
-          </Popconfirm>
-          <Link to={`/vendor_details/${data?._id}`}>
-            <Button 
-              icon={<EyeOutlined />} 
-              className="text-blue-600 border-blue-200 hover:bg-blue-50"
-              size="small"
-            >
-              View
-            </Button>
-          </Link>
+          {hasEditPermission ? (
+            <Tooltip title="Edit Vendor">
+              <Button
+                icon={<EditOutlined />}
+                onClick={() => handleEdit(data)}
+                className="text-green-600 border-green-200 hover:bg-green-50"
+                size="small"
+              >
+                Edit
+              </Button>
+            </Tooltip>
+          ) : (
+            <Tooltip title="No permission to edit">
+              <Button
+                icon={<LockOutlined />}
+                disabled
+                size="small"
+              >
+                Edit
+              </Button>
+            </Tooltip>
+          )}
+
+          {hasDeletePermission ? (
+            <Tooltip title="Delete Vendor">
+              <Popconfirm
+                title="Delete Vendor"
+                description="Are you sure you want to delete this vendor?"
+                onConfirm={() => handleDelete(data._id)}
+                okText="Yes, Delete"
+                okType="danger"
+                cancelText="No"
+              >
+                <Button
+                  icon={<DeleteOutlined />}
+                  className="text-red-600 border-red-200 hover:bg-red-50"
+                  size="small"
+                >
+                  Delete
+                </Button>
+              </Popconfirm>
+            </Tooltip>
+          ) : (
+            <Tooltip title="No permission to delete">
+              <Button
+                icon={<LockOutlined />}
+                disabled
+                size="small"
+              >
+                Delete
+              </Button>
+            </Tooltip>
+          )}
+
+          <Tooltip title="View Vendor Details">
+            <Link to={`/vendor_details/${data?._id}`}>
+              <Button
+                icon={<EyeOutlined />}
+                className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                size="small"
+              >
+                View
+              </Button>
+            </Link>
+          </Tooltip>
         </div>
       ),
       width: 250,
@@ -206,219 +282,243 @@ const Vendors = () => {
 
   return (
     <div className="p-4 bg-gray-50 min-h-screen">
-      <Card 
+      <Card
         title={
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-gray-800">Vendor Management</h2>
-            <Button 
-              type="primary" 
-              icon={<PlusOutlined />} 
-              onClick={() => setFormStatus(true)}
-              className="bg-blue-500 hover:bg-blue-600"
-            >
-              Add Vendor
-            </Button>
+            <h2 className="text-xl font-semibold text-gray-800">
+              Vendor Management
+            </h2>
+            {hasEditPermission ? (
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={handleAddVendor}
+                className="bg-blue-500 hover:bg-blue-600"
+              >
+                Add Vendor
+              </Button>
+            ) : (
+              <Tooltip title="No permission to add vendors">
+                <Button
+                  icon={<LockOutlined />}
+                  disabled
+                >
+                  Add Vendor
+                </Button>
+              </Tooltip>
+            )}
           </div>
         }
         className="rounded-lg shadow-sm border-0"
       >
-        <div className="mb-4 flex justify-between">
-          <Input.Search 
-            placeholder="Search vendors..." 
-            allowClear 
+        {/* Permission Warning */}
+        {!hasEditPermission && !hasDeletePermission && (
+          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-yellow-800 font-medium flex items-center gap-2">
+              <LockOutlined />
+              You have view-only access to vendors. Contact an administrator to request edit permissions.
+            </p>
+          </div>
+        )}
+
+        <div className="mb-4 flex justify-between items-center">
+          <Input.Search
+            placeholder="Search vendors..."
+            allowClear
             onSearch={setSearch}
             className="w-64"
             size="large"
           />
           <div className="text-sm text-gray-500">
-            Total Vendors: <span className="font-semibold">{allVendors.length}</span>
+            Total Vendors:{" "}
+            <span className="font-semibold text-gray-800">
+              {allVendors.length}
+            </span>
           </div>
         </div>
-        
-        <CustomTable 
-          dataSource={allVendors} 
-          loading={loading} 
-          columns={columns} 
+
+        <CustomTable
+          dataSource={allVendors}
+          loading={loading}
+          columns={columns}
           scroll={{ x: 1000 }}
           rowClassName="hover:bg-gray-50"
         />
-        
-        <Modal 
-          open={formStatus} 
-          footer={null} 
-          closable={true} 
-          width={800} 
-          title={
-            <div className="text-lg font-semibold">
-              {id ? "Update Vendor" : "Add New Vendor"}
-            </div>
-          } 
-          onCancel={handleCancel}
-          className="rounded-lg"
-          bodyStyle={{ padding: '24px' }}
-        >
-          <Spin spinning={loading}>
-            <Form 
-              layout="vertical" 
-              form={form} 
-              onFinish={handleFinish}
-              className="vendor-form"
-            >
-              <div className="flex gap-6 mb-6">
-                {/* <Form.Item 
-                  className="w-1/3" 
-                  name="vendor_image" 
-                  label={<CustomLabel name="Vendor Logo" />}
-                >
-                  {image_path ? (
-                    <ShowImages path={image_path} setImage={setImagePath} />
-                  ) : (
-                    <UploadHelper setImagePath={setImagePath} />
-                  )}
-                </Form.Item> */}
-                
-                <div className="w-2/3 grid grid-cols-2 gap-4">
-                  <Form.Item 
-                    label="Unique Code" 
-                    name="unique_code"
-                    tooltip="Automatically generated"
+
+        {/* Modal only renders with edit permission */}
+        {hasEditPermission && (
+          <Modal
+            open={formStatus}
+            footer={null}
+            closable={true}
+            width={800}
+            title={
+              <div className="text-lg font-semibold">
+                {id ? "Update Vendor" : "Add New Vendor"}
+              </div>
+            }
+            onCancel={handleCancel}
+            className="rounded-lg"
+            bodyStyle={{ padding: "24px" }}
+            destroyOnClose
+          >
+            <Spin spinning={loading}>
+              <Form
+                layout="vertical"
+                form={form}
+                onFinish={handleFinish}
+                className="vendor-form"
+              >
+                <div className="flex gap-6 mb-6">
+                  <div className="w-full grid grid-cols-2 gap-4">
+                    <Form.Item
+                      label={<span className="font-semibold text-gray-700">Unique Code</span>}
+                      name="unique_code"
+                      tooltip="Automatically generated"
+                    >
+                      <Input
+                        prefix={<IdcardOutlined className="text-gray-400" />}
+                        className="h-10"
+                        readOnly
+                      />
+                    </Form.Item>
+
+                    <Form.Item
+                      label={<span className="font-semibold text-gray-700">Business Name</span>}
+                      name="business_name"
+                      rules={[formValidation("Enter Business Name")]}
+                    >
+                      <Input
+                        prefix={<ShopOutlined className="text-gray-400" />}
+                        className="h-10"
+                        placeholder="Enter Business Name"
+                      />
+                    </Form.Item>
+                  </div>
+                </div>
+
+                <Divider className="my-4">
+                  <span className="text-gray-500 text-sm font-medium">
+                    Contact Information
+                  </span>
+                </Divider>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <Form.Item
+                    label={<span className="font-semibold text-gray-700">Vendor Name</span>}
+                    name="vendor_name"
+                    rules={[formValidation("Enter Vendor Name")]}
                   >
-                    <Input 
-                      prefix={<IdcardOutlined className="text-gray-400" />} 
+                    <Input
+                      prefix={<UserOutlined className="text-gray-400" />}
                       className="h-10"
-                      readOnly 
+                      placeholder="Enter Vendor Name"
                     />
                   </Form.Item>
-                  
-                  <Form.Item 
-                    label="Business Name" 
-                    name="business_name" 
-                    rules={[formValidation("Enter Business Name")]}
+
+                  <Form.Item
+                    label={<span className="font-semibold text-gray-700">Email</span>}
+                    name="vendor_email"
+                    rules={[formValidation("Enter Vendor Email")]}
                   >
-                    <Input 
-                      prefix={<ShopOutlined className="text-gray-400" />} 
-                      className="h-10" 
-                      placeholder="Enter Business Name" 
+                    <Input
+                      prefix={<MailOutlined className="text-gray-400" />}
+                      className="h-10"
+                      placeholder="Enter Vendor Email"
+                    />
+                  </Form.Item>
+
+                  <Form.Item
+                    label={<span className="font-semibold text-gray-700">Contact Number</span>}
+                    name="vendor_contact_number"
+                    rules={[formValidation("Enter Vendor Contact Number")]}
+                  >
+                    <Input
+                      prefix={<PhoneOutlined className="text-gray-400" />}
+                      className="h-10"
+                      placeholder="Enter Contact Number"
+                    />
+                  </Form.Item>
+
+                  <Form.Item
+                    label={<span className="font-semibold text-gray-700">Alternate Contact</span>}
+                    name="alternate_vendor_contact_number"
+                  >
+                    <Input
+                      prefix={<PhoneOutlined className="text-gray-400" />}
+                      className="h-10"
+                      placeholder="Enter Alternate Contact"
                     />
                   </Form.Item>
                 </div>
-              </div>
-              
-              <Divider className="my-6" />
-              
-              <h3 className="text-md font-medium mb-4 text-gray-700">Contact Information</h3>
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <Form.Item 
-                  label="Vendor Name" 
-                  name="vendor_name" 
-                  rules={[formValidation("Enter Vendor Name")]}
+
+                <Divider className="my-4">
+                  <span className="text-gray-500 text-sm font-medium">
+                    Address Information
+                  </span>
+                </Divider>
+
+                <Form.Item
+                  label={<span className="font-semibold text-gray-700">Billing Address</span>}
+                  name="billing_address"
+                  rules={[formValidation("Enter Billing Address")]}
                 >
-                  <Input 
-                    prefix={<UserOutlined className="text-gray-400" />} 
-                    className="h-10" 
-                    placeholder="Enter Vendor Name" 
-                  />
-                </Form.Item>
-                
-                <Form.Item 
-                  label="Email" 
-                  name="vendor_email" 
-                  rules={[formValidation("Enter Vendor Email")]}
-                >
-                  <Input 
-                    prefix={<MailOutlined className="text-gray-400" />} 
-                    className="h-10" 
-                    placeholder="Enter Vendor Email" 
-                  />
-                </Form.Item>
-                
-                <Form.Item 
-                  label="Contact Number" 
-                  name="vendor_contact_number" 
-                  rules={[formValidation("Enter Vendor Contact Number")]}
-                >
-                  <Input 
-                    prefix={<PhoneOutlined className="text-gray-400" />} 
-                    className="h-10" 
-                    placeholder="Enter Contact Number" 
-                  />
-                </Form.Item>
-                
-                <Form.Item 
-                  label="Alternate Contact" 
-                  name="alternate_vendor_contact_number"
-                >
-                  <Input 
-                    prefix={<PhoneOutlined className="text-gray-400" />} 
-                    className="h-10" 
-                    placeholder="Enter Alternate Contact" 
-                  />
-                </Form.Item>
-              </div>
-              
-              <Divider className="my-6" />
-              
-              <h3 className="text-md font-medium mb-4 text-gray-700">Address Information</h3>
-              <Form.Item 
-                label="Billing Address" 
-                name="billing_address" 
-                rules={[formValidation("Enter Billing Address")]}
-              >
-                <TextArea 
-                  rows={3} 
-                  placeholder="Enter complete billing address" 
-                  className="rounded-md"
-                />
-              </Form.Item>
-              
-              <Form.Item>
-                <Checkbox 
-                  checked={sameAsBilling}
-                  onChange={(e) => setSameAsBilling(e.target.checked)}
-                  className="mb-4"
-                >
-                  Shipping address same as billing address
-                </Checkbox>
-              </Form.Item>
-              
-              {!sameAsBilling && (
-                <Form.Item 
-                  label="Shipping Address" 
-                  name="shipping_address" 
-                  rules={[formValidation("Enter Shipping Address")]}
-                >
-                  <TextArea 
-                    rows={3} 
-                    placeholder="Enter complete shipping address" 
+                  <TextArea
+                    rows={3}
+                    placeholder="Enter complete billing address"
                     className="rounded-md"
                   />
                 </Form.Item>
-              )}
-              
-              <Form.Item className="mb-0 mt-6">
-                <Button 
-                  type="primary" 
-                  htmlType="submit" 
-                  className="w-full h-12 rounded-md text-lg font-medium bg-blue-500 hover:bg-blue-600 border-0 shadow-sm" 
-                  loading={loading}
-                >
-                  {id ? "Update" : "Add"} Vendor
-                </Button>
-              </Form.Item>
-            </Form>
-          </Spin>
-        </Modal>
+
+                <Form.Item>
+                  <Checkbox
+                    checked={sameAsBilling}
+                    onChange={(e) => setSameAsBilling(e.target.checked)}
+                    className="mb-4 font-medium text-gray-700"
+                  >
+                    Shipping address same as billing address
+                  </Checkbox>
+                </Form.Item>
+
+                {!sameAsBilling && (
+                  <Form.Item
+                    label={<span className="font-semibold text-gray-700">Shipping Address</span>}
+                    name="shipping_address"
+                    rules={[formValidation("Enter Shipping Address")]}
+                  >
+                    <TextArea
+                      rows={3}
+                      placeholder="Enter complete shipping address"
+                      className="rounded-md"
+                    />
+                  </Form.Item>
+                )}
+
+                <Divider className="my-4" />
+
+                <Form.Item className="mb-0">
+                  <div className="flex gap-3 justify-end">
+                    <Button
+                      onClick={handleCancel}
+                      className="h-11 px-6 font-medium"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="primary"
+                      htmlType="submit"
+                      className="h-11 px-6 font-medium bg-blue-500 hover:bg-blue-600 border-0 shadow-sm"
+                      loading={loading}
+                    >
+                      {id ? "Update" : "Add"} Vendor
+                    </Button>
+                  </div>
+                </Form.Item>
+              </Form>
+            </Spin>
+          </Modal>
+        )}
       </Card>
-      
-      <style jsx>{`
-        .vendor-form .ant-form-item-label > label {
-          font-weight: 500;
-          color: #374151;
-        }
-        .ant-card-head-title {
-          font-weight: 600;
-        }
-      `}</style>
     </div>
   );
 };
