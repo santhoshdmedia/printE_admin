@@ -406,17 +406,17 @@ const AdminUsers = () => {
   }));
 
   // Add "super admin" to roles if not present
-  if (!rolesForSelect.find(r => r.value === "super admin")) {
-    rolesForSelect.unshift({
-      value: "super admin",
-      label: (
-        <Space>
-          <FaUserShield />
-          Super Admin
-        </Space>
-      ),
-    });
-  }
+  // if (!rolesForSelect.find(r => r.value === "super admin")) {
+  //   rolesForSelect.unshift({
+  //     value: "super admin",
+  //     label: (
+  //       <Space>
+  //         <FaUserShield />
+  //         Super Admin
+  //       </Space>
+  //     ),
+  //   });
+  // }
 
   return (
     <div style={{ padding: "24px" }}>
