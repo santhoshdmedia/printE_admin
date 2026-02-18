@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
     Button,
     Form,
@@ -16,7 +16,9 @@ import {
     Divider,
     Row,
     Col,
-    Tooltip
+    Tooltip,
+    DatePicker,
+    Space,
 } from "antd";
 import {
     MailOutlined,
@@ -31,11 +33,18 @@ import {
     IdcardOutlined,
     BookOutlined,
     DownloadOutlined,
+    FilterOutlined,
+    ClearOutlined,
 } from "@ant-design/icons";
 import { ERROR_NOTIFICATION, SUCCESS_NOTIFICATION } from "../../helper/notification_helper";
 import { getCustomUser, sendMailDealer, verifyUser } from "../../api";
 import _ from "lodash";
 import { useNavigate } from "react-router-dom";
+import dayjs from "dayjs";
+import isBetween from "dayjs/plugin/isBetween";
+dayjs.extend(isBetween);
+
+const { RangePicker } = DatePicker;
 
 // ─────────────────────────────────────────────
 // CSV Export Helper
@@ -47,15 +56,8 @@ const exportToCSV = (data, filename = "bni_users.csv") => {
     }
 
     const headers = [
-        "S.No",
-        "Name",
-        "Chapter Name",
-        "Email",
-        "Phone",
-        "Verification Status",
-        "Role",
-        "Created Date",
-        "Verified Date",
+        "S.No", "Name", "Chapter Name", "Email", "Phone",
+        "Verification Status", "Role", "Created Date", "Verified Date",
     ];
 
     const rows = data.map((user, index) => [
@@ -67,22 +69,13 @@ const exportToCSV = (data, filename = "bni_users.csv") => {
         user.Dealer_verification ? "Verified" : "Not Verified",
         user.role || "N/A",
         user.createdAt
-            ? new Date(user.createdAt).toLocaleDateString("en-GB", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-              })
+            ? new Date(user.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
             : "N/A",
         user.verified_at
-            ? new Date(user.verified_at).toLocaleDateString("en-GB", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-              })
+            ? new Date(user.verified_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
             : "Not verified yet",
     ]);
 
-    // Escape any commas or quotes inside cell values
     const escapeCell = (val) => {
         const str = String(val);
         if (str.includes(",") || str.includes('"') || str.includes("\n")) {
@@ -91,10 +84,7 @@ const exportToCSV = (data, filename = "bni_users.csv") => {
         return str;
     };
 
-    const csvContent = [headers, ...rows]
-        .map((row) => row.map(escapeCell).join(","))
-        .join("\n");
-
+    const csvContent = [headers, ...rows].map((row) => row.map(escapeCell).join(",")).join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -104,7 +94,6 @@ const exportToCSV = (data, filename = "bni_users.csv") => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-
     message.success(`Exported ${data.length} users to ${filename}`);
 };
 
@@ -121,51 +110,82 @@ const BNIPanel = () => {
     const [viewModalVisible, setViewModalVisible] = useState(false);
     const navigate = useNavigate();
 
-    const [pagination, setPagination] = useState({
-        current: 1,
-        pageSize: 10,
-        total: 0,
-    });
+    // ── Filter State ──
+    const [filterVerification, setFilterVerification] = useState(null); // null | true | false
+    const [filterChapter, setFilterChapter] = useState(null);
+    const [filterDateRange, setFilterDateRange] = useState(null); // [dayjs, dayjs] | null
+    const [filtersVisible, setFiltersVisible] = useState(false);
+
+    const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
     const [sortedData, setSortedData] = useState([]);
 
-    const handleView = (user) => {
-        try {
-            setSelectedUser(user);
-            setViewModalVisible(true);
-        } catch (error) {
-            console.error("Error opening modal:", error);
+    // ── Derived: chapter options ──
+    const chapterOptions = useMemo(() => {
+        const chapters = _.uniq(allCustomUser.map((u) => u.chapter_Name).filter(Boolean)).sort();
+        return chapters.map((c) => ({ label: c, value: c }));
+    }, [allCustomUser]);
+
+    // ── Apply filters on top of allCustomUser ──
+    const applyFilters = (baseData) => {
+        let result = [...baseData];
+
+        if (filterVerification !== null) {
+            result = result.filter((u) => Boolean(u.Dealer_verification) === filterVerification);
         }
+
+        if (filterChapter) {
+            result = result.filter((u) => u.chapter_Name === filterChapter);
+        }
+
+        if (filterDateRange && filterDateRange[0] && filterDateRange[1]) {
+            const [start, end] = filterDateRange;
+            result = result.filter((u) => {
+                if (!u.createdAt) return false;
+                return dayjs(u.createdAt).isBetween(start.startOf("day"), end.endOf("day"), null, "[]");
+            });
+        }
+
+        return result;
+    };
+
+    // ── Active filter count ──
+    const activeFilterCount = [
+        filterVerification !== null,
+        !!filterChapter,
+        !!(filterDateRange && filterDateRange[0]),
+    ].filter(Boolean).length;
+
+    const clearFilters = () => {
+        setFilterVerification(null);
+        setFilterChapter(null);
+        setFilterDateRange(null);
+    };
+
+    // Whenever allCustomUser or filters change, recompute sortedData
+    useEffect(() => {
+        const filtered = applyFilters(allCustomUser);
+        setSortedData(filtered);
+        setPagination((prev) => ({ ...prev, current: 1, total: filtered.length }));
+    }, [allCustomUser, filterVerification, filterChapter, filterDateRange]);
+
+    const handleView = (user) => {
+        setSelectedUser(user);
+        setViewModalVisible(true);
     };
 
     const handleVerify = async (userId, userEmail) => {
         try {
             setVerifying((prev) => ({ ...prev, [userId]: true }));
-
-            const data = {
-                Dealer_verification: true,
-                verified_at: new Date().toISOString(),
-            };
-
+            const data = { Dealer_verification: true, verified_at: new Date().toISOString() };
             await verifyUser(userId, data);
 
-            setAllCustomUser((prevUsers) =>
-                prevUsers.map((user) =>
-                    user._id === userId ? { ...user, ...data } : user
-                )
+            setAllCustomUser((prev) =>
+                prev.map((u) => (u._id === userId ? { ...u, ...data } : u))
             );
-            setSortedData((prevUsers) =>
-                prevUsers.map((user) =>
-                    user._id === userId ? { ...user, ...data } : user
-                )
-            );
-
             SUCCESS_NOTIFICATION({ message: "User verified successfully!" });
 
-            if (userEmail) {
-                await handleSendMail(userId, userEmail);
-            }
+            if (userEmail) await handleSendMail(userId, userEmail);
         } catch (err) {
-            console.error("Error verifying user:", err);
             ERROR_NOTIFICATION(err);
         } finally {
             setVerifying((prev) => ({ ...prev, [userId]: false }));
@@ -177,38 +197,25 @@ const BNIPanel = () => {
             setLoading(true);
             const result = await getCustomUser(search);
             const data = _.get(result, "data.data", []);
-
             const sorted = _.orderBy(data, ["createdAt", "_id"], ["desc", "desc"]);
             const BNIUsers = sorted.filter((user) => user.role === "bni_user");
-
             setAllCustomUser(BNIUsers);
-            setSortedData(BNIUsers);
-            setPagination((prev) => ({ ...prev, total: BNIUsers.length }));
         } catch (err) {
-            console.log(err);
             ERROR_NOTIFICATION(err);
         } finally {
             setLoading(false);
         }
     };
 
-    useEffect(() => {
-        collectUsers();
-    }, [search]);
+    useEffect(() => { collectUsers(); }, [search]);
 
     const handleSendMail = async (userId, userEmail) => {
-        if (!userEmail) {
-            message.error("No email address found for this user");
-            return;
-        }
-
+        if (!userEmail) { message.error("No email address found for this user"); return; }
         try {
             setSendingMail((prev) => ({ ...prev, [userId]: true }));
-            const payload = { mail_id: userEmail };
-            const result = await sendMailDealer(payload);
+            const result = await sendMailDealer({ mail_id: userEmail });
             SUCCESS_NOTIFICATION(result || { message: "Mail sent successfully!" });
         } catch (err) {
-            console.error("Error sending mail:", err);
             ERROR_NOTIFICATION(err);
         } finally {
             setSendingMail((prev) => ({ ...prev, [userId]: false }));
@@ -220,11 +227,10 @@ const BNIPanel = () => {
             title: "S.No",
             key: "sno",
             align: "center",
-            width: 80,
-            render: (text, record, index) => {
+            width: 70,
+            render: (_, __, index) => {
                 const { current, pageSize, total } = pagination;
-                const globalIndex = (current - 1) * pageSize + index;
-                return <span>{total - globalIndex}</span>;
+                return <span>{total - ((current - 1) * pageSize + index)}</span>;
             },
         },
         {
@@ -236,8 +242,7 @@ const BNIPanel = () => {
         {
             title: "Chapter Name",
             dataIndex: "chapter_Name",
-            sorter: (a, b) =>
-                (a.chapter_Name || "").localeCompare(b.chapter_Name || ""),
+            sorter: (a, b) => (a.chapter_Name || "").localeCompare(b.chapter_Name || ""),
             render: (chapter_Name) => (
                 <div className="flex items-center">
                     <BookOutlined className="mr-1 text-gray-400" />
@@ -248,17 +253,12 @@ const BNIPanel = () => {
         {
             title: "Verification Status",
             dataIndex: "Dealer_verification",
-            sorter: (a, b) =>
-                (a.Dealer_verification ? 1 : 0) - (b.Dealer_verification ? 1 : 0),
+            sorter: (a, b) => (a.Dealer_verification ? 1 : 0) - (b.Dealer_verification ? 1 : 0),
             render: (verified) =>
                 verified ? (
-                    <Tag icon={<CheckCircleOutlined />} color="success" className="flex items-center">
-                        Verified
-                    </Tag>
+                    <Tag icon={<CheckCircleOutlined />} color="success">Verified</Tag>
                 ) : (
-                    <Tag icon={<CloseCircleOutlined />} color="error" className="flex items-center">
-                        Not Verified
-                    </Tag>
+                    <Tag icon={<CloseCircleOutlined />} color="error">Not Verified</Tag>
                 ),
         },
         {
@@ -286,22 +286,17 @@ const BNIPanel = () => {
         {
             title: "Created Date",
             dataIndex: "createdAt",
-            sorter: (a, b) =>
-                new Date(a.createdAt || 0) - new Date(b.createdAt || 0),
+            sorter: (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0),
             defaultSortOrder: "descend",
-            render: (date) => {
-                if (!date) return "N/A";
-                return new Date(date).toLocaleDateString("en-GB", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                });
-            },
+            render: (date) =>
+                date
+                    ? new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                    : "N/A",
         },
         {
             title: "Action",
             key: "action",
-            render: (text, record) => {
+            render: (_, record) => {
                 const isVerified = record.Dealer_verification;
                 return (
                     <div className="flex space-x-2">
@@ -335,9 +330,7 @@ const BNIPanel = () => {
                             <Popconfirm
                                 title="Send mail to this user?"
                                 description={`Send an email to ${record.email}?`}
-                                onConfirm={() =>
-                                    handleSendMail(record._id, record.email)
-                                }
+                                onConfirm={() => handleSendMail(record._id, record.email)}
                                 okText="Yes"
                                 cancelText="No"
                             >
@@ -356,36 +349,20 @@ const BNIPanel = () => {
         },
     ];
 
-    const handleTableChange = (newPagination, filters, sorter) => {
-        setPagination((prev) => ({
-            ...prev,
-            current: newPagination.current,
-            pageSize: newPagination.pageSize,
-        }));
+    const handleTableChange = (newPagination, _, sorter) => {
+        setPagination((prev) => ({ ...prev, current: newPagination.current, pageSize: newPagination.pageSize }));
 
+        const base = applyFilters(allCustomUser);
         if (sorter.field) {
-            const sorted = _.orderBy(
-                [...allCustomUser],
-                [sorter.field],
-                [sorter.order === "ascend" ? "asc" : "desc"]
-            );
-            setSortedData(sorted);
+            setSortedData(_.orderBy(base, [sorter.field], [sorter.order === "ascend" ? "asc" : "desc"]));
         } else {
-            const sorted = _.orderBy(
-                [...allCustomUser],
-                ["createdAt", "_id"],
-                ["desc", "desc"]
-            );
-            setSortedData(sorted);
+            setSortedData(_.orderBy(base, ["createdAt", "_id"], ["desc", "desc"]));
         }
     };
 
-    // ── Filename with today's date e.g. bni_users_17-Feb-2026.csv
-    const csvFilename = `bni_users_${new Date().toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-    }).replace(/ /g, "-")}.csv`;
+    const csvFilename = `bni_users_${new Date()
+        .toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+        .replace(/ /g, "-")}.csv`;
 
     return (
         <Spin spinning={loading}>
@@ -393,15 +370,13 @@ const BNIPanel = () => {
                 <Card
                     title={
                         <div className="flex justify-between items-center">
-                            <h2 className="text-xl font-semibold text-yellow-800">
-                                BNI Users
-                            </h2>
+                            <h2 className="text-xl font-semibold text-yellow-800">BNI Users</h2>
                         </div>
                     }
                     className="rounded-lg shadow-sm border-0 border-t-4 border-t-yellow-400"
                 >
-                    {/* ── Toolbar: Search | Total | Export ── */}
-                    <div className="mb-4 flex flex-wrap justify-between items-center gap-3">
+                    {/* ── Toolbar row 1: Search | Total | Export ── */}
+                    <div className="mb-3 flex flex-wrap justify-between items-center gap-3">
                         <Input.Search
                             placeholder="Search users..."
                             allowClear
@@ -410,14 +385,40 @@ const BNIPanel = () => {
                             size="large"
                         />
 
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
                             <span className="text-sm text-yellow-700">
                                 Total Users:{" "}
                                 <span className="font-semibold">{pagination.total}</span>
+                                {activeFilterCount > 0 && (
+                                    <span className="ml-1 text-gray-400">
+                                        (filtered from {allCustomUser.length})
+                                    </span>
+                                )}
                             </span>
 
-                            {/* ── CSV Download Button ── */}
-                            {/* <Tooltip title="Download all BNI users as CSV">
+                            {/* Filter toggle */}
+                            <Tooltip title="Toggle filters">
+                                <Button
+                                    icon={<FilterOutlined />}
+                                    size="large"
+                                    onClick={() => setFiltersVisible((v) => !v)}
+                                    className={
+                                        activeFilterCount > 0
+                                            ? "!border-yellow-500 !text-yellow-700 !bg-yellow-100 font-medium"
+                                            : "!border-yellow-400 !text-yellow-700 hover:!bg-yellow-100 font-medium"
+                                    }
+                                >
+                                    Filters
+                                    {activeFilterCount > 0 && (
+                                        <span className="ml-1 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-yellow-500 rounded-full">
+                                            {activeFilterCount}
+                                        </span>
+                                    )}
+                                </Button>
+                            </Tooltip>
+
+                            {/* CSV export */}
+                            <Tooltip title="Download all visible BNI users as CSV">
                                 <Button
                                     icon={<DownloadOutlined />}
                                     size="large"
@@ -427,10 +428,121 @@ const BNIPanel = () => {
                                 >
                                     Export CSV
                                 </Button>
-                            </Tooltip> */}
+                            </Tooltip>
                         </div>
                     </div>
 
+                    {/* ── Filter Panel ── */}
+                    {filtersVisible && (
+                        <div className="mb-4 p-4 bg-yellow-100 border border-yellow-200 rounded-lg">
+                            <div className="flex flex-wrap gap-4 items-end">
+                                {/* Verification Status filter */}
+                                <div className="flex flex-col gap-1 min-w-[180px]">
+                                    <label className="text-xs font-semibold text-yellow-800 uppercase tracking-wide">
+                                        Verification Status
+                                    </label>
+                                    <Select
+                                        allowClear
+                                        placeholder="All statuses"
+                                        value={filterVerification}
+                                        onChange={(val) => {
+                                            setFilterVerification(val === undefined ? null : val);
+                                            setPagination((p) => ({ ...p, current: 1 }));
+                                        }}
+                                        options={[
+                                            { label: "✅ Verified", value: true },
+                                            { label: "❌ Not Verified", value: false },
+                                        ]}
+                                        className="w-full"
+                                    />
+                                </div>
+
+                                {/* Chapter filter */}
+                                <div className="flex flex-col gap-1 min-w-[200px]">
+                                    <label className="text-xs font-semibold text-yellow-800 uppercase tracking-wide">
+                                        Chapter Name
+                                    </label>
+                                    <Select
+                                        allowClear
+                                        showSearch
+                                        placeholder="All chapters"
+                                        value={filterChapter}
+                                        onChange={(val) => {
+                                            setFilterChapter(val ?? null);
+                                            setPagination((p) => ({ ...p, current: 1 }));
+                                        }}
+                                        options={chapterOptions}
+                                        className="w-full"
+                                        filterOption={(input, option) =>
+                                            (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+                                        }
+                                    />
+                                </div>
+
+                                {/* Date Range filter */}
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-xs font-semibold text-yellow-800 uppercase tracking-wide">
+                                        Created Date Range
+                                    </label>
+                                    <RangePicker
+                                        value={filterDateRange}
+                                        onChange={(dates) => {
+                                            setFilterDateRange(dates);
+                                            setPagination((p) => ({ ...p, current: 1 }));
+                                        }}
+                                        format="DD MMM YYYY"
+                                        allowClear
+                                    />
+                                </div>
+
+                                {/* Clear button */}
+                                {activeFilterCount > 0 && (
+                                    <Button
+                                        icon={<ClearOutlined />}
+                                        onClick={clearFilters}
+                                        className="!border-red-300 !text-red-500 hover:!bg-red-50 mb-0.5"
+                                    >
+                                        Clear Filters
+                                    </Button>
+                                )}
+                            </div>
+
+                            {/* Active filter tags */}
+                            {activeFilterCount > 0 && (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    {filterVerification !== null && (
+                                        <Tag
+                                            closable
+                                            color={filterVerification ? "success" : "error"}
+                                            onClose={() => setFilterVerification(null)}
+                                        >
+                                            Status: {filterVerification ? "Verified" : "Not Verified"}
+                                        </Tag>
+                                    )}
+                                    {filterChapter && (
+                                        <Tag
+                                            closable
+                                            color="blue"
+                                            onClose={() => setFilterChapter(null)}
+                                        >
+                                            Chapter: {filterChapter}
+                                        </Tag>
+                                    )}
+                                    {filterDateRange && filterDateRange[0] && (
+                                        <Tag
+                                            closable
+                                            color="purple"
+                                            onClose={() => setFilterDateRange(null)}
+                                        >
+                                            Date: {filterDateRange[0].format("DD MMM YYYY")} → {filterDateRange[1].format("DD MMM YYYY")}
+                                        </Tag>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* ── Table ── */}
                     <div className="p-2">
                         {sortedData.length > 0 ? (
                             <Table
@@ -440,8 +552,7 @@ const BNIPanel = () => {
                                     ...pagination,
                                     showSizeChanger: true,
                                     pageSizeOptions: ["10", "20", "30", "50"],
-                                    showTotal: (total, range) =>
-                                        `${range[0]}-${range[1]} of ${total} users`,
+                                    showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} users`,
                                 }}
                                 rowKey="_id"
                                 onChange={handleTableChange}
@@ -451,7 +562,13 @@ const BNIPanel = () => {
                             />
                         ) : (
                             <div className="flex justify-center items-center min-h-[200px]">
-                                <Empty description="No Users Available" />
+                                <Empty
+                                    description={
+                                        activeFilterCount > 0
+                                            ? "No users match the current filters"
+                                            : "No Users Available"
+                                    }
+                                />
                             </div>
                         )}
                     </div>
@@ -468,9 +585,7 @@ const BNIPanel = () => {
                     open={viewModalVisible}
                     onCancel={() => setViewModalVisible(false)}
                     footer={[
-                        <Button key="close" onClick={() => setViewModalVisible(false)}>
-                            Close
-                        </Button>,
+                        <Button key="close" onClick={() => setViewModalVisible(false)}>Close</Button>,
                         selectedUser && !selectedUser.Dealer_verification && (
                             <Popconfirm
                                 key="verify"
@@ -528,83 +643,59 @@ const BNIPanel = () => {
                                         {selectedUser.name || "N/A"}
                                     </div>
                                 </Descriptions.Item>
-
                                 <Descriptions.Item label="Email">
                                     <div className="flex items-center">
                                         <MailOutlined className="mr-2 text-gray-400" />
                                         {selectedUser.email || "N/A"}
                                     </div>
                                 </Descriptions.Item>
-
                                 <Descriptions.Item label="Chapter Name">
                                     <div className="flex items-center">
                                         <BookOutlined className="mr-2 text-gray-400" />
                                         {selectedUser.chapter_Name || "N/A"}
                                     </div>
                                 </Descriptions.Item>
-
                                 <Descriptions.Item label="Phone">
                                     <div className="flex items-center">
                                         <PhoneOutlined className="mr-2 text-gray-400" />
                                         {selectedUser.phone || "N/A"}
                                     </div>
                                 </Descriptions.Item>
-
                                 <Descriptions.Item label="Verification Status">
                                     {selectedUser.Dealer_verification ? (
-                                        <Tag icon={<CheckCircleOutlined />} color="success">
-                                            Verified
-                                        </Tag>
+                                        <Tag icon={<CheckCircleOutlined />} color="success">Verified</Tag>
                                     ) : (
-                                        <Tag icon={<CloseCircleOutlined />} color="error">
-                                            Not Verified
-                                        </Tag>
+                                        <Tag icon={<CloseCircleOutlined />} color="error">Not Verified</Tag>
                                     )}
                                 </Descriptions.Item>
-
                                 <Descriptions.Item label="Role">
                                     <Tag color="blue">{selectedUser.role || "N/A"}</Tag>
                                 </Descriptions.Item>
-
                                 <Descriptions.Item label="User ID">
                                     <div className="flex items-center">
                                         <IdcardOutlined className="mr-2 text-gray-400" />
                                         <code className="text-xs">{selectedUser._id}</code>
                                     </div>
                                 </Descriptions.Item>
-
                                 <Descriptions.Item label="Created Date">
                                     <div className="flex items-center">
                                         <CalendarOutlined className="mr-2 text-gray-400" />
                                         {selectedUser.createdAt
-                                            ? new Date(selectedUser.createdAt).toLocaleString(
-                                                  "en-GB",
-                                                  {
-                                                      day: "2-digit",
-                                                      month: "short",
-                                                      year: "numeric",
-                                                      hour: "2-digit",
-                                                      minute: "2-digit",
-                                                  }
-                                              )
+                                            ? new Date(selectedUser.createdAt).toLocaleString("en-GB", {
+                                                  day: "2-digit", month: "short", year: "numeric",
+                                                  hour: "2-digit", minute: "2-digit",
+                                              })
                                             : "N/A"}
                                     </div>
                                 </Descriptions.Item>
-
                                 <Descriptions.Item label="Verified Date">
                                     <div className="flex items-center">
                                         <CalendarOutlined className="mr-2 text-gray-400" />
                                         {selectedUser.verified_at
-                                            ? new Date(selectedUser.verified_at).toLocaleString(
-                                                  "en-GB",
-                                                  {
-                                                      day: "2-digit",
-                                                      month: "short",
-                                                      year: "numeric",
-                                                      hour: "2-digit",
-                                                      minute: "2-digit",
-                                                  }
-                                              )
+                                            ? new Date(selectedUser.verified_at).toLocaleString("en-GB", {
+                                                  day: "2-digit", month: "short", year: "numeric",
+                                                  hour: "2-digit", minute: "2-digit",
+                                              })
                                             : "Not verified yet"}
                                     </div>
                                 </Descriptions.Item>
@@ -614,13 +705,10 @@ const BNIPanel = () => {
                 </Modal>
 
                 <style jsx>{`
-                    .ant-card-head-title {
-                        font-weight: 600;
-                    }
-                    .ant-input:focus,
-                    .ant-input-focused {
+                    .ant-card-head-title { font-weight: 600; }
+                    .ant-input:focus, .ant-input-focused {
                         border-color: #f59e0b;
-                        box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+                        box-shadow: 0 0 0 2px rgba(245,158,11,0.2);
                     }
                 `}</style>
             </div>
