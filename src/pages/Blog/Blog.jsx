@@ -295,7 +295,7 @@ const Blog = () => {
 
                   <Tooltip title="View Blog">
                     <Link
-                      to={`http://localhost:5173/blog-details/${res._id}`}
+                      to={`https://printe.in/blog-details/${res._id}`}
                       target="_blank"
                     >
                       <ICON_HELPER.EYE_ICON className="!text-xl group-hover:text-gray-500 hover:!text-primary" />
