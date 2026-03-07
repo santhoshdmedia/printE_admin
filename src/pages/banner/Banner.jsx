@@ -144,6 +144,8 @@ const Banner = () => {
   const collectBanners = async () => {
     try {
       const result = await getAllBanners();
+      console.log(result.data.data,"basnear");
+      
       setAllBanners(_.get(result, "data.data", []));
     } catch (err) {
       console.log(err);

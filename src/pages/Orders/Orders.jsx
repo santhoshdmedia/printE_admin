@@ -161,9 +161,13 @@ const Orders = () => {
     },
   };
 
-  // Filter orders based on active tab and search
+  // Compute active orders (excluding cancelled)
+  const activeOrders = orderData.filter(order => order.order_status !== "cancelled");
+
+  // Filter orders based on active tab and search (cancelled orders are excluded from the start)
   useEffect(() => {
-    let filtered = orderData;
+    // Start with active orders only (no cancelled)
+    let filtered = activeOrders;
 
     // Filter by tab
     if (activeTab !== "all") {
@@ -184,7 +188,7 @@ const Orders = () => {
       );
     }
 
-    // Filter by status
+    // Filter by status dropdown
     if (orderStatus) {
       filtered = filtered.filter((order) => order.order_status === orderStatus);
     }
@@ -199,12 +203,9 @@ const Orders = () => {
         return orderDate.isBetween(startDate, endDate, null, "[]");
       });
     }
-    const FilterCanceled = filtered.filter((order) => {
-    return order.cancellation_requested === false || order.order_status !== "cancelled";
-});
 
-    setFilteredOrders(FilterCanceled);
-  }, [orderData, activeTab, search, orderStatus, dateFilter]);
+    setFilteredOrders(filtered);
+  }, [orderData, activeOrders, activeTab, search, orderStatus, dateFilter]);
 
   // Fetch orders data
   const fetchOrders = async () => {
@@ -215,8 +216,8 @@ const Orders = () => {
         order_status: orderStatus,
       };
       const result = await collectallorders(JSON.stringify(searchData));
-      console.log(result.data.data,"res");
-      
+      console.log(result.data.data, "res");
+
       setOrderData(_.get(result, "data.data", []));
     } catch (err) {
       console.error("Error fetching orders:", err);
@@ -289,17 +290,17 @@ const Orders = () => {
   const showCancellationModal = (order) => {
     setCurrentOrder(order);
     setIsCancellationModalVisible(true);
-    
+
     // Pre-fill form if uncancelling
     if (order.cancellation_requested) {
       cancellationForm.setFieldsValue({
-        action: 'restore',
+        action: "restore",
         restore_status: order.status_before_cancellation || order.order_status,
       });
     } else {
       cancellationForm.setFieldsValue({
-        action: 'cancel',
-        change_status: 'cancelled',
+        action: "cancel",
+        change_status: "cancelled",
       });
     }
   };
@@ -308,21 +309,20 @@ const Orders = () => {
   const handleCancellationSubmit = async (values) => {
     try {
       setLoading(true);
-      
+
       const requestData = {
         order_id: currentOrder._id,
         admin_id: userRole._id,
       };
 
       // Add appropriate fields based on action
-      if (values.action === 'cancel') {
+      if (values.action === "cancel") {
         requestData.cancellation_reason = values.cancellation_reason;
-        requestData.change_status = values.change_status || 'cancelled';
+        requestData.change_status = values.change_status || "cancelled";
       } else {
         requestData.restore_to_status = values.restore_status;
       }
-      console.log(requestData,"bnjhbjb");
-      
+      console.log(requestData, "bnjhbjb");
 
       const response = await toggleOrderCancellation(requestData);
 
@@ -570,20 +570,17 @@ const Orders = () => {
     return statusObj ? statusObj.icon : <FiPackage />;
   };
 
-  // Calculate order statistics
+  // Calculate order statistics using only active orders (excluding cancelled)
   const orderStats = {
-    total: orderData.length,
-    completed: orderData.filter((order) => order.order_status === "completed")
-      .length,
-    inProgress: orderData.filter(
+    total: activeOrders.length,
+    completed: activeOrders.filter((order) => order.order_status === "completed").length,
+    inProgress: activeOrders.filter(
       (order) =>
-        order.order_status !== "completed" && 
-        order.order_status !== "placed" &&
-        order.order_status !== "cancelled"
+        order.order_status !== "completed" &&
+        order.order_status !== "placed"
     ).length,
-    placed: orderData.filter((order) => order.order_status === "placed").length,
-    Pending: orderData.filter((order) => order.payment_status === "pending").length,
-    cancelled: orderData.filter((order) => order.cancellation_requested === true || order.order_status === "cancelled").length,
+    placed: activeOrders.filter((order) => order.order_status === "placed").length,
+    Pending: activeOrders.filter((order) => order.payment_status === "pending").length || 0,
   };
 
   // Get current status index for progress
@@ -593,10 +590,8 @@ const Orders = () => {
 
   const provideOrderContent = (order_status) => {
     let data = order_status
-      ? orderData.filter((result) => {
-          return result.order_status === order_status;
-        })
-      : orderData;
+      ? activeOrders.filter((result) => result.order_status === order_status)
+      : activeOrders;
     return data.map((res) => {
       return {
         order_id: _.get(res, "_id", ""),
@@ -699,9 +694,9 @@ const Orders = () => {
         </p>
       </motion.div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards (without cancelled) */}
       <motion.div
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6"
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -749,20 +744,6 @@ const Orders = () => {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <Card className="shadow-md border-0 bg-gradient-to-r from-orange-500 to-orange-600 text-white">
-            <div className="flex items-center">
-              <div className="bg-white bg-opacity-20 p-3 rounded-full">
-                <FiXCircle className="text-white text-xl" />
-              </div>
-              <div className="ml-4">
-                <h3 className="text-white text-opacity-80">Cancelled</h3>
-                <p className="text-2xl font-bold">{orderStats.cancelled}</p>
-              </div>
-            </div>
-          </Card>
-        </motion.div>
-
-        <motion.div variants={itemVariants}>
           <Card className="shadow-md border-0 bg-gradient-to-r from-green-500 to-green-600 text-white">
             <div className="flex items-center">
               <div className="bg-white bg-opacity-20 p-3 rounded-full">
@@ -794,7 +775,7 @@ const Orders = () => {
               description={
                 <span className="text-xs">
                   {
-                    orderData.filter(
+                    activeOrders.filter(
                       (order) => order.order_status === status.label
                     ).length
                   }{" "}
@@ -851,7 +832,7 @@ const Orders = () => {
               className="w-full"
               size="large"
             >
-              {statusFlow.map((status) => (
+              {statusFlow.filter(s => s.label !== "cancelled").map((status) => (
                 <Option key={status.key} value={status.label}>
                   <div className="flex items-center">
                     <span className="mr-2" style={{ color: status.color }}>
@@ -875,7 +856,7 @@ const Orders = () => {
           </Button>
         </div>
 
-        {/* Status Tabs */}
+        {/* Status Tabs (excluding cancelled) */}
         <div className="mt-6 flex overflow-x-auto pb-2">
           <div
             className={`px-4 py-2 cursor-pointer flex items-center whitespace-nowrap ${
@@ -888,7 +869,7 @@ const Orders = () => {
             <FiBox className="mr-2" />
             All Orders
           </div>
-          {statusFlow.map((status) => (
+          {statusFlow.filter(s => s.label !== "cancelled").map((status) => (
             <div
               key={status.key}
               className={`px-4 py-2 cursor-pointer flex items-center whitespace-nowrap ${
@@ -904,7 +885,7 @@ const Orders = () => {
               {_.startCase(status.label)}
               <Badge
                 count={
-                  orderData.filter(
+                  activeOrders.filter(
                     (order) => order.order_status === status.label
                   ).length
                 }
@@ -917,7 +898,7 @@ const Orders = () => {
         </div>
       </motion.div>
 
-      {/* Orders List */}
+      {/* Orders List (only active orders) */}
       <motion.div
         variants={containerVariants}
         initial="hidden"
@@ -937,9 +918,7 @@ const Orders = () => {
             >
               <Card
                 className={`shadow-sm hover:shadow-md transition-shadow duration-300 border-0 overflow-hidden ${
-                  order.cancellation_requested || order.order_status === "cancelled" 
-                    ? 'border-l-4 border-l-red-500' 
-                    : ''
+                  order.cancellation_requested ? 'border-l-4 border-l-red-500' : ''
                 }`}
               >
                 <div className="p-5">
@@ -962,13 +941,11 @@ const Orders = () => {
                         <span className="text-gray-500">
                           {moment(order.createdAt).format("MMM D, YYYY h:mm A")}
                         </span>
-                        {(order.cancellation_requested || order.order_status === "cancelled") && (
+                        {order.cancellation_requested && (
                           <>
                             <span className="text-gray-400">•</span>
                             <Tag color="red" icon={<FiXCircle />}>
-                              {order.order_status === "cancelled" 
-                                ? "Cancelled" 
-                                : "Cancellation Requested"}
+                              Cancellation Requested
                             </Tag>
                           </>
                         )}
@@ -1012,7 +989,7 @@ const Orders = () => {
                           )}
                           showInfo={false}
                           strokeColor={getStatusColor(order.order_status)}
-                          status={order.order_status === "cancelled" ? "exception" : "active"}
+                          status="active"
                         />
                       </div>
 
@@ -1040,8 +1017,7 @@ const Orders = () => {
                       <div className="flex space-x-2 flex-wrap gap-2">
                         {user.role !== "super admin" && (
                           <>
-                            {order.order_status !== "completed" && 
-                             order.order_status !== "cancelled" && (
+                            {order.order_status !== "completed" && (
                               <Popconfirm
                                 title={`Forward to ${
                                   statusFlow[
@@ -1112,16 +1088,15 @@ const Orders = () => {
                          order.order_status !== "completed" && (
                           <Button
                             size="middle"
-                            
-                            type={order.cancellation_requested || order.order_status === "cancelled" ? "default" : "primary"}
+                            type={order.cancellation_requested ? "default" : "primary"}
                             className={
-                              order.cancellation_requested || order.order_status === "cancelled"
+                              order.cancellation_requested
                                 ? "bg-yellow-500 hover:bg-yellow-600 text-white border-0"
                                 : "bg-green-500"
                             }
                             onClick={() => showCancellationModal(order)}
                           >
-                            {order.cancellation_requested || order.order_status === "cancelled"
+                            {order.cancellation_requested
                               ? "Restore Order"
                               : "Change Status"}
                           </Button>
@@ -1138,7 +1113,6 @@ const Orders = () => {
 
                       {order.vender_id ? (
                         (() => {
-                          
                           return (
                             <div className="text-sm bg-green-50 text-green-700 px-3 py-1 rounded-full flex items-center">
                               <FiUser className="mr-1" />
@@ -1218,7 +1192,7 @@ const Orders = () => {
         title={
           <div className="flex items-center">
             <FiAlertTriangle className="mr-2 text-orange-500" />
-            {currentOrder?.cancellation_requested || currentOrder?.order_status === "cancelled"
+            {currentOrder?.cancellation_requested
               ? "Restore Order"
               : "Cancel Order"}
           </div>
@@ -1237,7 +1211,7 @@ const Orders = () => {
             layout="vertical"
             onFinish={handleCancellationSubmit}
             initialValues={{
-              action: currentOrder.cancellation_requested || currentOrder.order_status === "cancelled" ? 'restore' : 'cancel',
+              action: currentOrder.cancellation_requested ? 'restore' : 'cancel',
             }}
           >
             <div className="mb-4 p-4 bg-gray-50 rounded-lg">
@@ -1260,7 +1234,7 @@ const Orders = () => {
               <Input />
             </Form.Item>
 
-            {!(currentOrder.cancellation_requested || currentOrder.order_status === "cancelled") ? (
+            {!currentOrder.cancellation_requested ? (
               <>
                 <Form.Item
                   label="Cancellation Reason"
@@ -1336,14 +1310,14 @@ const Orders = () => {
                   type="primary"
                   htmlType="submit"
                   loading={loading}
-                  danger={!(currentOrder.cancellation_requested || currentOrder.order_status === "cancelled")}
+                  danger={!currentOrder.cancellation_requested}
                   className={
-                    currentOrder.cancellation_requested || currentOrder.order_status === "cancelled"
+                    currentOrder.cancellation_requested
                       ? "bg-green-500 hover:bg-green-600 border-0"
                       : ""
                   }
                 >
-                  {currentOrder.cancellation_requested || currentOrder.order_status === "cancelled"
+                  {currentOrder.cancellation_requested
                     ? "Restore Order"
                     : "Confirm Cancellation"}
                 </Button>
@@ -1353,7 +1327,7 @@ const Orders = () => {
         )}
       </Modal>
 
-      {/* Vendor Assignment Modal */}
+      {/* Vendor Assignment Modal (unchanged) */}
       <Modal
         title="Assign Vendor to Order"
         open={isModalVisible}
@@ -1457,7 +1431,7 @@ const Orders = () => {
         )}
       </Modal>
 
-      {/* Design Team Modal with Timer */}
+      {/* Design Team Modal with Timer (unchanged) */}
       <Modal
         title="Design Team - Submit Design Details"
         open={isDesignModalVisible}
@@ -1581,7 +1555,7 @@ const Orders = () => {
         )}
       </Modal>
 
-      {/* Quality Check Modal */}
+      {/* Quality Check Modal (unchanged) */}
       <Modal
         title="Quality Check - Rate Vendor"
         open={isQualityModalVisible}
@@ -1645,7 +1619,7 @@ const Orders = () => {
         )}
       </Modal>
 
-      {/* Order Details Modal */}
+      {/* Order Details Modal (unchanged) */}
       <Modal
         title="Order Details"
         open={isDetailsModalVisible}

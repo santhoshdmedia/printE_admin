@@ -29,6 +29,7 @@ import BulkEnquirey from "../pages/Enquries/BulkEnquirey";
 import AddForms from "../pages/Products/AddForms";
 import Coupen from "../pages/coupen/Coupen";
 import AdminCreateOrder from "../pages/InvoiceGenration/AdminCreateOrder";
+import AdminCreateQuotation from "../pages/InvoiceGenration/Admincreatequotation";
 import DummyOrder from "../pages/Orders/DummyOrder";
 import BNIPanel from "../pages/userPanel/BNIPanel";
 import PermissionGuard from "../components/PermissionGuard";
@@ -458,6 +459,20 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute pageName="dashboard">
             <AdminCreateOrder />
+          </ProtectedRoute>
+        ),
+      },
+    ],
+  },
+  {
+    path: "/Quotation",
+    element: <Layout />,
+    children: [
+      {
+        path: "/Quotation",
+        element: (
+          <ProtectedRoute pageName="dashboard">
+            <AdminCreateQuotation />
           </ProtectedRoute>
         ),
       },
