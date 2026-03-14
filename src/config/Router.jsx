@@ -33,6 +33,7 @@ import AdminCreateQuotation from "../pages/InvoiceGenration/Admincreatequotation
 import DummyOrder from "../pages/Orders/DummyOrder";
 import BNIPanel from "../pages/userPanel/BNIPanel";
 import PermissionGuard from "../components/PermissionGuard";
+import OfflineProduct from "../pages/Products/OfflineProduct";
 
 // Wrapper component for permission-protected routes
 const ProtectedRoute = ({ children, pageName }) => (
@@ -249,6 +250,20 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute pageName="Vendor-product-details">
             <VendorProduct />
+          </ProtectedRoute>
+        ),
+      },
+    ],
+  },
+  {
+    path: "/stock-management",
+    element: <Layout />,
+    children: [
+      {
+        path: "/stock-management",
+        element: (
+          <ProtectedRoute pageName="offline-product-details">
+            <OfflineProduct />
           </ProtectedRoute>
         ),
       },

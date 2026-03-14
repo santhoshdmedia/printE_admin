@@ -27,6 +27,15 @@ export const MENU_DATA = [
     special: ["orders","assigned-order", "order_explore"],
     for: ["super admin", "accounting team", "designing team", "production team", "delivery team","quality check","packing team"],
   },
+
+  {
+    id: 4,
+    name: "stock-management",
+    icon: ICON_HELPER.ORDERS_ICON,
+    to: "/stock-management",
+    special: ["stock-management"],
+    for: ["super admin", "accounting team", "designing team", "production team", "delivery team","quality check","packing team"],
+  },
   {
     id: 18,
     name: "cancelled Orders",
