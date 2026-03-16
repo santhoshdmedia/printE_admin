@@ -1,24 +1,16 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable react/prop-types */
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { MdFileDownload } from "react-icons/md";
 import {
-  MdDelete, MdContentCopy, MdMoreVert, MdStar, MdNewReleases,
-  MdThumbUp, MdFileDownload, MdVisibility, MdVisibilityOff,
-} from "react-icons/md";
-import {
-  Button, Descriptions, Form, Image, Modal, Popconfirm, Select,
-  Spin, Switch, Table, Tabs, Tag, Tooltip, Card, Typography,
-  Dropdown, Menu, message, Input, DatePicker,
+  Button, Form, Image, Modal, Select, Spin, Table, Tabs, Tag,
+  Tooltip, Card, Typography, Dropdown, Menu, message, Input, DatePicker, InputNumber, Slider,
 } from "antd";
+import { FaFilter } from "react-icons/fa";
 import {
-  FaEdit, FaEye, FaFilter, FaLock,
-} from "react-icons/fa";
-import {
-  LockOutlined, ArrowUpOutlined, ArrowDownOutlined,
-  PlusOutlined, DeleteFilled, EyeOutlined, SwapOutlined,
-  CameraOutlined, UploadOutlined,
+  LockOutlined, ArrowUpOutlined, ArrowDownOutlined, PlusOutlined,
+  DeleteFilled, EyeOutlined, SwapOutlined, CameraOutlined, UploadOutlined,
 } from "@ant-design/icons";
 import _ from "lodash";
 import { v4 as uuidv4 } from "uuid";
@@ -28,15 +20,11 @@ import { SortableContext, arrayMove, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 import {
-  addproduct, CLIENT_URL, deleteProduct, editProduct,
-  getAllCategoryProducts, getAllVendor, getMainCategory,
-  getProduct, getSubCategory, getSingleVendor, uploadImage,
+  addproduct, editProduct, getAllCategoryProducts, getAllVendor,
+  getMainCategory, getProduct, getSubCategory, getSingleVendor, uploadImage,
 } from "../../api";
-import {
-  ERROR_NOTIFICATION, SUCCESS_NOTIFICATION,
-} from "../../helper/notification_helper";
+import { ERROR_NOTIFICATION, SUCCESS_NOTIFICATION } from "../../helper/notification_helper";
 import CustomTable from "../../components/CustomTable";
-import DefaultTile from "../../components/DefaultTile";
 import { useForm } from "antd/es/form/Form";
 import { canEditPage, canDeletePage, isSuperAdmin } from "../../helper/permissionHelper";
 import { formValidation } from "../../helper/formvalidation";
@@ -50,21 +38,21 @@ const STORAGE_KEYS = {
   ACTIVE_TAB: "products_activeTab",
 };
 
-// ─── Device Detection ───────────────────────────────────────────────────────
+// ─── Device Detection ─────────────────────────────────────────────────────────
 
-const isMobileDevice = () => {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-    navigator.userAgent
-  ) || (navigator.maxTouchPoints > 1 && window.innerWidth <= 768);
-};
+const isMobileDevice = () =>
+  /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+  (navigator.maxTouchPoints > 1 && window.innerWidth <= 768);
 
-// ─── Image Helpers ─────────────────────────────────────────────────────────
+// ─── Image Helpers ────────────────────────────────────────────────────────────
 
 const createImageObject = (url, existingId = null) => ({
   _id: existingId || uuidv4(),
   path: url, url, type: "image",
   uploadedAt: new Date().toISOString(),
 });
+
+// ─── SortableImage ────────────────────────────────────────────────────────────
 
 const SortableImage = ({ id, image, onRemove }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
@@ -79,11 +67,13 @@ const SortableImage = ({ id, image, onRemove }) => {
       >
         <div className="flex items-center justify-center w-full h-full">⠿</div>
       </div>
-      <Image src={imageUrl} alt="Product" width={80} height={80}
+      <Image
+        src={imageUrl} alt="Product" width={80} height={80}
         className="object-cover rounded border-2 border-dashed border-gray-300"
         preview={{ mask: <span className="text-white text-xs">Preview</span> }}
       />
-      <button type="button"
+      <button
+        type="button"
         className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center border-0 cursor-pointer z-20"
         onClick={(e) => { e.stopPropagation(); e.preventDefault(); onRemove(id); }}
       >
@@ -93,21 +83,25 @@ const SortableImage = ({ id, image, onRemove }) => {
   );
 };
 
+// ─── SortableImageList ────────────────────────────────────────────────────────
+
 const SortableImageList = ({ images, setImages }) => {
   const getId = (img) => img._id || img.path || img;
   const handleDragEnd = ({ active, over }) => {
     if (!over || active.id === over.id) return;
-    const oi = images.findIndex(img => getId(img) === active.id);
-    const ni = images.findIndex(img => getId(img) === over.id);
+    const oi = images.findIndex((img) => getId(img) === active.id);
+    const ni = images.findIndex((img) => getId(img) === over.id);
     if (oi !== -1 && ni !== -1) setImages(arrayMove(images, oi, ni));
   };
   return (
     <DndContext onDragEnd={handleDragEnd}>
       <SortableContext items={images.map(getId)}>
         <div className="flex flex-wrap gap-3 p-3 bg-gray-50 rounded-lg min-h-[5rem] border border-dashed border-gray-300 mt-2">
-          {images.map(img => (
-            <SortableImage key={getId(img)} id={getId(img)} image={img}
-              onRemove={(id) => setImages(images.filter(i => getId(i) !== id))} />
+          {images.map((img) => (
+            <SortableImage
+              key={getId(img)} id={getId(img)} image={img}
+              onRemove={(id) => setImages(images.filter((i) => getId(i) !== id))}
+            />
           ))}
           {images.length === 0 && (
             <div className="flex items-center justify-center w-full text-gray-400 text-sm">No images yet</div>
@@ -118,19 +112,16 @@ const SortableImageList = ({ images, setImages }) => {
   );
 };
 
-// ─── Upload Helper (Mobile-aware) ───────────────────────────────────────────
+// ─── UploadHelper (Mobile-aware) ──────────────────────────────────────────────
 
 const UploadHelper = ({ max = 10, setImagePath, image_path = [], label = "Upload Images", fieldKey }) => {
   const [uploading, setUploading] = useState(false);
   const [showMobileOptions, setShowMobileOptions] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
 
-  useEffect(() => {
-    setIsMobile(isMobileDevice());
-  }, []);
+  useEffect(() => { setIsMobile(isMobileDevice()); }, []);
 
   const processFiles = async (files) => {
     if (!files?.length) return;
@@ -159,116 +150,479 @@ const UploadHelper = ({ max = 10, setImagePath, image_path = [], label = "Upload
     }
   };
 
-  const handleFileChange = async (e) => {
-    await processFiles(e.target.files);
-    setShowMobileOptions(false);
-  };
-
-  const handleCameraChange = async (e) => {
-    await processFiles(e.target.files);
-    setShowMobileOptions(false);
-  };
-
-  const handleUploadClick = () => {
-    if (isMobile) {
-      setShowMobileOptions(true);
-    } else {
-      fileInputRef.current?.click();
-    }
-  };
+  const handleFileChange = async (e) => { await processFiles(e.target.files); setShowMobileOptions(false); };
+  const handleCameraChange = async (e) => { await processFiles(e.target.files); setShowMobileOptions(false); };
+  const handleUploadClick = () => { isMobile ? setShowMobileOptions(true) : fileInputRef.current?.click(); };
 
   return (
     <div>
-      {/* Hidden file inputs */}
-      {/* Gallery / File picker */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        onChange={handleFileChange}
-        className="!hidden"
-        id={`up-gallery-${fieldKey || "img"}`}
-      />
-      {/* Camera capture (mobile) */}
-      {/* <input
-        ref={cameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleCameraChange}
-        className="hidden"
-        id={`up-camera-${fieldKey || "img"}`}
-      /> */}
+      <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileChange}
+        className="!hidden" id={`up-gallery-${fieldKey || "img"}`} />
 
-      {/* Trigger button */}
       <button
-        type="button"
-        onClick={handleUploadClick}
-        disabled={uploading}
+        type="button" onClick={handleUploadClick} disabled={uploading}
         className="cursor-pointer flex items-center gap-2 border border-dashed border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-600 hover:border-blue-400 hover:text-blue-500 transition-colors bg-gray-50 w-fit disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {uploading ? <Spin size="small" /> : <PlusOutlined />}
         {uploading ? "Uploading..." : label}
       </button>
 
-      {/* Mobile bottom sheet — choose Camera or Gallery */}
       {isMobile && showMobileOptions && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{ background: "rgba(0,0,0,0.45)" }}
-          onClick={() => setShowMobileOptions(false)}
-        >
-          <div
-            className="w-full max-w-md bg-white rounded-t-2xl p-4 pb-8 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: "rgba(0,0,0,0.45)" }}
+          onClick={() => setShowMobileOptions(false)}>
+          <div className="w-full max-w-md bg-white rounded-t-2xl p-4 pb-8 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
             <p className="text-center text-gray-700 font-semibold mb-4 text-base">Add Image</p>
             <div className="grid grid-cols-2 gap-3">
-              {/* Camera */}
-              <label
-                htmlFor={`up-camera-${fieldKey || "img"}`}
+              <label htmlFor={`up-camera-${fieldKey || "img"}`}
                 className="flex flex-col items-center justify-center gap-2 p-5 bg-blue-50 border-2 border-blue-200 rounded-xl cursor-pointer hover:bg-blue-100 active:scale-95 transition-all"
-                onClick={() => setShowMobileOptions(false)}
-              >
+                onClick={() => setShowMobileOptions(false)}>
                 <CameraOutlined style={{ fontSize: 32, color: "#2563eb" }} />
                 <span className="text-sm font-semibold text-blue-700">Camera</span>
                 <span className="text-xs text-blue-400 text-center">Take a new photo</span>
               </label>
-
-              {/* Gallery */}
-              <label
-                htmlFor={`up-gallery-${fieldKey || "img"}`}
+              <label htmlFor={`up-gallery-${fieldKey || "img"}`}
                 className="flex flex-col items-center justify-center gap-2 p-5 bg-green-50 border-2 border-green-200 rounded-xl cursor-pointer hover:bg-green-100 active:scale-95 transition-all"
-                onClick={() => setShowMobileOptions(false)}
-              >
+                onClick={() => setShowMobileOptions(false)}>
                 <UploadOutlined style={{ fontSize: 32, color: "#16a34a" }} />
                 <span className="text-sm font-semibold text-green-700">Gallery</span>
                 <span className="text-xs text-green-400 text-center">Choose from photos</span>
               </label>
             </div>
-
-            <button
-              type="button"
-              onClick={() => setShowMobileOptions(false)}
-              className="mt-4 w-full py-3 text-sm text-gray-500 font-medium rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors border-0"
-            >
+            <button type="button" onClick={() => setShowMobileOptions(false)}
+              className="mt-4 w-full py-3 text-sm text-gray-500 font-medium rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors border-0">
               Cancel
             </button>
           </div>
         </div>
       )}
 
-      {/* Image list */}
-      {image_path?.length > 0 && (
-        <SortableImageList images={image_path} setImages={setImagePath} />
+      {image_path?.length > 0 && <SortableImageList images={image_path} setImages={setImagePath} />}
+    </div>
+  );
+};
+
+// ─── StockRangeFilter ─────────────────────────────────────────────────────────
+
+const STOCK_PRESETS = [
+  { label: "Out of Stock", min: 0, max: 0, color: "#dc2626", bg: "#fff1f2", border: "#fecaca" },
+  { label: "Low (1–10)", min: 1, max: 10, color: "#d97706", bg: "#fffbeb", border: "#fde68a" },
+  { label: "Medium (11–50)", min: 11, max: 50, color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe" },
+  { label: "High (50+)", min: 50, max: null, color: "#16a34a", bg: "#f0fdf4", border: "#bbf7d0" },
+];
+
+const StockRangeFilter = ({ stockMin, stockMax, onStockMinChange, onStockMaxChange, onClear }) => {
+  const hasActive = stockMin !== "" || stockMax !== "";
+
+  const handlePreset = (preset) => {
+    // Toggle: if already active, clear it
+    if (stockMin === (preset.min ?? "") && stockMax === (preset.max ?? "")) {
+      onStockMinChange("");
+      onStockMaxChange("");
+    } else {
+      onStockMinChange(preset.min ?? "");
+      onStockMaxChange(preset.max ?? "");
+    }
+  };
+
+  const isPresetActive = (preset) =>
+    stockMin === (preset.min ?? "") && stockMax === (preset.max ?? "");
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Preset quick-select pills */}
+      <div className="flex flex-wrap gap-2">
+        {STOCK_PRESETS.map((preset) => {
+          const active = isPresetActive(preset);
+          return (
+            <button
+              key={preset.label}
+              type="button"
+              onClick={() => handlePreset(preset)}
+              style={{
+                background: active ? preset.color : preset.bg,
+                borderColor: active ? preset.color : preset.border,
+                color: active ? "#fff" : preset.color,
+                border: "1.5px solid",
+                borderRadius: 20,
+                padding: "3px 12px",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.15s",
+                outline: "none",
+              }}
+            >
+              {preset.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Manual min/max inputs */}
+      <div className="flex items-center gap-2">
+        <InputNumber
+          placeholder="Min"
+          min={0}
+          value={stockMin === "" ? null : stockMin}
+          onChange={(val) => onStockMinChange(val === null ? "" : val)}
+          className="w-full"
+          size="large"
+          style={{ borderRadius: 10 }}
+          prefix={<span className="text-gray-400 text-xs">≥</span>}
+        />
+        <span className="text-gray-400 font-bold text-lg flex-shrink-0">—</span>
+        <InputNumber
+          placeholder="Max"
+          min={0}
+          value={stockMax === "" ? null : stockMax}
+          onChange={(val) => onStockMaxChange(val === null ? "" : val)}
+          className="w-full"
+          size="large"
+          style={{ borderRadius: 10 }}
+          prefix={<span className="text-gray-400 text-xs">≤</span>}
+        />
+        {hasActive && (
+          <Tooltip title="Clear stock range">
+            <Button
+              size="large"
+              onClick={onClear}
+              style={{
+                borderRadius: 10,
+                background: "#f3f4f6",
+                border: "1px solid #e5e7eb",
+                color: "#6b7280",
+                flexShrink: 0,
+                fontWeight: 700,
+              }}
+            >
+              ✕
+            </Button>
+          </Tooltip>
+        )}
+      </div>
+
+      {/* Active range indicator */}
+      {hasActive && (
+        <div
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
+          style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#16a34a" }}
+        >
+          <span>📊</span>
+          <span>
+            Showing stock:{" "}
+            {stockMin !== "" ? stockMin : "0"} — {stockMax !== "" ? stockMax : "∞"}
+          </span>
+        </div>
       )}
     </div>
   );
 };
 
-// ─── Stock IN Modal ─────────────────────────────────────────────────────────
+// ─── PriceRangeFilter ─────────────────────────────────────────────────────────
+
+const PRICE_PRESETS = [
+  { label: "Under ₹500", min: null, max: 500, color: "#7c3aed", bg: "#f5f3ff", border: "#ddd6fe" },
+  { label: "₹500–₹1,000", min: 500, max: 1000, color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe" },
+  { label: "₹1,000–₹5,000", min: 1000, max: 5000, color: "#0d9488", bg: "#f0fdfa", border: "#99f6e4" },
+  { label: "₹5,000+", min: 5000, max: null, color: "#d97706", bg: "#fffbeb", border: "#fde68a" },
+];
+
+const PriceRangeFilter = ({ priceMin, priceMax, onPriceMinChange, onPriceMaxChange, onClear }) => {
+  const hasActive = priceMin !== "" || priceMax !== "";
+
+  const handlePreset = (preset) => {
+    const pMin = preset.min ?? "";
+    const pMax = preset.max ?? "";
+    if (priceMin === pMin && priceMax === pMax) {
+      onPriceMinChange("");
+      onPriceMaxChange("");
+    } else {
+      onPriceMinChange(pMin);
+      onPriceMaxChange(pMax);
+    }
+  };
+
+  const isPresetActive = (preset) =>
+    priceMin === (preset.min ?? "") && priceMax === (preset.max ?? "");
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Preset quick-select pills */}
+      <div className="flex flex-wrap gap-2">
+        {PRICE_PRESETS.map((preset) => {
+          const active = isPresetActive(preset);
+          return (
+            <button
+              key={preset.label}
+              type="button"
+              onClick={() => handlePreset(preset)}
+              style={{
+                background: active ? preset.color : preset.bg,
+                borderColor: active ? preset.color : preset.border,
+                color: active ? "#fff" : preset.color,
+                border: "1.5px solid",
+                borderRadius: 20,
+                padding: "3px 12px",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.15s",
+                outline: "none",
+              }}
+            >
+              {preset.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Manual min/max inputs */}
+      <div className="flex items-center gap-2">
+        <InputNumber
+          placeholder="Min ₹"
+          min={0}
+          value={priceMin === "" ? null : priceMin}
+          onChange={(val) => onPriceMinChange(val === null ? "" : val)}
+          className="w-full"
+          size="large"
+          style={{ borderRadius: 10 }}
+          prefix={<span className="text-gray-400 text-xs">₹≥</span>}
+          formatter={(v) => v ? `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",") : ""}
+          parser={(v) => v.replace(/,/g, "")}
+        />
+        <span className="text-gray-400 font-bold text-lg flex-shrink-0">—</span>
+        <InputNumber
+          placeholder="Max ₹"
+          min={0}
+          value={priceMax === "" ? null : priceMax}
+          onChange={(val) => onPriceMaxChange(val === null ? "" : val)}
+          className="w-full"
+          size="large"
+          style={{ borderRadius: 10 }}
+          prefix={<span className="text-gray-400 text-xs">₹≤</span>}
+          formatter={(v) => v ? `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",") : ""}
+          parser={(v) => v.replace(/,/g, "")}
+        />
+        {hasActive && (
+          <Tooltip title="Clear price range">
+            <Button
+              size="large"
+              onClick={onClear}
+              style={{
+                borderRadius: 10,
+                background: "#f3f4f6",
+                border: "1px solid #e5e7eb",
+                color: "#6b7280",
+                flexShrink: 0,
+                fontWeight: 700,
+              }}
+            >
+              ✕
+            </Button>
+          </Tooltip>
+        )}
+      </div>
+
+      {/* Active range indicator */}
+      {hasActive && (
+        <div
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold"
+          style={{ background: "#f5f3ff", border: "1px solid #ddd6fe", color: "#7c3aed" }}
+        >
+          <span>💰</span>
+          <span>
+            Showing price: ₹{priceMin !== "" ? Number(priceMin).toLocaleString() : "0"} —{" "}
+            {priceMax !== "" ? `₹${Number(priceMax).toLocaleString()}` : "∞"}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── NewProductStockModal ─────────────────────────────────────────────────────
+
+const NewProductStockModal = ({ open, onClose, onSuccess, categoryData, subcategoryData, allVendors }) => {
+  const [form] = Form.useForm();
+  const [loading, setLoading] = useState(false);
+  const [productImages, setProductImages] = useState([]);
+  const [stockImages, setStockImages] = useState([]);
+  const [filteredSubcategories, setFilteredSubcategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+
+  useEffect(() => {
+    if (!open) {
+      form.resetFields();
+      setProductImages([]);
+      setStockImages([]);
+      setFilteredSubcategories([]);
+      setSelectedCategory(null);
+    }
+  }, [open]);
+
+  const handleCategoryChange = (value) => {
+    setSelectedCategory(value);
+    form.setFieldValue("sub_category", undefined);
+    setFilteredSubcategories(value ? subcategoryData.filter((s) => s.select_main_category === value) : []);
+  };
+
+  const handleSubmit = async (values) => {
+    try {
+      setLoading(true);
+      const stockEntry = {
+        _id: uuidv4(),
+        add_stock: Number(values.initial_stock) || 0,
+        buy_price: values.buy_price || "",
+        handler_name: values.handler_name || "",
+        location: values.location || "",
+        invoice: values.invoice || "",
+        notes: values.notes || "",
+        stock_images: stockImages.map((img) => ({ _id: img._id, path: img.path, url: img.url })),
+        date: values.date ? values.date.toISOString() : new Date().toISOString(),
+      };
+      const payload = {
+        name: values.name,
+        HSNcode_time: values.HSNcode_time || "",
+        type: values.type || "Stand Alone Product",
+        MRP_price: values.MRP_price || "",
+        customer_product_price: values.customer_price || "",
+        stock_info: [stockEntry],
+        stock_count: Number(values.initial_stock) || 0,
+        stock_offline: [],
+        stocks_status: Number(values.initial_stock) > 10 ? "In Stock" : "Limited",
+        is_visible: false,
+      };
+      const result = await addproduct(payload);
+      SUCCESS_NOTIFICATION(result);
+      onSuccess();
+      onClose();
+    } catch (err) {
+      ERROR_NOTIFICATION(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const productTypes = [
+    { value: "Stand Alone Product", label: "Stand Alone Product" },
+    { value: "Variable Product", label: "Variable Product" },
+    { value: "Variant Product", label: "Variant Product" },
+  ];
+
+  return (
+    <Modal open={open} onCancel={onClose} footer={null} width={820} destroyOnClose
+      title={
+        <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
+          <div className="w-9 h-9 rounded-full bg-teal-100 flex items-center justify-center">
+            <PlusOutlined style={{ color: "#0d9488", fontSize: 16 }} />
+          </div>
+          <div>
+            <div className="font-bold text-gray-900 text-base">Add New Product</div>
+            <div className="text-xs text-gray-500 font-normal">Create a new product with initial stock info</div>
+          </div>
+          <Tag color="cyan" className="ml-auto font-semibold">New Entry</Tag>
+        </div>
+      }
+    >
+      <Form form={form} layout="vertical" onFinish={handleSubmit} className="mt-4">
+
+        {/* ── Product Details ── */}
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-1 h-5 bg-teal-500 rounded-full" />
+            <span className="font-bold text-gray-800 text-sm uppercase tracking-wide">Product Details</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            <Form.Item label="Product Name" name="name"
+              rules={[formValidation("Enter product name")]} className="md:col-span-2">
+              <Input placeholder="e.g. Wireless Bluetooth Speaker" className="h-10" />
+            </Form.Item>
+
+            <Form.Item label="HSN Code" name="HSNcode_time">
+              <Input placeholder="e.g. VND-001" className="h-10" />
+            </Form.Item>
+
+            <Form.Item label="Product Type" name="type">
+              <Select placeholder="Select type" options={productTypes} allowClear className="h-10" />
+            </Form.Item>
+
+            <Form.Item label="MRP Price (₹)" name="MRP_price">
+              <Input type="number" placeholder="e.g. 999" className="h-10" prefix="₹" />
+            </Form.Item>
+
+            <Form.Item label="Customer Price (₹)" name="customer_price">
+              <Input type="number" placeholder="e.g. 799" className="h-10" prefix="₹" />
+            </Form.Item>
+          </div>
+        </div>
+
+        <div className="border-t border-dashed border-gray-200 my-5" />
+
+        {/* ── Initial Stock Info ── */}
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-1 h-5 bg-green-500 rounded-full" />
+            <span className="font-bold text-gray-800 text-sm uppercase tracking-wide">Initial Stock Info</span>
+            <Tag color="success" className="text-xs">Stock IN Entry</Tag>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            <Form.Item label="Initial Stock Quantity" name="initial_stock"
+              rules={[formValidation("Enter initial stock quantity")]}>
+              <Input type="number" placeholder="e.g. 100" className="h-10"
+                prefix={<ArrowUpOutlined style={{ color: "#16a34a" }} />} />
+            </Form.Item>
+
+            <Form.Item label="Buy Price (₹)" name="buy_price"
+              rules={[formValidation("Enter buy price")]}>
+              <Input type="number" placeholder="e.g. 250.00" className="h-10" prefix="₹" />
+            </Form.Item>
+
+            <Form.Item label="Handler Name" name="handler_name"
+              rules={[formValidation("Enter handler name")]}>
+              <Input placeholder="Who handled this?" className="h-10" />
+            </Form.Item>
+
+            <Form.Item label="Location / Rack" name="location">
+              <Input placeholder="e.g. Warehouse Rack A-3" className="h-10" />
+            </Form.Item>
+
+            <Form.Item label="Date & Time" name="date"
+              rules={[formValidation("Select a date")]}>
+              <DatePicker showTime className="h-10 w-full" format="DD/MM/YYYY h:mm A" />
+            </Form.Item>
+
+            <Form.Item label="Invoice No." name="invoice">
+              <Input placeholder="e.g. INV-001" className="h-10" />
+            </Form.Item>
+
+            <Form.Item label="Notes" name="notes" className="md:col-span-2">
+              <Input.TextArea placeholder="Any additional notes about this stock entry..." rows={2} />
+            </Form.Item>
+
+            <Form.Item label="Stock Entry Images" className="md:col-span-2">
+              <UploadHelper max={10} setImagePath={setStockImages} image_path={stockImages}
+                label="Upload Stock Images" fieldKey="new-product-stock" />
+            </Form.Item>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 mt-2 pt-4 border-t border-gray-100">
+          <Button onClick={onClose} className="rounded-lg px-6">Cancel</Button>
+          <Button type="primary" htmlType="submit" loading={loading} icon={<PlusOutlined />}
+            className="rounded-lg px-6 h-10 font-semibold"
+            style={{ background: "#0d9488", borderColor: "#0d9488" }}>
+            Create Product
+          </Button>
+        </div>
+      </Form>
+    </Modal>
+  );
+};
+
+// ─── StockInModal ─────────────────────────────────────────────────────────────
 
 const StockInModal = ({ open, onClose, product, onSuccess }) => {
   const [form] = Form.useForm();
@@ -282,7 +636,7 @@ const StockInModal = ({ open, onClose, product, onSuccess }) => {
   const handleSubmit = async (values) => {
     try {
       setLoading(true);
-      const existingStockInfo = (_.get(product, "stock_info", [])).map(item => ({
+      const existingStockInfo = _.get(product, "stock_info", []).map((item) => ({
         ...item,
         date: item.date ? new Date(item.date).toISOString() : null,
       }));
@@ -294,16 +648,13 @@ const StockInModal = ({ open, onClose, product, onSuccess }) => {
         location: values.location,
         invoice: values.invoice,
         notes: values.notes,
-        stock_images: images.map(img => ({ _id: img._id, path: img.path, url: img.url })),
+        stock_images: images.map((img) => ({ _id: img._id, path: img.path, url: img.url })),
         date: values.date ? values.date.toISOString() : new Date().toISOString(),
       };
       const updatedStockInfo = [...existingStockInfo, newEntry];
-      const existingOut = (_.get(product, "stock_offline", [])).reduce((s, i) => s + (Number(i.stock) || 0), 0);
+      const existingOut = _.get(product, "stock_offline", []).reduce((s, i) => s + (Number(i.stock) || 0), 0);
       const newTotalIn = updatedStockInfo.reduce((s, i) => s + (Number(i.add_stock) || 0), 0);
-      const payload = {
-        stock_info: updatedStockInfo,
-        stock_count: newTotalIn - existingOut,
-      };
+      const payload = { stock_info: updatedStockInfo, stock_count: newTotalIn - existingOut };
       const result = await editProduct(payload, product._id);
       SUCCESS_NOTIFICATION(result);
       onSuccess();
@@ -316,12 +667,7 @@ const StockInModal = ({ open, onClose, product, onSuccess }) => {
   };
 
   return (
-    <Modal
-      open={open}
-      onCancel={onClose}
-      footer={null}
-      width={680}
-      destroyOnClose
+    <Modal open={open} onCancel={onClose} footer={null} width={680} destroyOnClose
       title={
         <div className="flex items-center gap-3 pb-2 border-b border-gray-100">
           <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
@@ -331,30 +677,26 @@ const StockInModal = ({ open, onClose, product, onSuccess }) => {
             <div className="font-bold text-gray-900 text-base">Stock IN</div>
             <div className="text-xs text-gray-500 font-normal">{product?.name}</div>
           </div>
-          <Tag color="success" className="ml-auto">
-            Current: {_.get(product, "stock_count", 0)}
-          </Tag>
+          <Tag color="success" className="ml-auto">Current: {_.get(product, "stock_count", 0)}</Tag>
         </div>
       }
     >
       <Form form={form} layout="vertical" onFinish={handleSubmit} className="mt-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
           <Form.Item label="Add Stock Quantity" name="add_stock"
-            rules={[formValidation("Enter stock quantity")]}
-          >
+            rules={[formValidation("Enter stock quantity")]}>
             <Input type="number" placeholder="e.g. 50" className="h-10"
               prefix={<ArrowUpOutlined style={{ color: "#16a34a" }} />} />
           </Form.Item>
 
           <Form.Item label="Buy Price" name="buy_price"
-            rules={[formValidation("Enter buy price")]}
-          >
+            rules={[formValidation("Enter buy price")]}>
             <Input type="number" placeholder="e.g. 250.00" className="h-10" prefix="₹" />
           </Form.Item>
 
           <Form.Item label="Handler Name" name="handler_name"
-            rules={[formValidation("Enter handler name")]}
-          >
+            rules={[formValidation("Enter handler name")]}>
             <Input placeholder="Who handled this?" className="h-10" />
           </Form.Item>
 
@@ -363,8 +705,7 @@ const StockInModal = ({ open, onClose, product, onSuccess }) => {
           </Form.Item>
 
           <Form.Item label="Date & Time" name="date"
-            rules={[formValidation("Select a date")]}
-          >
+            rules={[formValidation("Select a date")]}>
             <DatePicker showTime className="h-10 w-full" format="DD/MM/YYYY h:mm A" />
           </Form.Item>
 
@@ -377,21 +718,16 @@ const StockInModal = ({ open, onClose, product, onSuccess }) => {
           </Form.Item>
 
           <Form.Item label="Stock Images" className="md:col-span-2">
-            <UploadHelper
-              max={10} setImagePath={setImages} image_path={images}
-              label="Upload Images" fieldKey="stock-in"
-            />
+            <UploadHelper max={10} setImagePath={setImages} image_path={images}
+              label="Upload Images" fieldKey="stock-in" />
           </Form.Item>
         </div>
 
         <div className="flex justify-end gap-3 mt-2 pt-4 border-t border-gray-100">
           <Button onClick={onClose} className="rounded-lg px-6">Cancel</Button>
-          <Button
-            type="primary" htmlType="submit" loading={loading}
-            icon={<ArrowUpOutlined />}
+          <Button type="primary" htmlType="submit" loading={loading} icon={<ArrowUpOutlined />}
             className="rounded-lg px-6 h-10 font-semibold"
-            style={{ background: "#16a34a", borderColor: "#16a34a" }}
-          >
+            style={{ background: "#16a34a", borderColor: "#16a34a" }}>
             Confirm Stock IN
           </Button>
         </div>
@@ -400,15 +736,13 @@ const StockInModal = ({ open, onClose, product, onSuccess }) => {
   );
 };
 
-// ─── Stock OUT Modal ────────────────────────────────────────────────────────
+// ─── StockOutModal ────────────────────────────────────────────────────────────
 
 const StockOutModal = ({ open, onClose, product, onSuccess }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (!open) form.resetFields();
-  }, [open]);
+  useEffect(() => { if (!open) form.resetFields(); }, [open]);
 
   const currentStock = _.get(product, "stock_count", 0);
 
@@ -420,7 +754,7 @@ const StockOutModal = ({ open, onClose, product, onSuccess }) => {
         message.error(`Cannot remove ${qty} — only ${currentStock} in stock`);
         return;
       }
-      const existingStockOffline = (_.get(product, "stock_offline", [])).map(item => ({
+      const existingStockOffline = _.get(product, "stock_offline", []).map((item) => ({
         ...item,
         date: item.date ? new Date(item.date).toISOString() : null,
       }));
@@ -433,12 +767,9 @@ const StockOutModal = ({ open, onClose, product, onSuccess }) => {
         date: values.date ? values.date.toISOString() : new Date().toISOString(),
       };
       const updatedStockOffline = [...existingStockOffline, newEntry];
-      const totalIn = (_.get(product, "stock_info", [])).reduce((s, i) => s + (Number(i.add_stock) || 0), 0);
+      const totalIn = _.get(product, "stock_info", []).reduce((s, i) => s + (Number(i.add_stock) || 0), 0);
       const totalOut = updatedStockOffline.reduce((s, i) => s + (Number(i.stock) || 0), 0);
-      const payload = {
-        stock_offline: updatedStockOffline,
-        stock_count: totalIn - totalOut,
-      };
+      const payload = { stock_offline: updatedStockOffline, stock_count: totalIn - totalOut };
       const result = await editProduct(payload, product._id);
       SUCCESS_NOTIFICATION(result);
       onSuccess();
@@ -451,12 +782,7 @@ const StockOutModal = ({ open, onClose, product, onSuccess }) => {
   };
 
   return (
-    <Modal
-      open={open}
-      onCancel={onClose}
-      footer={null}
-      width={580}
-      destroyOnClose
+    <Modal open={open} onCancel={onClose} footer={null} width={580} destroyOnClose
       title={
         <div className="flex items-center gap-3 pb-2 border-b border-gray-100">
           <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
@@ -466,14 +792,13 @@ const StockOutModal = ({ open, onClose, product, onSuccess }) => {
             <div className="font-bold text-gray-900 text-base">Stock OUT</div>
             <div className="text-xs text-gray-500 font-normal">{product?.name}</div>
           </div>
-          <Tag color="error" className="ml-auto">
-            Current: {currentStock}
-          </Tag>
+          <Tag color="error" className="ml-auto">Current: {currentStock}</Tag>
         </div>
       }
     >
       <Form form={form} layout="vertical" onFinish={handleSubmit} className="mt-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
           <Form.Item label="Remove Stock Quantity" name="stock"
             rules={[
               formValidation("Enter stock quantity"),
@@ -490,8 +815,7 @@ const StockOutModal = ({ open, onClose, product, onSuccess }) => {
           </Form.Item>
 
           <Form.Item label="Handler Name" name="handler_name"
-            rules={[formValidation("Enter handler name")]}
-          >
+            rules={[formValidation("Enter handler name")]}>
             <Input placeholder="Who handled this?" className="h-10" />
           </Form.Item>
 
@@ -500,8 +824,7 @@ const StockOutModal = ({ open, onClose, product, onSuccess }) => {
           </Form.Item>
 
           <Form.Item label="Date & Time" name="date"
-            rules={[formValidation("Select a date")]}
-          >
+            rules={[formValidation("Select a date")]}>
             <DatePicker showTime className="h-10 w-full" format="DD/MM/YYYY h:mm A" />
           </Form.Item>
 
@@ -516,12 +839,8 @@ const StockOutModal = ({ open, onClose, product, onSuccess }) => {
 
         <div className="flex justify-end gap-3 mt-2 pt-4 border-t border-gray-100">
           <Button onClick={onClose} className="rounded-lg px-6">Cancel</Button>
-          <Button
-            type="primary" htmlType="submit" loading={loading}
-            icon={<ArrowDownOutlined />}
-            className="rounded-lg px-6 h-10 font-semibold"
-            danger
-          >
+          <Button type="primary" htmlType="submit" loading={loading} icon={<ArrowDownOutlined />}
+            className="rounded-lg px-6 h-10 font-semibold" danger>
             Confirm Stock OUT
           </Button>
         </div>
@@ -530,12 +849,11 @@ const StockOutModal = ({ open, onClose, product, onSuccess }) => {
   );
 };
 
-// ─── Stock History Modal ────────────────────────────────────────────────────
+// ─── StockHistoryModal ────────────────────────────────────────────────────────
 
 const StockHistoryModal = ({ open, onClose, product }) => {
-  const stockIn = (_.get(product, "stock_info", [])).map((item, i) => ({
+  const stockIn = _.get(product, "stock_info", []).map((item, i) => ({
     key: `in-${i}`,
-    type: "in",
     quantity: item.add_stock,
     buy_price: item.buy_price || "—",
     handler_name: item.handler_name || "—",
@@ -546,9 +864,8 @@ const StockHistoryModal = ({ open, onClose, product }) => {
     images: item.stock_images || [],
   }));
 
-  const stockOut = (_.get(product, "stock_offline", [])).map((item, i) => ({
+  const stockOut = _.get(product, "stock_offline", []).map((item, i) => ({
     key: `out-${i}`,
-    type: "out",
     quantity: item.stock,
     handler_name: item.handler_name || "—",
     location: item.location || "—",
@@ -561,34 +878,20 @@ const StockHistoryModal = ({ open, onClose, product }) => {
   const totalOut = stockOut.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
 
   const inColumns = [
-    {
-      title: "Date & Time", dataIndex: "date", key: "date", width: 145,
-      render: (t) => <span className="text-xs text-gray-600">{t}</span>,
-    },
-    {
-      title: "Qty", dataIndex: "quantity", key: "quantity", width: 70, align: "center",
-      render: (v) => <span className="font-bold text-green-600 text-sm">+{v || 0}</span>,
-    },
-    {
-      title: "Buy Price", dataIndex: "buy_price", key: "buy_price", width: 90,
-      render: (t) => <span className="text-xs">{t !== "—" ? `₹${t}` : "—"}</span>,
-    },
-    {
-      title: "Handler", dataIndex: "handler_name", key: "handler_name",
-      render: (t) => <span className="text-xs">{t}</span>,
-    },
-    {
-      title: "Location", dataIndex: "location", key: "location",
-      render: (t) => <span className="text-xs">{t}</span>,
-    },
-    {
-      title: "Invoice", dataIndex: "invoice", key: "invoice",
-      render: (t) => <span className="text-xs">{t}</span>,
-    },
-    {
-      title: "Notes", dataIndex: "notes", key: "notes",
-      render: (t) => <span className="text-xs">{t}</span>,
-    },
+    { title: "Date & Time", dataIndex: "date", key: "date", width: 145,
+      render: (t) => <span className="text-xs text-gray-600">{t}</span> },
+    { title: "Qty", dataIndex: "quantity", key: "quantity", width: 70, align: "center",
+      render: (v) => <span className="font-bold text-green-600 text-sm">+{v || 0}</span> },
+    { title: "Buy Price", dataIndex: "buy_price", key: "buy_price", width: 90,
+      render: (t) => <span className="text-xs">{t !== "—" ? `₹${t}` : "—"}</span> },
+    { title: "Handler", dataIndex: "handler_name", key: "handler_name",
+      render: (t) => <span className="text-xs">{t}</span> },
+    { title: "Location", dataIndex: "location", key: "location",
+      render: (t) => <span className="text-xs">{t}</span> },
+    { title: "Invoice", dataIndex: "invoice", key: "invoice",
+      render: (t) => <span className="text-xs">{t}</span> },
+    { title: "Notes", dataIndex: "notes", key: "notes",
+      render: (t) => <span className="text-xs">{t}</span> },
     {
       title: "Images", dataIndex: "images", key: "images", width: 100,
       render: (imgs) =>
@@ -607,39 +910,22 @@ const StockHistoryModal = ({ open, onClose, product }) => {
   ];
 
   const outColumns = [
-    {
-      title: "Date & Time", dataIndex: "date", key: "date", width: 145,
-      render: (t) => <span className="text-xs text-gray-600">{t}</span>,
-    },
-    {
-      title: "Qty", dataIndex: "quantity", key: "quantity", width: 70, align: "center",
-      render: (v) => <span className="font-bold text-red-600 text-sm">−{v || 0}</span>,
-    },
-    {
-      title: "Handler", dataIndex: "handler_name", key: "handler_name",
-      render: (t) => <span className="text-xs">{t}</span>,
-    },
-    {
-      title: "Location", dataIndex: "location", key: "location",
-      render: (t) => <span className="text-xs">{t}</span>,
-    },
-    {
-      title: "Customer", dataIndex: "customer_details", key: "customer_details",
-      render: (t) => <span className="text-xs">{t}</span>,
-    },
-    {
-      title: "Notes", dataIndex: "notes", key: "notes",
-      render: (t) => <span className="text-xs">{t}</span>,
-    },
+    { title: "Date & Time", dataIndex: "date", key: "date", width: 145,
+      render: (t) => <span className="text-xs text-gray-600">{t}</span> },
+    { title: "Qty", dataIndex: "quantity", key: "quantity", width: 70, align: "center",
+      render: (v) => <span className="font-bold text-red-600 text-sm">−{v || 0}</span> },
+    { title: "Handler", dataIndex: "handler_name", key: "handler_name",
+      render: (t) => <span className="text-xs">{t}</span> },
+    { title: "Location", dataIndex: "location", key: "location",
+      render: (t) => <span className="text-xs">{t}</span> },
+    { title: "Customer", dataIndex: "customer_details", key: "customer_details",
+      render: (t) => <span className="text-xs">{t}</span> },
+    { title: "Notes", dataIndex: "notes", key: "notes",
+      render: (t) => <span className="text-xs">{t}</span> },
   ];
 
   return (
-    <Modal
-      open={open}
-      onCancel={onClose}
-      footer={null}
-      width={1100}
-      destroyOnClose
+    <Modal open={open} onCancel={onClose} footer={null} width={1100} destroyOnClose
       title={
         <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
           <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center">
@@ -650,21 +936,14 @@ const StockHistoryModal = ({ open, onClose, product }) => {
             <div className="text-xs text-gray-500 font-normal">{product?.name}</div>
           </div>
           <div className="ml-auto flex gap-2 flex-wrap">
-            <Tag color="success" icon={<ArrowUpOutlined />} className="font-semibold">
-              Total IN: {totalIn}
-            </Tag>
-            <Tag color="error" icon={<ArrowDownOutlined />} className="font-semibold">
-              Total OUT: {totalOut}
-            </Tag>
-            <Tag color="blue" className="font-semibold">
-              Net Stock: {totalIn - totalOut}
-            </Tag>
+            <Tag color="success" icon={<ArrowUpOutlined />} className="font-semibold">Total IN: {totalIn}</Tag>
+            <Tag color="error" icon={<ArrowDownOutlined />} className="font-semibold">Total OUT: {totalOut}</Tag>
+            <Tag color="blue" className="font-semibold">Net Stock: {totalIn - totalOut}</Tag>
           </div>
         </div>
       }
     >
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
-        {/* ── Stock IN Table ── */}
         <div>
           <div className="flex items-center gap-2 mb-3">
             <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center">
@@ -675,25 +954,16 @@ const StockHistoryModal = ({ open, onClose, product }) => {
               {stockIn.length} entries · +{totalIn} units
             </Tag>
           </div>
-          <Table
-            dataSource={stockIn}
-            columns={inColumns}
-            size="small"
-            scroll={{ x: 600 }}
+          <Table dataSource={stockIn} columns={inColumns} size="small" scroll={{ x: 600 }}
             pagination={{ pageSize: 8, showSizeChanger: false, size: "small" }}
             rowClassName={() => "bg-green-50 hover:bg-green-100"}
-            locale={{
-              emptyText: (
-                <div className="py-8 text-gray-400 text-sm text-center">
-                  <ArrowUpOutlined style={{ fontSize: 24, color: "#86efac" }} />
-                  <div className="mt-2">No stock IN records yet</div>
-                </div>
-              ),
-            }}
-          />
+            locale={{ emptyText: (
+              <div className="py-8 text-gray-400 text-sm text-center">
+                <ArrowUpOutlined style={{ fontSize: 24, color: "#86efac" }} />
+                <div className="mt-2">No stock IN records yet</div>
+              </div>
+            )}} />
         </div>
-
-        {/* ── Stock OUT Table ── */}
         <div>
           <div className="flex items-center gap-2 mb-3">
             <div className="w-7 h-7 rounded-full bg-red-100 flex items-center justify-center">
@@ -704,33 +974,27 @@ const StockHistoryModal = ({ open, onClose, product }) => {
               {stockOut.length} entries · −{totalOut} units
             </Tag>
           </div>
-          <Table
-            dataSource={stockOut}
-            columns={outColumns}
-            size="small"
-            scroll={{ x: 500 }}
+          <Table dataSource={stockOut} columns={outColumns} size="small" scroll={{ x: 500 }}
             pagination={{ pageSize: 8, showSizeChanger: false, size: "small" }}
             rowClassName={() => "bg-red-50 hover:bg-red-100"}
-            locale={{
-              emptyText: (
-                <div className="py-8 text-gray-400 text-sm text-center">
-                  <ArrowDownOutlined style={{ fontSize: 24, color: "#fca5a5" }} />
-                  <div className="mt-2">No stock OUT records yet</div>
-                </div>
-              ),
-            }}
-          />
+            locale={{ emptyText: (
+              <div className="py-8 text-gray-400 text-sm text-center">
+                <ArrowDownOutlined style={{ fontSize: 24, color: "#fca5a5" }} />
+                <div className="mt-2">No stock OUT records yet</div>
+              </div>
+            )}} />
         </div>
       </div>
     </Modal>
   );
 };
 
-
-// ─── Main Component ─────────────────────────────────────────────────────────
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 const OfflineProduct = () => {
   const { user } = useSelector((state) => state.authSlice);
+
+  // ── State ──────────────────────────────────────────────────────────────────
   const [formStatus, setFormStatus] = useState(false);
   const [tableData, setTableData] = useState([]);
   const [search, setSearch] = useState("");
@@ -744,28 +1008,36 @@ const OfflineProduct = () => {
   const [vendorClose, setVendorClose] = useState([]);
   const [subcategoryData, setSubcategoryData] = useState([]);
   const [allVendors, setAllVendors] = useState([]);
-  const [cloneModal, setOpenCloneModal] = useState(false);
   const [categoryData, setCategoryData] = useState([]);
   const [subcategoryDataFilter, setSubcategoryDataFilter] = useState([]);
-  const [selectedProductData, setSelectedProductData] = useState(null);
-  const [productId, setProductId] = useState();
   const [showFilters, setShowFilters] = useState(false);
   const [vendorNames, setVendorNames] = useState({});
   const [vendorsLoading, setVendorsLoading] = useState({});
-  const [cloneProductDetails, setCloneProductDetails] = useState([]);
   const [exportLoading, setExportLoading] = useState(false);
   const [visibilityFilter, setVisibilityFilter] = useState("");
   const [activeTabKey, setActiveTabKey] = useState("1");
   const [updatingProductId, setUpdatingProductId] = useState(null);
 
-  // Stock modal state
+  // ── Stock Range Filter State ───────────────────────────────────────────────
+  const [stockMin, setStockMin] = useState("");
+  const [stockMax, setStockMax] = useState("");
+
+  // ── Price Range Filter State ───────────────────────────────────────────────
+  const [priceMin, setPriceMin] = useState("");
+  const [priceMax, setPriceMax] = useState("");
+
+  // Modal state
+  const [newProductModal, setNewProductModal] = useState(false);
   const [stockInModal, setStockInModal] = useState({ open: false, product: null });
   const [stockOutModal, setStockOutModal] = useState({ open: false, product: null });
   const [stockHistoryModal, setStockHistoryModal] = useState({ open: false, product: null });
 
-  const hasEditPermission = isSuperAdmin(user.role) || canEditPage(user.pagePermissions, "product-details");
-  const hasDeletePermission = isSuperAdmin(user.role) || canDeletePage(user.pagePermissions, "product-details");
+  const hasEditPermission =
+    isSuperAdmin(user.role) || canEditPage(user.pagePermissions, "product-details");
+  const hasDeletePermission =
+    isSuperAdmin(user.role) || canDeletePage(user.pagePermissions, "product-details");
 
+  // ── Pagination (persisted) ─────────────────────────────────────────────────
   const [paginationConfig, setPaginationConfig] = useState(() => {
     const savedPageSize = localStorage.getItem(STORAGE_KEYS.PAGE_SIZE);
     const savedCurrentPage = localStorage.getItem(STORAGE_KEYS.CURRENT_PAGE);
@@ -784,6 +1056,7 @@ const OfflineProduct = () => {
 
   const [form] = useForm();
 
+  // ── Storage helpers ────────────────────────────────────────────────────────
   const savePaginationToStorage = (pageSize, currentPage) => {
     localStorage.setItem(STORAGE_KEYS.PAGE_SIZE, pageSize.toString());
     localStorage.setItem(STORAGE_KEYS.CURRENT_PAGE, currentPage.toString());
@@ -793,6 +1066,7 @@ const OfflineProduct = () => {
     localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify(filters));
   };
 
+  // ── Pagination handlers ────────────────────────────────────────────────────
   const handlePageSizeChange = (pageSize) => {
     const newPag = { ...paginationConfig, pageSize, currentPage: 1 };
     setPaginationConfig(newPag);
@@ -811,6 +1085,7 @@ const OfflineProduct = () => {
     if (paginationConfig.currentPage !== 1) handlePageChange(1);
   };
 
+  // ── Effects ────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (initialFilters) {
       if (initialFilters.category) setFilterByProductCategory(initialFilters.category);
@@ -819,6 +1094,10 @@ const OfflineProduct = () => {
       if (initialFilters.type) setFilterByType(initialFilters.type);
       if (initialFilters.visibility) setVisibilityFilter(initialFilters.visibility);
       if (initialFilters.search) setSearch(initialFilters.search);
+      if (initialFilters.stockMin !== undefined) setStockMin(initialFilters.stockMin);
+      if (initialFilters.stockMax !== undefined) setStockMax(initialFilters.stockMax);
+      if (initialFilters.priceMin !== undefined) setPriceMin(initialFilters.priceMin);
+      if (initialFilters.priceMax !== undefined) setPriceMax(initialFilters.priceMax);
     }
   }, []);
 
@@ -830,9 +1109,45 @@ const OfflineProduct = () => {
       type: filterByType,
       visibility: visibilityFilter,
       search,
+      stockMin,
+      stockMax,
+      priceMin,
+      priceMax,
     });
-  }, [filterByProductCategory, filterByProductSubcategory, vendorFilter, filterByType, visibilityFilter, search]);
+  }, [filterByProductCategory, filterByProductSubcategory, vendorFilter, filterByType, visibilityFilter, search, stockMin, stockMax, priceMin, priceMax]);
 
+  useEffect(() => { fetchCategories(); fetchMainCategories(); collectVendors(); }, []);
+
+  useEffect(() => {
+    fetchData();
+    if (!formStatus) setId("");
+  }, [search, formStatus, filterByProductCategory, filterByType, filterByProductSubcategory, vendorFilter, visibilityFilter]);
+
+  const getVendorName = useCallback(async (vid) => {
+    if (!vid || vendorNames[vid]) return vendorNames[vid];
+    setVendorsLoading((prev) => ({ ...prev, [vid]: true }));
+    try {
+      const vendor = await getSingleVendor(vid);
+      const name = _.get(vendor, "data.data.business_name", "Unknown Vendor");
+      setVendorNames((prev) => ({ ...prev, [vid]: name }));
+      return name;
+    } catch {
+      setVendorNames((prev) => ({ ...prev, [vid]: "Error" }));
+      return "Error";
+    } finally {
+      setVendorsLoading((prev) => ({ ...prev, [vid]: false }));
+    }
+  }, [vendorNames]);
+
+  useEffect(() => {
+    if (vendorClose.length > 0) {
+      vendorClose.forEach((vendor) => {
+        if (!vendorNames[vendor._id]) getVendorName(vendor._id);
+      });
+    }
+  }, [vendorClose, vendorNames, getVendorName]);
+
+  // ── Data fetching ──────────────────────────────────────────────────────────
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -841,8 +1156,7 @@ const OfflineProduct = () => {
         filterByProductCategory || "", filterByType || "",
         filterByProductSubcategory || "", vendorFilter || "", visibilityFilter || ""
       );
-      const data = _.get(result, "data.data", []);
-      setTableData(data.reverse());
+      setTableData(_.get(result, "data.data", []).reverse());
     } catch (err) {
       ERROR_NOTIFICATION(err);
     } finally {
@@ -850,27 +1164,31 @@ const OfflineProduct = () => {
     }
   };
 
-  const handleOnChangeLabel = async (data, product) => {
-    if (!hasEditPermission) {
-      ERROR_NOTIFICATION({ message: "No permission to modify products" });
-      return;
-    }
-    const pid = _.get(product, "_id", "");
+  const fetchCategories = async () => {
     try {
-      setUpdatingProductId(pid);
-      setTableData(prev => prev.map(item => item._id === pid ? { ...item, ...data } : item));
-      const result = await editProduct(data, pid);
-      SUCCESS_NOTIFICATION(result);
-      await fetchData();
-    } catch (error) {
-      setTableData(prev => prev.map(item => item._id === pid ? { ...item, is_visible: !data.is_visible } : item));
-      ERROR_NOTIFICATION(error);
-    } finally {
-      setUpdatingProductId(null);
-    }
+      const [mainResult, subResult] = await Promise.all([getMainCategory(), getSubCategory()]);
+      setCategoryData(_.get(mainResult, "data.data", []));
+      setSubcategoryData(_.get(subResult, "data.data", []));
+    } catch (err) { ERROR_NOTIFICATION(err); }
   };
 
-  // ── Export helpers ────────────────────────────────────────────────────────
+  const fetchMainCategories = async () => {
+    try {
+      const result = await getAllCategoryProducts();
+      setMainCategoryData(_.get(result, "data.data", []));
+    } catch (err) { ERROR_NOTIFICATION(err); }
+  };
+
+  const collectVendors = async () => {
+    try {
+      setLoading(true);
+      const result = await getAllVendor();
+      setAllVendors(_.get(result, "data.data", []));
+    } catch (err) { ERROR_NOTIFICATION(err); }
+    finally { setLoading(false); }
+  };
+
+  // ── Product field helpers ──────────────────────────────────────────────────
   const getVariantImages = (product) => {
     if (!product.variants || !Array.isArray(product.variants)) return [];
     const variantImages = [];
@@ -878,10 +1196,11 @@ const OfflineProduct = () => {
       if (vg.variant_type === "image_variant" && vg.options) {
         vg.options.forEach((opt) => {
           if (opt.image_names?.length > 0) {
-            const imgs = opt.image_names.map(img =>
-              typeof img === "object" ? _.get(img, "url", _.get(img, "path", "")) : img
-            ).filter(Boolean);
-            if (imgs.length > 0) variantImages.push({ variantName: vg.variant_name, optionValue: opt.value, images: imgs });
+            const imgs = opt.image_names
+              .map((img) => typeof img === "object" ? _.get(img, "url", _.get(img, "path", "")) : img)
+              .filter(Boolean);
+            if (imgs.length > 0)
+              variantImages.push({ variantName: vg.variant_name, optionValue: opt.value, images: imgs });
           }
         });
       }
@@ -909,7 +1228,7 @@ const OfflineProduct = () => {
     if (product.type === "Stand Alone Product") return product[field] || product.MRP_price || "N/A";
     if (product.type === "Variant Product" || product.type === "Variable Product") {
       if (product.variants_price?.length > 0) {
-        const prices = product.variants_price.map(v => parseFloat(v[field] || v.price)).filter(p => !isNaN(p));
+        const prices = product.variants_price.map((v) => parseFloat(v[field] || v.price)).filter((p) => !isNaN(p));
         if (prices.length > 0) return Math.min(...prices);
       }
       return product[field] || product.MRP_price || "N/A";
@@ -924,6 +1243,30 @@ const OfflineProduct = () => {
     return product.stock_count || 0;
   };
 
+  // ── Label / visibility toggle ──────────────────────────────────────────────
+  const handleOnChangeLabel = async (data, product) => {
+    if (!hasEditPermission) {
+      ERROR_NOTIFICATION({ message: "No permission to modify products" });
+      return;
+    }
+    const pid = _.get(product, "_id", "");
+    try {
+      setUpdatingProductId(pid);
+      setTableData((prev) => prev.map((item) => item._id === pid ? { ...item, ...data } : item));
+      const result = await editProduct(data, pid);
+      SUCCESS_NOTIFICATION(result);
+      await fetchData();
+    } catch (error) {
+      setTableData((prev) =>
+        prev.map((item) => item._id === pid ? { ...item, is_visible: !data.is_visible } : item)
+      );
+      ERROR_NOTIFICATION(error);
+    } finally {
+      setUpdatingProductId(null);
+    }
+  };
+
+  // ── Export CSV ─────────────────────────────────────────────────────────────
   const exportToCSV = () => {
     try {
       setExportLoading(true);
@@ -941,7 +1284,7 @@ const OfflineProduct = () => {
           "Sub Category": _.get(product, "sub_category_details.sub_category_name", "N/A"),
           "MRP Price": product.MRP_price || "N/A",
         };
-        csv += cols.map(c => `"${row[c] || ""}"`).join(",") + "\r\n";
+        csv += cols.map((c) => `"${row[c] || ""}"`).join(",") + "\r\n";
       });
       const link = document.createElement("a");
       link.setAttribute("href", encodeURI(csv));
@@ -952,57 +1295,19 @@ const OfflineProduct = () => {
     finally { setExportLoading(false); }
   };
 
-
-
-
+  // ── Filter handlers ────────────────────────────────────────────────────────
   const onCategoryChange = (value) => {
-    setFilterByProductCategory(value); setFilterByProductSubcategory(""); handlePageChange(1);
-    setSubcategoryDataFilter(value ? subcategoryData.filter(s => s.select_main_category === value) : []);
-  };
-
-
-
-  const fetchCategories = async () => {
-    try {
-      const [mainResult, subResult] = await Promise.all([getMainCategory(), getSubCategory()]);
-      setCategoryData(_.get(mainResult, "data.data", []));
-      setSubcategoryData(_.get(subResult, "data.data", []));
-    } catch (err) { ERROR_NOTIFICATION(err); }
-  };
-
-  const fetchMainCategories = async () => {
-    try {
-      const result = await getAllCategoryProducts();
-      setMainCategoryData(_.get(result, "data.data", []));
-    } catch (err) { ERROR_NOTIFICATION(err); }
-  };
-
-
-
-
-  const getVendorName = useCallback(async (id) => {
-    if (!id || vendorNames[id]) return vendorNames[id];
-    setVendorsLoading(prev => ({ ...prev, [id]: true }));
-    try {
-      const vendor = await getSingleVendor(id);
-      const name = _.get(vendor, "data.data.business_name", "Unknown Vendor");
-      setVendorNames(prev => ({ ...prev, [id]: name })); return name;
-    } catch { setVendorNames(prev => ({ ...prev, [id]: "Error" })); return "Error"; }
-    finally { setVendorsLoading(prev => ({ ...prev, [id]: false })); }
-  }, [vendorNames]);
-
-  const collectVendors = async () => {
-    try {
-      setLoading(true);
-      const result = await getAllVendor();
-      setAllVendors(_.get(result, "data.data", []));
-    } catch (err) { ERROR_NOTIFICATION(err); }
-    finally { setLoading(false); }
+    setFilterByProductCategory(value);
+    setFilterByProductSubcategory("");
+    handlePageChange(1);
+    setSubcategoryDataFilter(value ? subcategoryData.filter((s) => s.select_main_category === value) : []);
   };
 
   const handleClearFilters = () => {
     setFilterByProductCategory(""); setFilterByProductSubcategory(""); setVendorFilter("");
     setFilterByType(""); setVisibilityFilter(""); setSubcategoryDataFilter([]); setSearch("");
+    setStockMin(""); setStockMax("");
+    setPriceMin(""); setPriceMax("");
     handlePageChange(1); localStorage.removeItem(STORAGE_KEYS.FILTERS);
   };
 
@@ -1011,23 +1316,61 @@ const OfflineProduct = () => {
     if (pagination.pageSize !== paginationConfig.pageSize) handlePageSizeChange(pagination.pageSize);
   };
 
-  const getCurrentTabData = useMemo(() => {
-    return activeTabKey === "1"
-      ? tableData.filter(r => !r.is_cloned)
-      : tableData.filter(r => r.is_cloned);
-  }, [tableData, activeTabKey]);
+  // ── Derived / memoised data ────────────────────────────────────────────────
+  const getCurrentTabData = useMemo(
+    () => activeTabKey === "1" ? tableData.filter((r) => !r.is_cloned) : tableData.filter((r) => r.is_cloned),
+    [tableData, activeTabKey]
+  );
 
-  const processedTableData = useMemo(() => getCurrentTabData.map((item, index) => ({
-    ...item,
-    serialNumber: index + 1,
-    totalStock: getTotalStock(item),
-    prices: {
-      customerPrice: getProductPrice(item, "customer"),
-      dealerPrice: getProductPrice(item, "dealer"),
-      corporatePrice: getProductPrice(item, "corporate"),
-    },
-  })), [getCurrentTabData]);
+  // ── Apply stock range filter client-side ───────────────────────────────────
+  const stockFilteredData = useMemo(() => {
+    if (stockMin === "" && stockMax === "") return getCurrentTabData;
+    return getCurrentTabData.filter((item) => {
+      const stock = getTotalStock(item);
+      const aboveMin = stockMin === "" || stock >= Number(stockMin);
+      const belowMax = stockMax === "" || stock <= Number(stockMax);
+      return aboveMin && belowMax;
+    });
+  }, [getCurrentTabData, stockMin, stockMax]);
 
+  // ── Apply price range filter client-side ──────────────────────────────────
+  const priceFilteredData = useMemo(() => {
+    if (priceMin === "" && priceMax === "") return stockFilteredData;
+    return stockFilteredData.filter((item) => {
+      const rawPrice = getProductPrice(item, "customer");
+      const price = rawPrice === "N/A" ? null : parseFloat(rawPrice);
+      if (price === null) return false;
+      const aboveMin = priceMin === "" || price >= Number(priceMin);
+      const belowMax = priceMax === "" || price <= Number(priceMax);
+      return aboveMin && belowMax;
+    });
+  }, [stockFilteredData, priceMin, priceMax]);
+
+  const processedTableData = useMemo(
+    () => priceFilteredData.map((item, index) => ({
+      ...item,
+      serialNumber: index + 1,
+      totalStock: getTotalStock(item),
+      prices: {
+        customerPrice: getProductPrice(item, "customer"),
+        dealerPrice: getProductPrice(item, "dealer"),
+        corporatePrice: getProductPrice(item, "corporate"),
+      },
+    })),
+    [priceFilteredData]
+  );
+
+  // ── Active filter count (for badge) ───────────────────────────────────────
+  const activeFilterCount = [
+    filterByProductCategory, filterByProductSubcategory, vendorFilter,
+    filterByType, visibilityFilter, search,
+    stockMin !== "" ? "stockMin" : "",
+    stockMax !== "" ? "stockMax" : "",
+    priceMin !== "" ? "priceMin" : "",
+    priceMax !== "" ? "priceMax" : "",
+  ].filter(Boolean).length;
+
+  // ── Option arrays ──────────────────────────────────────────────────────────
   const productType = [
     { value: "Stand Alone Product", label: "Stand Alone Product" },
     { value: "Variable Product", label: "Variable Product" },
@@ -1040,7 +1383,7 @@ const OfflineProduct = () => {
     { value: "false", label: "Hidden Only" },
   ];
 
-  // ── Columns ───────────────────────────────────────────────────────────────
+  // ── Table columns ──────────────────────────────────────────────────────────
   const columns = [
     {
       title: "S.No", dataIndex: "serialNumber", key: "serialNumber",
@@ -1056,7 +1399,8 @@ const OfflineProduct = () => {
           <div className="flex justify-center">
             {img ? (
               <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-gray-200 bg-white shadow hover:shadow-lg transition-all">
-                <Image src={img} alt="Product" width="100%" height="100%" className="object-cover w-full h-full" preview />
+                <Image src={img} alt="Product" width="100%" height="100%"
+                  className="object-cover w-full h-full" preview />
                 {isVar && (
                   <div className="absolute bottom-1 left-1 bg-purple-500 text-white text-xs rounded px-1">Var</div>
                 )}
@@ -1093,7 +1437,9 @@ const OfflineProduct = () => {
         return (
           <div className="flex flex-col items-center">
             <span className="font-bold text-gray-900 text-xl">{stock}</span>
-            <span className={`text-xs font-medium ${status === "Limited" ? "text-orange-600" : "text-green-600"}`}>{status}</span>
+            <span className={`text-xs font-medium ${status === "Limited" ? "text-orange-600" : "text-green-600"}`}>
+              {status}
+            </span>
           </div>
         );
       },
@@ -1112,13 +1458,17 @@ const OfflineProduct = () => {
             </div>
             <div className="flex justify-between gap-2">
               <span className="text-gray-500">Customer:</span>
-              <span className="font-bold">{prices.customerPrice !== "N/A" ? `₹${prices.customerPrice}` : "N/A"}</span>
+              <span className="font-bold">
+                {prices.customerPrice !== "N/A" ? `₹${prices.customerPrice}` : "N/A"}
+              </span>
             </div>
             <div className="flex justify-between gap-2 border-t border-dashed border-orange-200 pt-1 mt-1">
               <Tooltip title="Customer Price + 18% GST">
                 <span className="text-orange-500 font-semibold cursor-help">Deal Price:</span>
               </Tooltip>
-              <span className="font-bold text-orange-600">{dealPrice ? `₹${dealPrice}` : "N/A"}</span>
+              <span className="font-bold text-orange-600">
+                {dealPrice ? `₹${dealPrice}` : "N/A"}
+              </span>
             </div>
           </div>
         );
@@ -1130,66 +1480,33 @@ const OfflineProduct = () => {
         <div className="flex items-center justify-center gap-2 flex-wrap">
           {hasEditPermission && (
             <Tooltip title={`Stock IN — Current: ${record.stock_count || 0}`}>
-              <Button
-                size="small"
-                icon={<ArrowUpOutlined />}
+              <Button size="small" icon={<ArrowUpOutlined />}
                 onClick={() => setStockInModal({ open: true, product: record })}
-                style={{
-                  background: "#f0fdf4", borderColor: "#16a34a", color: "#16a34a",
-                  fontWeight: 600, fontSize: 11, borderRadius: 8,
-                }}
-              >
+                style={{ background: "#f0fdf4", borderColor: "#16a34a", color: "#16a34a", fontWeight: 600, fontSize: 11, borderRadius: 8 }}>
                 IN
               </Button>
             </Tooltip>
           )}
-
           {hasEditPermission && (
             <Tooltip title={`Stock OUT — Current: ${record.stock_count || 0}`}>
-              <Button
-                size="small"
-                icon={<ArrowDownOutlined />}
+              <Button size="small" icon={<ArrowDownOutlined />}
                 onClick={() => setStockOutModal({ open: true, product: record })}
-                style={{
-                  background: "#fff1f2", borderColor: "#dc2626", color: "#dc2626",
-                  fontWeight: 600, fontSize: 11, borderRadius: 8,
-                }}
-              >
+                style={{ background: "#fff1f2", borderColor: "#dc2626", color: "#dc2626", fontWeight: 600, fontSize: 11, borderRadius: 8 }}>
                 OUT
               </Button>
             </Tooltip>
           )}
-
           <Tooltip title="View stock movement history">
-            <Button
-              size="small"
-              icon={<EyeOutlined />}
+            <Button size="small" icon={<EyeOutlined />}
               onClick={() => setStockHistoryModal({ open: true, product: record })}
-              style={{
-                background: "#eff6ff", borderColor: "#2563eb", color: "#2563eb",
-                fontWeight: 600, fontSize: 11, borderRadius: 8,
-              }}
-            >
+              style={{ background: "#eff6ff", borderColor: "#2563eb", color: "#2563eb", fontWeight: 600, fontSize: 11, borderRadius: 8 }}>
               History
             </Button>
-          </Tooltip>          
+          </Tooltip>
         </div>
       ),
     },
   ];
-
-  useEffect(() => { fetchCategories(); fetchMainCategories(); collectVendors(); }, []);
-
-  useEffect(() => {
-    fetchData();
-    if (!formStatus) setId("");
-  }, [search, formStatus, filterByProductCategory, filterByType, filterByProductSubcategory, vendorFilter, visibilityFilter]);
-
-  useEffect(() => {
-    if (vendorClose.length > 0) {
-      vendorClose.forEach(vendor => { if (!vendorNames[vendor._id]) getVendorName(vendor._id); });
-    }
-  }, [vendorClose, vendorNames, getVendorName]);
 
   const paginationProps = {
     current: paginationConfig.currentPage,
@@ -1199,39 +1516,52 @@ const OfflineProduct = () => {
     pageSizeOptions: ["10", "20", "50", "100"],
   };
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 to-blue-50 p-4 md:p-8 font-sans">
-      <DefaultTile
-        title="Stock Dashboard" 
-        formStatus={formStatus} setFormStatus={setFormStatus} search setSearch={setSearch}
-        className="bg-white shadow-2xl rounded-3xl p-6 md:p-8 mb-6 border border-teal-100"
-        extra={
-          hasEditPermission && (
-            <Dropdown
-              overlay={
-                <Menu className="rounded-xl shadow-xl bg-white border border-gray-100 p-2 min-w-[200px]">
-                  <Menu.Item key="all">
-                    <Button type="text" icon={<MdFileDownload className="text-green-600" />}
-                      onClick={exportToCSV} loading={exportLoading}
-                      className="flex items-center text-green-600 hover:bg-green-50 w-full text-left px-3 py-2 rounded-lg text-sm font-medium"
-                    >
-                      Export All Products
-                    </Button>
-                  </Menu.Item>
-                </Menu>
-              }
-              trigger={["click"]} placement="bottomRight"
-            >
-              <Button type="primary" icon={<MdFileDownload />} loading={exportLoading}
-                className="bg-teal-600 hover:bg-teal-700 border-none rounded-xl font-semibold px-4 flex items-center shadow-lg"
-              >
-                Export CSV
-              </Button>
-            </Dropdown>
-          )
-        }
-      />
 
+      {/* ── Page Header ── */}
+      <div className="bg-white shadow-2xl rounded-3xl px-6 py-5 mb-6 border border-teal-100">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+
+          {/* Left: title + search */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-1">
+            <div>
+              <h1 className="text-xl font-extrabold text-gray-900 leading-tight m-0">
+                📦 Stock Dashboard
+              </h1>
+              <p className="text-xs text-gray-400 mt-0.5 m-0">
+                Manage inventory, stock movements & products
+              </p>
+            </div>
+            <Input
+              placeholder="Search products..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              allowClear
+              className="h-9 rounded-xl border-gray-200 sm:w-64"
+              prefix={<span className="text-gray-400 text-sm">🔍</span>}
+            />
+          </div>
+
+          {/* Right: action buttons */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {hasEditPermission && (
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => setNewProductModal(true)}
+                className="rounded-xl font-bold h-9 px-5 shadow-md flex items-center gap-1"
+                style={{ background: "#0d9488", borderColor: "#0d9488", fontSize: 13 }}
+              >
+                New Product
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Permission banner ── */}
       {!hasEditPermission && !hasDeletePermission && (
         <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
           <p className="text-yellow-800 font-medium flex items-center gap-2">
@@ -1240,83 +1570,178 @@ const OfflineProduct = () => {
         </div>
       )}
 
-      <>
-        {/* ── Filters ── */}
-        <Card className="mb-6 bg-white shadow-xl rounded-3xl border-none" bodyStyle={{ padding: 24 }}>
-          <div className="flex justify-between items-center mb-4">
-            <Title level={5} className="m-0 flex items-center gap-2 text-gray-900">
-              <FaFilter className="text-teal-600" /> Filter Products
-            </Title>
-            <div className="flex gap-2">
-              <Button type="text" onClick={() => setShowFilters(!showFilters)} className="text-teal-600 font-semibold">
-                {showFilters ? "▲ Hide" : "▼ Show"}
-              </Button>
-              <Button onClick={handleClearFilters} className="bg-gray-100 border-none rounded-xl font-semibold">Clear All</Button>
+      {/* ── Filters ── */}
+      <Card className="mb-6 bg-white shadow-xl rounded-3xl border-none" bodyStyle={{ padding: 24 }}>
+        <div className="flex justify-between items-center mb-4">
+          <Title level={5} className="m-0 flex items-center gap-2 text-gray-900">
+            <FaFilter className="text-teal-600" /> Filter Products
+            {activeFilterCount > 0 && (
+              <span
+                className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full text-white font-bold"
+                style={{ background: "#0d9488", fontSize: 11 }}
+              >
+                {activeFilterCount}
+              </span>
+            )}
+          </Title>
+          <div className="flex gap-2">
+            <Button type="text" onClick={() => setShowFilters(!showFilters)} className="text-teal-600 font-semibold">
+              {showFilters ? "▲ Hide" : "▼ Show"}
+            </Button>
+            <Button onClick={handleClearFilters} className="bg-gray-100 border-none rounded-xl font-semibold">
+              Clear All
+            </Button>
+          </div>
+        </div>
+        <div className={`transition-all duration-500 overflow-hidden ${showFilters ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"}`}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+            <div>
+              <Text className="text-sm font-semibold text-gray-700 mb-1 block">Category</Text>
+              <Select placeholder="Select Category" size="large" className="w-full" allowClear
+                onChange={onCategoryChange} value={filterByProductCategory}>
+                {mainCategory.map((item) => (
+                  <Select.Option key={item._id} value={item._id}>{item.main_category_name}</Select.Option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Text className="text-sm font-semibold text-gray-700 mb-1 block">Sub Category</Text>
+              <Select placeholder="Select Sub Category" size="large" className="w-full" allowClear
+                onChange={(val) => setFilterByProductSubcategory(val)} value={filterByProductSubcategory}
+                disabled={!filterByProductCategory || subcategoryDataFilter.length === 0}>
+                {subcategoryDataFilter.map((item) => (
+                  <Select.Option key={item._id} value={item._id}>{item.sub_category_name}</Select.Option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Text className="text-sm font-semibold text-gray-700 mb-1 block">Vendor</Text>
+              <Select placeholder="Select Vendor" size="large" className="w-full" allowClear
+                onChange={(val) => setVendorFilter(val)} value={vendorFilter}>
+                {allVendors.map((item) => (
+                  <Select.Option key={item._id} value={item._id}>{item.vendor_name}</Select.Option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Text className="text-sm font-semibold text-gray-700 mb-1 block">Product Type</Text>
+              <Select placeholder="Select Type" size="large" className="w-full" options={productType}
+                allowClear onChange={(val) => setFilterByType(val)} value={filterByType} />
+            </div>
+            <div>
+              <Text className="text-sm font-semibold text-gray-700 mb-1 block">Visibility</Text>
+              <Select placeholder="Visibility" size="large" className="w-full" options={visibilityOptions}
+                allowClear onChange={(val) => setVisibilityFilter(val)} value={visibilityFilter} />
             </div>
           </div>
-          <div className={`transition-all duration-500 overflow-hidden ${showFilters ? "max-h-96 opacity-100" : "max-h-0 opacity-0"}`}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-              <div>
-                <Text className="text-sm font-semibold text-gray-700 mb-1 block">Category</Text>
-                <Select placeholder="Select Category" size="large" className="w-full" allowClear onChange={onCategoryChange} value={filterByProductCategory}>
-                  {mainCategory.map(item => <Select.Option key={item._id} value={item._id}>{item.main_category_name}</Select.Option>)}
-                </Select>
+
+          {/* <div
+            className="rounded-2xl p-4"
+            style={{
+              background: "linear-gradient(135deg, #f0fdf4 0%, #eff6ff 100%)",
+              border: "1.5px solid #bbf7d0",
+            }}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <div
+                className="w-6 h-6 rounded-full flex items-center justify-center"
+                style={{ background: "#16a34a" }}
+              >
+                <SwapOutlined style={{ color: "#fff", fontSize: 12 }} />
               </div>
-              <div>
-                <Text className="text-sm font-semibold text-gray-700 mb-1 block">Sub Category</Text>
-                <Select placeholder="Select Sub Category" size="large" className="w-full" allowClear
-                  onChange={val => setFilterByProductSubcategory(val)} value={filterByProductSubcategory}
-                  disabled={!filterByProductCategory || subcategoryDataFilter.length === 0}
+              <Text className="text-sm font-bold text-gray-800">Stock Range Filter</Text>
+              <Text className="text-xs text-gray-400 ml-1">— filter products by current stock quantity</Text>
+              {(stockMin !== "" || stockMax !== "") && (
+                <Tag
+                  color="green"
+                  className="ml-auto text-xs font-semibold"
+                  style={{ borderRadius: 12 }}
                 >
-                  {subcategoryDataFilter.map(item => <Select.Option key={item._id} value={item._id}>{item.sub_category_name}</Select.Option>)}
-                </Select>
-              </div>
-              <div>
-                <Text className="text-sm font-semibold text-gray-700 mb-1 block">Vendor</Text>
-                <Select placeholder="Select Vendor" size="large" className="w-full" allowClear onChange={val => setVendorFilter(val)} value={vendorFilter}>
-                  {allVendors.map(item => <Select.Option key={item._id} value={item._id}>{item.vendor_name}</Select.Option>)}
-                </Select>
-              </div>
-              <div>
-                <Text className="text-sm font-semibold text-gray-700 mb-1 block">Product Type</Text>
-                <Select placeholder="Select Type" size="large" className="w-full" options={productType} allowClear onChange={val => setFilterByType(val)} value={filterByType} />
-              </div>
-              <div>
-                <Text className="text-sm font-semibold text-gray-700 mb-1 block">Visibility</Text>
-                <Select placeholder="Visibility" size="large" className="w-full" options={visibilityOptions} allowClear onChange={val => setVisibilityFilter(val)} value={visibilityFilter} />
-              </div>
+                  {processedTableData.length} result{processedTableData.length !== 1 ? "s" : ""}
+                </Tag>
+              )}
             </div>
+            <StockRangeFilter
+              stockMin={stockMin}
+              stockMax={stockMax}
+              onStockMinChange={(val) => { setStockMin(val); handlePageChange(1); }}
+              onStockMaxChange={(val) => { setStockMax(val); handlePageChange(1); }}
+              onClear={() => { setStockMin(""); setStockMax(""); handlePageChange(1); }}
+            />
           </div>
-        </Card>
 
-        {/* ── Table ── */}
-        <Card className="bg-white shadow-xl rounded-3xl border-none" bodyStyle={{ padding: 0 }}>
-          <Tabs
-            destroyInactiveTabPane type="card" size="large"
-            className="px-4 md:px-8 pt-4" activeKey={activeTabKey} onChange={handleTabChange}
-            items={[
-              {
-                key: "1",
-                label: (
-                  <span className="flex items-center font-bold text-gray-900 text-sm">
-                    📦 Products
-                    <Tag className="ml-2 bg-teal-100 text-teal-800 font-semibold rounded-full px-2 text-xs">
-                      {tableData.filter(r => !r.is_cloned).length}
-                    </Tag>
-                  </span>
-                ),
-                children: (
-                  <CustomTable loading={loading} dataSource={processedTableData} columns={columns}
-                    className="rounded-b-3xl" onChange={handleTableChange} pagination={paginationProps} />
-                ),
-              },
-             
-            ]}
-          />
-        </Card>
-      </>
+          <div
+            className="rounded-2xl p-4 mt-4"
+            style={{
+              background: "linear-gradient(135deg, #f5f3ff 0%, #eff6ff 100%)",
+              border: "1.5px solid #ddd6fe",
+            }}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <div
+                className="w-6 h-6 rounded-full flex items-center justify-center"
+                style={{ background: "#7c3aed" }}
+              >
+                <span style={{ color: "#fff", fontSize: 11, fontWeight: 700 }}>₹</span>
+              </div>
+              <Text className="text-sm font-bold text-gray-800">Customer Price Range</Text>
+              <Text className="text-xs text-gray-400 ml-1">— filter products by customer price</Text>
+              {(priceMin !== "" || priceMax !== "") && (
+                <Tag
+                  color="purple"
+                  className="ml-auto text-xs font-semibold"
+                  style={{ borderRadius: 12 }}
+                >
+                  {processedTableData.length} result{processedTableData.length !== 1 ? "s" : ""}
+                </Tag>
+              )}
+            </div>
+            <PriceRangeFilter
+              priceMin={priceMin}
+              priceMax={priceMax}
+              onPriceMinChange={(val) => { setPriceMin(val); handlePageChange(1); }}
+              onPriceMaxChange={(val) => { setPriceMax(val); handlePageChange(1); }}
+              onClear={() => { setPriceMin(""); setPriceMax(""); handlePageChange(1); }}
+            />
+          </div> */}
+        </div>
+      </Card>
 
-      {/* ── Stock IN Popup ── */}
+      {/* ── Table ── */}
+      <Card className="bg-white shadow-xl rounded-3xl border-none" bodyStyle={{ padding: 0 }}>
+        <Tabs
+          destroyInactiveTabPane type="card" size="large"
+          className="px-4 md:px-8 pt-4" activeKey={activeTabKey} onChange={handleTabChange}
+          items={[
+            {
+              key: "1",
+              label: (
+                <span className="flex items-center font-bold text-gray-900 text-sm">
+                  📦 Products
+                  <Tag className="ml-2 bg-teal-100 text-teal-800 font-semibold rounded-full px-2 text-xs">
+                    {processedTableData.length}
+                  </Tag>
+                </span>
+              ),
+              children: (
+                <CustomTable loading={loading} dataSource={processedTableData} columns={columns}
+                  className="rounded-b-3xl" onChange={handleTableChange} pagination={paginationProps} />
+              ),
+            },
+          ]}
+        />
+      </Card>
+
+      {/* ── Modals ── */}
+      <NewProductStockModal
+        open={newProductModal}
+        onClose={() => setNewProductModal(false)}
+        onSuccess={fetchData}
+        categoryData={categoryData}
+        subcategoryData={subcategoryData}
+        allVendors={allVendors}
+      />
+
       <StockInModal
         open={stockInModal.open}
         product={stockInModal.product}
@@ -1324,7 +1749,6 @@ const OfflineProduct = () => {
         onSuccess={fetchData}
       />
 
-      {/* ── Stock OUT Popup ── */}
       <StockOutModal
         open={stockOutModal.open}
         product={stockOutModal.product}
@@ -1332,7 +1756,6 @@ const OfflineProduct = () => {
         onSuccess={fetchData}
       />
 
-      {/* ── Stock History Popup ── */}
       <StockHistoryModal
         open={stockHistoryModal.open}
         product={stockHistoryModal.product}
