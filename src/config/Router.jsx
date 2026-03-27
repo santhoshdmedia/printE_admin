@@ -34,6 +34,7 @@ import DummyOrder from "../pages/Orders/DummyOrder";
 import BNIPanel from "../pages/userPanel/BNIPanel";
 import PermissionGuard from "../components/PermissionGuard";
 import OfflineProduct from "../pages/Products/OfflineProduct";
+import ProductCatalogPage from "../pages/Products/ProductCatalogPage";
 
 // Wrapper component for permission-protected routes
 const ProtectedRoute = ({ children, pageName }) => (
@@ -265,6 +266,18 @@ export const router = createBrowserRouter([
           <ProtectedRoute pageName="offline-product-details">
             <OfflineProduct />
           </ProtectedRoute>
+        ),
+      },
+    ],
+  },
+  {
+    path: "/product-catalog/:id" ,
+    element: <Layout />,
+    children: [
+      {
+        path: "/product-catalog/:id" ,
+        element: (
+            <ProductCatalogPage />
         ),
       },
     ],

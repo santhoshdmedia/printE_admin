@@ -13,6 +13,10 @@ import { canViewPage, getAccessiblePages, isSuperAdmin } from "../helper/permiss
 
 const { Sider } = Layout;
 
+const HIDDEN_LAYOUT_ROUTES = [
+  "product-catalog",
+];
+
 const App = () => {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
@@ -22,26 +26,24 @@ const App = () => {
   const { user } = useSelector((state) => state.authSlice);
   const [openKeys, setOpenKeys] = useState([]);
 
+  const isHideLayout = HIDDEN_LAYOUT_ROUTES.some((route) => path.includes(route));
+
   useEffect(() => {
     if (isSuperAdmin(user.role)) {
-      // Super admin sees all menus
       setNew_menu_data(MENU_DATA);
     } else if (user.pagePermissions && user.pagePermissions.length > 0) {
-      // Filter menu based on page permissions
       const accessiblePages = getAccessiblePages(user.pagePermissions);
-      
+
       const filteredMenuData = MENU_DATA.filter((menu) => {
-        // Check if user has access to parent menu
-        const hasParentAccess = menu.special.some(special => 
+        const hasParentAccess = menu.special.some((special) =>
           accessiblePages.includes(special)
         );
-        
+
         if (!hasParentAccess) return false;
 
-        // If menu has children, filter them too
         if (menu.children && menu.children.length > 0) {
-          menu.children = menu.children.filter(child =>
-            child.special.some(special => accessiblePages.includes(special))
+          menu.children = menu.children.filter((child) =>
+            child.special.some((special) => accessiblePages.includes(special))
           );
         }
 
@@ -50,8 +52,7 @@ const App = () => {
 
       setNew_menu_data(filteredMenuData);
     } else {
-      // Fallback to role-based menu (old system)
-      const updatedMenuData = MENU_DATA.filter((menu) => 
+      const updatedMenuData = MENU_DATA.filter((menu) =>
         menu.for.includes(user.role)
       );
       setNew_menu_data(updatedMenuData);
@@ -63,7 +64,7 @@ const App = () => {
       const result = await checkloginstatus();
       const data = _.get(result, "data.data", "");
       dispatch(isLoginSuccess(data));
-      
+
       if (_.isEmpty(data)) {
         localStorage.removeItem(admintoken);
         navigate("/");
@@ -81,6 +82,10 @@ const App = () => {
     navigate(to);
   };
 
+  if (isHideLayout) {
+    return <Outlet />;
+  }
+
   return (
     <Layout style={{ height: "100vh" }}>
       <Sider
@@ -90,7 +95,7 @@ const App = () => {
         className="!h-screen !bg-white overflow-auto"
       >
         <div className="center_div rounded h-[50px]">
-          <div className="flex flex-row items-center ">
+          <div className="flex flex-row items-center">
             {collapsed ? (
               <img
                 src={IMAGE_HELPER.fav}
@@ -107,7 +112,7 @@ const App = () => {
           </div>
         </div>
         <Menu mode="vertical" className="pb-20">
-          {new_menu_data.map((res) => (
+          {new_menu_data.map((res) =>
             !_.isEmpty(_.get(res, "children", [])) ? (
               <Menu.SubMenu
                 key={res.id}
@@ -132,7 +137,7 @@ const App = () => {
                 {res.name}
               </Menu.Item>
             )
-          ))}
+          )}
         </Menu>
       </Sider>
       <Layout className="!h-screen overflow-hidden">
