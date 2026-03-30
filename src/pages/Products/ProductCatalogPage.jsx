@@ -748,7 +748,7 @@ const ProductCatalogPage = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const { data } = await axios.get(`http://localhost:8080/api/pdf-exports/${exportId}`);
+        const { data } = await axios.get(`https://api.printe.in/api/pdf-exports/${exportId}`);
         const record = data?.data || null;
         setExportRecord(record);
         setProducts(record?.products || []);
