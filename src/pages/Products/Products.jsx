@@ -31,10 +31,10 @@ import { canEditPage, canDeletePage, isSuperAdmin } from "../../helper/permissio
 const { Title, Text } = Typography;
 
 const STORAGE_KEYS = {
-  PAGE_SIZE:    "products_pageSize",
+  PAGE_SIZE: "products_pageSize",
   CURRENT_PAGE: "products_currentPage",
-  FILTERS:      "products_filters",
-  ACTIVE_TAB:   "products_activeTab",
+  FILTERS: "products_filters",
+  ACTIVE_TAB: "products_activeTab",
 };
 
 // ─── Checkbox CSS ─────────────────────────────────────────────────────────────
@@ -74,7 +74,7 @@ const loadImageAsDataURL = (url) =>
       .then((blob) => {
         const rd = new FileReader();
         rd.onloadend = () => resolve(rd.result || null);
-        rd.onerror   = () => tryImg();
+        rd.onerror = () => tryImg();
         rd.readAsDataURL(blob);
       })
       .catch(() => tryImg());
@@ -83,7 +83,7 @@ const loadImageAsDataURL = (url) =>
       img.onload = () => {
         try {
           const c = document.createElement("canvas");
-          c.width  = img.naturalWidth  || 200;
+          c.width = img.naturalWidth || 200;
           c.height = img.naturalHeight || 200;
           c.getContext("2d").drawImage(img, 0, 0);
           resolve(c.toDataURL("image/jpeg", 0.85));
@@ -123,7 +123,7 @@ const getProductImage = (product) => {
 };
 
 const getProductPrice = (product, priceType = "customer") => {
-  const MAP   = { customer: "customer_product_price", dealer: "Deler_product_price", corporate: "corporate_product_price" };
+  const MAP = { customer: "customer_product_price", dealer: "Deler_product_price", corporate: "corporate_product_price" };
   const field = MAP[priceType];
   if (product.type === "Stand Alone Product") return product[field] || product.MRP_price || "N/A";
   if (product.type === "Variant Product" || product.type === "Variable Product") {
@@ -146,24 +146,24 @@ const getTotalStock = (product) => {
 
 const getDaysNeeded = (product) => {
   const stock = product.totalStock ?? getTotalStock(product);
-  const prod  = parseInt(product.production_time  || product.Production_time  || 0);
-  const arr   = parseInt(product.stock_arrangement_time || product.Stock_Arrangement_time || 0);
-  const days  = stock === 0 ? prod + arr : prod;
+  const prod = parseInt(product.production_time || product.Production_time || 0);
+  const arr = parseInt(product.stock_arrangement_time || product.Stock_Arrangement_time || 0);
+  const days = stock === 0 ? prod + arr : prod;
   return days === 0 ? "1 Day" : `${days} Day${days !== 1 ? "s" : ""}`;
 };
 
 // ─── HeaderCheckbox ───────────────────────────────────────────────────────────
 const HeaderCheckbox = ({ checked, indeterminate, onChange }) => {
-  const ref              = useRef(null);
-  const checkedRef       = useRef(checked);
+  const ref = useRef(null);
+  const checkedRef = useRef(checked);
   const indeterminateRef = useRef(indeterminate);
 
-  checkedRef.current       = checked;
+  checkedRef.current = checked;
   indeterminateRef.current = indeterminate;
 
   useEffect(() => {
     if (!ref.current) return;
-    ref.current.checked       = checkedRef.current;
+    ref.current.checked = checkedRef.current;
     ref.current.indeterminate = indeterminateRef.current;
   });
 
@@ -193,41 +193,41 @@ const RowCheckbox = ({ checked, onChange }) => (
 const Products = () => {
   const { user } = useSelector((s) => s.authSlice);
 
-  const [formStatus, setFormStatus]       = useState(false);
-  const [id, setId]                       = useState("");
-  const [loading, setLoading]             = useState(false);
+  const [formStatus, setFormStatus] = useState(false);
+  const [id, setId] = useState("");
+  const [loading, setLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const [updatingProductId, setUpdatingProductId] = useState(null);
-  const [activeTabKey, setActiveTabKey]   = useState(
+  const [activeTabKey, setActiveTabKey] = useState(
     () => localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB) || "1"
   );
 
-  const [tableData, setTableData]                   = useState([]);
-  const [mainCategory, setMainCategoryData]         = useState([]);
-  const [categoryData, setCategoryData]             = useState([]);
-  const [subcategoryData, setSubcategoryData]       = useState([]);
+  const [tableData, setTableData] = useState([]);
+  const [mainCategory, setMainCategoryData] = useState([]);
+  const [categoryData, setCategoryData] = useState([]);
+  const [subcategoryData, setSubcategoryData] = useState([]);
   const [subcategoryDataFilter, setSubcategoryDataFilter] = useState([]);
-  const [allVendors, setAllVendors]                 = useState([]);
-  const [vendorClose, setVendorClose]               = useState([]);
-  const [vendorNames, setVendorNames]               = useState({});
-  const [vendorsLoading, setVendorsLoading]         = useState({});
+  const [allVendors, setAllVendors] = useState([]);
+  const [vendorClose, setVendorClose] = useState([]);
+  const [vendorNames, setVendorNames] = useState({});
+  const [vendorsLoading, setVendorsLoading] = useState({});
 
-  const [search, setSearch]                         = useState("");
-  const [filterByProductCategory, setFilterByProductCategory]       = useState("");
+  const [search, setSearch] = useState("");
+  const [filterByProductCategory, setFilterByProductCategory] = useState("");
   const [filterByProductSubcategory, setFilterByProductSubcategory] = useState("");
-  const [vendorFilter, setVendorFilter]             = useState("");
-  const [filterByType, setFilterByType]             = useState("");
-  const [visibilityFilter, setVisibilityFilter]     = useState("");
-  const [minPrice, setMinPrice]                     = useState("");
-  const [maxPrice, setMaxPrice]                     = useState("");
+  const [vendorFilter, setVendorFilter] = useState("");
+  const [filterByType, setFilterByType] = useState("");
+  const [visibilityFilter, setVisibilityFilter] = useState("");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
 
-  const [cloneModal, setOpenCloneModal]             = useState(false);
+  const [cloneModal, setOpenCloneModal] = useState(false);
   const [selectedProductData, setSelectedProductData] = useState(null);
-  const [productId, setProductId]                   = useState();
+  const [productId, setProductId] = useState();
   const [cloneProductDetails, setCloneProductDetails] = useState([]);
 
   const [paginationConfig, setPaginationConfig] = useState(() => ({
-    pageSize:    localStorage.getItem(STORAGE_KEYS.PAGE_SIZE)    ? parseInt(localStorage.getItem(STORAGE_KEYS.PAGE_SIZE), 10)    : 10,
+    pageSize: localStorage.getItem(STORAGE_KEYS.PAGE_SIZE) ? parseInt(localStorage.getItem(STORAGE_KEYS.PAGE_SIZE), 10) : 10,
     currentPage: localStorage.getItem(STORAGE_KEYS.CURRENT_PAGE) ? parseInt(localStorage.getItem(STORAGE_KEYS.CURRENT_PAGE), 10) : 1,
   }));
 
@@ -247,7 +247,7 @@ const Products = () => {
     setSelectedKeys((prev) => {
       const next = new Set(prev);
       if (forceOn) keys.forEach((k) => next.add(k));
-      else         keys.forEach((k) => next.delete(k));
+      else keys.forEach((k) => next.delete(k));
       return [...next];
     });
   }, []);
@@ -256,7 +256,7 @@ const Products = () => {
 
   const [form] = useForm();
 
-  const hasEditPermission   = isSuperAdmin(user.role) || canEditPage(user.pagePermissions,   "product-details");
+  const hasEditPermission = isSuperAdmin(user.role) || canEditPage(user.pagePermissions, "product-details");
   const hasDeletePermission = isSuperAdmin(user.role) || canDeletePage(user.pagePermissions, "product-details");
 
   // ── Restore filters ─────────────────────────────────────────────────────────
@@ -265,44 +265,44 @@ const Products = () => {
     if (!saved) return;
     try {
       const f = JSON.parse(saved);
-      if (f.category)    setFilterByProductCategory(f.category);
+      if (f.category) setFilterByProductCategory(f.category);
       if (f.subcategory) setFilterByProductSubcategory(f.subcategory);
-      if (f.vendor)      setVendorFilter(f.vendor);
-      if (f.type)        setFilterByType(f.type);
-      if (f.visibility)  setVisibilityFilter(f.visibility);
-      if (f.search)      setSearch(f.search);
-      if (f.minPrice)    setMinPrice(f.minPrice);
-      if (f.maxPrice)    setMaxPrice(f.maxPrice);
+      if (f.vendor) setVendorFilter(f.vendor);
+      if (f.type) setFilterByType(f.type);
+      if (f.visibility) setVisibilityFilter(f.visibility);
+      if (f.search) setSearch(f.search);
+      if (f.minPrice) setMinPrice(f.minPrice);
+      if (f.maxPrice) setMaxPrice(f.maxPrice);
     } catch { }
   }, []);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.FILTERS, JSON.stringify({
-      category:    filterByProductCategory,
+      category: filterByProductCategory,
       subcategory: filterByProductSubcategory,
-      vendor:      vendorFilter,
-      type:        filterByType,
-      visibility:  visibilityFilter,
+      vendor: vendorFilter,
+      type: filterByType,
+      visibility: visibilityFilter,
       search, minPrice, maxPrice,
     }));
   }, [filterByProductCategory, filterByProductSubcategory, vendorFilter, filterByType, visibilityFilter, search, minPrice, maxPrice]);
 
   // ── Pagination ───────────────────────────────────────────────────────────────
   const savePag = (ps, cp) => {
-    localStorage.setItem(STORAGE_KEYS.PAGE_SIZE,    String(ps));
+    localStorage.setItem(STORAGE_KEYS.PAGE_SIZE, String(ps));
     localStorage.setItem(STORAGE_KEYS.CURRENT_PAGE, String(cp));
   };
   const handlePageSizeChange = (ps) => { setPaginationConfig((p) => ({ ...p, pageSize: ps, currentPage: 1 })); savePag(ps, 1); };
-  const handlePageChange     = (cp) => { setPaginationConfig((p) => ({ ...p, currentPage: cp })); savePag(paginationConfig.pageSize, cp); };
-  const handleTabChange      = (key) => {
+  const handlePageChange = (cp) => { setPaginationConfig((p) => ({ ...p, currentPage: cp })); savePag(paginationConfig.pageSize, cp); };
+  const handleTabChange = (key) => {
     setActiveTabKey(key);
     localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, key);
     clearSelection();
     if (paginationConfig.currentPage !== 1) handlePageChange(1);
   };
   const handleTableChange = (pagination) => {
-    if (pagination.current  !== paginationConfig.currentPage) handlePageChange(pagination.current);
-    if (pagination.pageSize !== paginationConfig.pageSize)    handlePageSizeChange(pagination.pageSize);
+    if (pagination.current !== paginationConfig.currentPage) handlePageChange(pagination.current);
+    if (pagination.pageSize !== paginationConfig.pageSize) handlePageSizeChange(pagination.pageSize);
   };
 
   // ── Data fetching ────────────────────────────────────────────────────────────
@@ -351,8 +351,8 @@ const Products = () => {
     return currentTabData
       .filter((item) => {
         const price = parseFloat(item.MRP_price) || 0;
-        const min   = minPrice !== "" ? parseFloat(minPrice) : null;
-        const max   = maxPrice !== "" ? parseFloat(maxPrice) : null;
+        const min = minPrice !== "" ? parseFloat(minPrice) : null;
+        const max = maxPrice !== "" ? parseFloat(maxPrice) : null;
         if (min !== null && price < min) return false;
         if (max !== null && price > max) return false;
         return true;
@@ -360,19 +360,19 @@ const Products = () => {
       .map((item, index) => ({
         ...item,
         serialNumber: index + 1,
-        totalStock:   getTotalStock(item),
-        _isSelected:  selectedKeysSet.has(item._id),
+        totalStock: getTotalStock(item),
+        _isSelected: selectedKeysSet.has(item._id),
         prices: {
-          customerPrice:  getProductPrice(item, "customer"),
-          dealerPrice:    getProductPrice(item, "dealer"),
+          customerPrice: getProductPrice(item, "customer"),
+          dealerPrice: getProductPrice(item, "dealer"),
           corporatePrice: getProductPrice(item, "corporate"),
         },
         seo_url: item.seo_url || "",
       }));
   }, [currentTabData, minPrice, maxPrice, selectedKeysSet]);
 
-  const allSel  = useMemo(() => processedTableData.length > 0 && processedTableData.every(r => selectedKeysSet.has(r._id)), [processedTableData, selectedKeysSet]);
-  const someSel = useMemo(() => !allSel && processedTableData.some(r => selectedKeysSet.has(r._id)),                          [allSel, processedTableData, selectedKeysSet]);
+  const allSel = useMemo(() => processedTableData.length > 0 && processedTableData.every(r => selectedKeysSet.has(r._id)), [processedTableData, selectedKeysSet]);
+  const someSel = useMemo(() => !allSel && processedTableData.some(r => selectedKeysSet.has(r._id)), [allSel, processedTableData, selectedKeysSet]);
 
   const allProductIdsRef = useRef([]);
   useEffect(() => { allProductIdsRef.current = processedTableData.map(r => r._id); }, [processedTableData]);
@@ -436,8 +436,8 @@ const Products = () => {
       const payload = {
         ...cloneProductDetails,
         parent_product_id: _.get(cloneProductDetails, "_id", ""),
-        is_cloned:         true,
-        category_details:  values.category_details,
+        is_cloned: true,
+        category_details: values.category_details,
         sub_category_details: values.sub_category_details,
       };
       delete payload._id;
@@ -550,14 +550,14 @@ const Products = () => {
     } catch { message.error("Failed"); } finally { setExportLoading(false); }
   };
 
- 
+
   const exportToPDF = async (onlySelected = false, min = minPrice, max = maxPrice) => {
     if (!hasEditPermission) return;
     try {
       setExportLoading(true);
 
       let toExport = processedTableData;
-      
+
       if (onlySelected) {
         if (selectedKeys.length === 0) { message.warning("Select at least one product"); return; }
         toExport = selectedRows;
@@ -565,33 +565,33 @@ const Products = () => {
       if (toExport.length === 0) { message.warning("No products"); return; }
 
       // ── STEP 1: Save to DB first ──────────────────────────────────────────
-      let catalogUrl = "https://printe.in"; // fallback if DB save fails
+      let catalogUrl = "https://printe.in";
       try {
         const { data } = await axios.post("https://api.printe.in/api/pdf-exports", {
           products: toExport.map((p) => ({
-            _id:                 p._id,
-            name:                p.name,
-            product_code:        p.product_code,
-            product_codeS_NO:    p.product_codeS_NO,
-            category_details:    p.category_details,
+            _id: p._id,
+            name: p.name,
+            product_code: p.product_code,
+            product_codeS_NO: p.product_codeS_NO,
+            category_details: p.category_details,
             sub_category_details: p.sub_category_details,
-            MRP_price:           p.MRP_price,
-            prices:              p.prices,
-            totalStock:          p.totalStock,
-            is_visible:          p.is_visible,
-            type:                p.type,
-            gst:                 p.gst,
-            HSNcode_time:        p.HSNcode_time,
-            HSN_code:            p.HSN_code,
-            stocks_status:       p.stocks_status,
-            image_url:           p.images.length > 0 ? p.images : p.variants[0]?.options[0]?.image_names || [],
-            DaysNeeded:            getDaysNeeded(p),
-            product_url:          `${CLIENT_URL}/product/${p.seo_url || p._id}`,
+            MRP_price: p.MRP_price,
+            prices: p.prices,
+            totalStock: p.totalStock,
+            is_visible: p.is_visible,
+            type: p.type,
+            gst: p.gst,
+            HSNcode_time: p.HSNcode_time,
+            HSN_code: p.HSN_code,
+            stocks_status: p.stocks_status,
+            image_url: p.images.length > 0 ? p.images : p.variants[0]?.options[0]?.image_names || [],
+            DaysNeeded: getDaysNeeded(p),
+            product_url: `${CLIENT_URL}/product/${p.seo_url || p._id}`,
           })),
           export_type: onlySelected ? "selected" : "all",
-          min_price:   min,
-          max_price:   max,
-          filename:    onlySelected
+          min_price: min,
+          max_price: max,
+          filename: onlySelected
             ? `selected_products_${new Date().toISOString().split("T")[0]}.pdf`
             : `products_${new Date().toISOString().split("T")[0]}.pdf`,
           status: "success",
@@ -621,21 +621,38 @@ const Products = () => {
       const PW = 210, PH = 297, M = 8;
 
       const COL = {
-        listNo: { x: M,        w: 12 },
-        name:   { x: M + 12,   w: 45 },
-        gst:    { x: M + 57,   w: 11 },
-        image:  { x: M + 68,   w: 28 },
-        price:  { x: M + 96,   w: 48 },
-        days:   { x: M + 144,  w: 18 },
-        hsn:    { x: M + 162,  w: 18 },
-        stock:  { x: M + 180,  w: 14 },
+        listNo: { x: M, w: 12 },
+        name: { x: M + 12, w: 45 },
+        gst: { x: M + 57, w: 11 },
+        image: { x: M + 68, w: 28 },
+        price: { x: M + 96, w: 48 },
+        days: { x: M + 144, w: 18 },
+        hsn: { x: M + 162, w: 18 },
+        stock: { x: M + 180, w: 14 },
       };
 
       const HDR_H = 20;
       const COL_H = 10;
-      const RH    = 28;
+      const RH = 28;
+      const LINE_H = 3.5; // mm between lines for multi-line text
 
       const hasFilter = min != null && max != null && min !== "" && max !== "";
+
+      // ── Helper: perfectly center text (single or multi-line) in a column ──
+      // colKey  → key in COL to get x + w
+      // midY    → vertical center of the cell (y + height/2)
+      // fontSize → font size to set before drawing
+      const drawCenteredText = (text, colKey, midY, fontSize = 6.5) => {
+        doc.setFontSize(fontSize);
+        const c = COL[colKey];
+        const cx = c.x + c.w / 2;                       // horizontal center
+        const lines = Array.isArray(text) ? text : [text];
+        const totalH = (lines.length - 1) * LINE_H;         // total block height
+        const startY = midY - totalH / 2;                   // top line Y (middle-baseline)
+        lines.forEach((line, i) => {
+          doc.text(String(line), cx, startY + i * LINE_H, { align: "center", baseline: "middle" });
+        });
+      };
 
       // ── Header ─────────────────────────────────────────────────────────────
       const drawHdr = () => {
@@ -656,18 +673,18 @@ const Products = () => {
         doc.setFontSize(7.5);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(242, 196, 2);
-        const prefix    = "Set your own Prices now in 1 click: ";
+        const prefix = "Set your own Prices now in 1 click: ";
         const linkLabel = "Click Here";
-        const fullText  = prefix + linkLabel;
-        const fullW     = doc.getTextWidth(fullText);
-        const startX    = PW / 2 - fullW / 2;
+        const fullText = prefix + linkLabel;
+        const fullW = doc.getTextWidth(fullText);
+        const startX = PW / 2 - fullW / 2;
         doc.text(fullText, PW / 2, 16, { align: "center" });
         const linkX = startX + doc.getTextWidth(prefix);
         const linkW = doc.getTextWidth(linkLabel);
         doc.setDrawColor(242, 196, 2);
         doc.setLineWidth(0.2);
         doc.line(linkX, 16.6, linkX + linkW, 16.6);
-        doc.link(linkX, 13, linkW, 4, { url: catalogUrl }); // ← dynamic catalog URL
+        doc.link(linkX, 13, linkW, 4, { url: catalogUrl });
       };
 
       // ── Column header ───────────────────────────────────────────────────────
@@ -678,41 +695,31 @@ const Products = () => {
         doc.setLineWidth(0.3);
         doc.rect(M, y, PW - M * 2, COL_H);
 
+        // vertical dividers
         let cx = M;
         Object.values(COL).forEach((c) => {
           cx += c.w;
           if (cx < PW - M) { doc.setDrawColor(200, 200, 200); doc.line(cx, y, cx, y + COL_H); }
         });
 
-        const headers = [
-          { k: "listNo", l: ["List", "No"] },
-          { k: "name",   l: ["Product Name"] },
-          { k: "gst",    l: ["GST"] },
-          { k: "image",  l: ["Image"] },
-          { k: "price",  l: ["Price"] },
-          { k: "days",   l: ["Days", "Needed"] },
-          { k: "hsn",    l: ["HSN", "Code"] },
-          { k: "stock",  l: ["Stock", "Status"] },
-        ];
-
+        const colMidY = y + COL_H / 2;
         doc.setTextColor(60, 60, 60);
-        doc.setFontSize(6.5);
         doc.setFont("helvetica", "normal");
 
-        headers.forEach(({ k, l }) => {
-          const c  = COL[k];
-          const cx = c.x + c.w / 2;
-          if (l.length === 1) {
-            doc.text(l[0], cx, y + COL_H / 2 + 1,   { align: "center" });
-          } else {
-            doc.text(l[0], cx, y + COL_H / 2 - 0.8, { align: "center" });
-            doc.text(l[1], cx, y + COL_H / 2 + 3,   { align: "center" });
-          }
-        });
+        // Each header label: single or two lines — all centered via helper
+        drawCenteredText(["List", "No"], "listNo", colMidY, 6.5);
+        drawCenteredText(["Product Name"], "name", colMidY, 6.5);
+        drawCenteredText(["GST"], "gst", colMidY, 6.5);
+        drawCenteredText(["Image"], "image", colMidY, 6.5);
+        drawCenteredText(["Price"], "price", colMidY, 6.5);
+        drawCenteredText(["Days", "Needed"], "days", colMidY, 6.5);
+        drawCenteredText(["HSN", "Code"], "hsn", colMidY, 6.5);
+        drawCenteredText(["Stock", "Status"], "stock", colMidY, 6.5);
       };
 
       // ── Data row ────────────────────────────────────────────────────────────
       const drawRow = (p, idx, y) => {
+        // Row background
         const bg = idx % 2 === 0 ? [255, 255, 255] : [250, 251, 251];
         doc.setFillColor(...bg);
         doc.rect(M, y, PW - M * 2, RH, "F");
@@ -720,6 +727,7 @@ const Products = () => {
         doc.setLineWidth(0.2);
         doc.rect(M, y, PW - M * 2, RH);
 
+        // vertical dividers
         let cx = M;
         Object.values(COL).forEach((c) => {
           cx += c.w;
@@ -727,33 +735,32 @@ const Products = () => {
         });
 
         const midY = y + RH / 2;
+
+        // reset defaults before each row
         doc.setFont("helvetica", "normal");
         doc.setTextColor(40, 40, 40);
 
-        // List No
-        doc.setFontSize(7);
-        doc.text(
-          p.product_codeS_NO || String(idx + 1),
-          COL.listNo.x + COL.listNo.w / 2, midY,
-          { align: "center", baseline: "middle" }
-        );
+        // ── List No ──────────────────────────────────────────────────────────
+        drawCenteredText(p.product_codeS_NO || String(idx + 1), "listNo", midY, 7);
 
-        // Product Name
+        // ── Product Name ──────────────────────────────────────────────────────
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(40, 40, 40);
         doc.setFontSize(6.5);
-        doc.text(
-          doc.splitTextToSize(p.name || "N/A", COL.name.w - 2),
-          COL.name.x + 1.5, y + 5
-        );
+        const nameLines = doc.splitTextToSize(p.name || "N/A", COL.name.w - 2);
+        const nameCX = COL.name.x + COL.name.w / 2;
+        const nameTotalH = (nameLines.length - 1) * LINE_H;
+        const nameStartY = midY - nameTotalH / 2;
+        nameLines.forEach((line, i) => {
+          doc.text(line, nameCX, nameStartY + i * LINE_H, { align: "center", baseline: "middle" });
+        });
 
-        // GST
-        doc.setFontSize(7);
-        doc.text(
-          p.gst ? `${p.gst}%` : "18%",
-          COL.gst.x + COL.gst.w / 2, midY,
-          { align: "center", baseline: "middle" }
-        );
+        // ── GST ──────────────────────────────────────────────────────────────
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(40, 40, 40);
+        drawCenteredText(p.gst ? `${p.gst}%` : "18%", "gst", midY, 7);
 
-        // Image
+        // ── Image ─────────────────────────────────────────────────────────────
         const allImgUrls = [];
         if (p.images?.length > 0) {
           p.images.slice(0, 3).forEach((img) => {
@@ -761,10 +768,10 @@ const Products = () => {
             if (u) allImgUrls.push(u);
           });
         }
-        const ix   = COL.image.x + 1;
-        const iy   = y + 2;
-        const iw   = COL.image.w - 2;
-        const ih   = RH - 4;
+        const ix = COL.image.x + 1;
+        const iy = y + 2;
+        const iw = COL.image.w - 2;
+        const ih = RH - 4;
         const imgd = imgCache[p._id];
         if (imgd) {
           try {
@@ -783,74 +790,78 @@ const Products = () => {
           doc.setTextColor(40, 40, 40);
         }
 
-        // Price box
-        const gstRate     = parseFloat(p.gst) || 18;
-        const custRaw     = p.prices?.customerPrice;
-        const mrpVal      = p.MRP_price ? `${p.MRP_price}` : "—";
-        const custNum     = custRaw && custRaw !== "N/A" ? parseFloat(custRaw) : parseFloat(p.MRP_price);
+        // ── Price box ─────────────────────────────────────────────────────────
+        const gstRate = parseFloat(p.gst) || 18;
+        const custRaw = p.prices?.customerPrice;
+        const mrpVal = p.MRP_price ? `${p.MRP_price}` : "—";
+        const custNum = custRaw && custRaw !== "N/A" ? parseFloat(custRaw) : parseFloat(p.MRP_price);
         const custWithGst = !isNaN(custNum) ? `${(custNum * (1 + gstRate / 100)).toFixed(0)}` : "—";
 
-        const bx = COL.price.x + 1.5, bw = COL.price.w - 3;
-        const ch = 6, by = midY - ch;
-        const lw = 11, cw = (bw - lw) / 2;
+        const bx = COL.price.x + 1.5;
+        const bw = COL.price.w - 3;
+        const ch = 6;
+        const by = midY - ch;          // box top = midY minus one cell height
+        const lw = 11;
+        const cw = (bw - lw) / 2;
 
+        // box outline + internal dividers
         doc.setDrawColor(150, 150, 150);
         doc.setLineWidth(0.3);
         doc.rect(bx, by, bw, ch * 2);
-        doc.line(bx, by + ch, bx + bw, by + ch);
-        doc.line(bx + lw, by, bx + lw, by + ch * 2);
-        doc.line(bx + lw + cw, by, bx + lw + cw, by + ch * 2);
+        doc.line(bx, by + ch, bx + bw, by + ch);       // horizontal mid
+        doc.line(bx + lw, by, bx + lw, by + ch * 2);  // col 1|2
+        doc.line(bx + lw + cw, by, bx + lw + cw, by + ch * 2); // col 2|3
 
+        // header row — vertical center = by + ch/2
+        const priceHdrY = by + ch / 2;
         doc.setFontSize(5.5);
+        doc.setFont("helvetica", "normal");
         doc.setTextColor(80, 80, 80);
-        doc.text("",             bx + lw / 2,             by + ch / 2 + 1, { align: "center" });
-        doc.text("MRP",          bx + lw + cw / 2,        by + ch / 2 + 1, { align: "center" });
-        doc.text(`+${gstRate}%`, bx + lw + cw + cw / 2,   by + ch / 2 + 1, { align: "center" });
+        doc.text("", bx + lw / 2, priceHdrY, { align: "center", baseline: "middle" });
+        doc.text("MRP", bx + lw + cw / 2, priceHdrY, { align: "center", baseline: "middle" });
+        doc.text(`+${gstRate}%`, bx + lw + cw + cw / 2, priceHdrY, { align: "center", baseline: "middle" });
 
-        doc.setFontSize(5.5);
-        doc.setTextColor(80, 80, 80);
-        doc.text("Price", bx + lw / 2, by + ch + ch / 2 + 1, { align: "center" });
+        // value row — vertical center = by + ch + ch/2
+        const priceValY = by + ch + ch / 2;
+        doc.text("Price", bx + lw / 2, priceValY, { align: "center", baseline: "middle" });
 
         doc.setFontSize(6);
         doc.setTextColor(40, 40, 40);
-        doc.text(mrpVal, bx + lw + cw / 2, by + ch + ch / 2 + 1, { align: "center" });
+        doc.text(mrpVal, bx + lw + cw / 2, priceValY, { align: "center", baseline: "middle" });
 
         doc.setTextColor(13, 148, 136);
         doc.setFont("helvetica", "bold");
-        doc.text(custWithGst, bx + lw + cw + cw / 2, by + ch + ch / 2 + 1, { align: "center" });
+        doc.text(custWithGst, bx + lw + cw + cw / 2, priceValY, { align: "center", baseline: "middle" });
         doc.setFont("helvetica", "normal");
         doc.setTextColor(40, 40, 40);
 
-        // Days Needed
-        doc.setFontSize(6.5);
-        doc.text(getDaysNeeded(p), COL.days.x + COL.days.w / 2, midY, { align: "center", baseline: "middle" });
+        // ── Days Needed ───────────────────────────────────────────────────────
+        drawCenteredText(getDaysNeeded(p), "days", midY, 6.5);
 
-        // HSN Code
-        doc.setFontSize(6.5);
-        doc.text(String(p.HSNcode_time || p.HSN_code || "N/A"), COL.hsn.x + COL.hsn.w / 2, midY, { align: "center", baseline: "middle" });
+        // ── HSN Code ──────────────────────────────────────────────────────────
+        drawCenteredText(String(p.HSNcode_time || p.HSN_code || "N/A"), "hsn", midY, 6.5);
 
-        // Stock Status
-        const ss      = p.stock_count > 0 ? "In Stock" : "Out of Stock";
+        // ── Stock Status ──────────────────────────────────────────────────────
+        const ss = p.stock_count > 0 ? "In Stock" : "Out of Stock";
         const inStock = ss.toLowerCase().includes("in");
         doc.setTextColor(inStock ? 22 : 185, inStock ? 163 : 28, inStock ? 74 : 28);
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(5.5);
-        doc.text(ss, COL.stock.x + COL.stock.w / 2, midY, { align: "center", baseline: "middle" });
+        drawCenteredText(ss, "stock", midY, 5.5);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(40, 40, 40);
       };
 
       // ── Render pages ────────────────────────────────────────────────────────
       const rowsPerPage = Math.max(1, Math.floor((PH - HDR_H - COL_H - 12) / RH));
-      const totalPages  = Math.ceil(toExport.length / rowsPerPage);
+      const totalPages = Math.ceil(toExport.length / rowsPerPage);
 
       for (let pg = 0; pg < totalPages; pg++) {
         if (pg > 0) doc.addPage();
         drawHdr();
         drawColHdr(HDR_H);
         const start = pg * rowsPerPage;
-        const end   = Math.min(start + rowsPerPage, toExport.length);
-        let rowY    = HDR_H + COL_H;
+        const end = Math.min(start + rowsPerPage, toExport.length);
+        let rowY = HDR_H + COL_H;
         for (let i = start; i < end; i++) { drawRow(toExport[i], i, rowY); rowY += RH; }
       }
 
@@ -938,9 +949,9 @@ const Products = () => {
       {
         title: "Image", dataIndex: "images", width: 180,
         render: (_, record) => {
-          const img    = getProductImage(record);
+          const img = getProductImage(record);
           const varImgs = getVariantImages(record);
-          const isVar  = record.type === "Variable Product" || record.type === "Variant Product";
+          const isVar = record.type === "Variable Product" || record.type === "Variant Product";
           return (
             <div className="flex justify-center">
               {img ? (
@@ -984,8 +995,8 @@ const Products = () => {
         render: (type) => {
           const c = {
             "Stand Alone Product": "bg-green-100 text-green-800 border-green-200",
-            "Variable Product":    "bg-blue-100 text-blue-800 border-blue-200",
-            "Variant Product":     "bg-purple-100 text-purple-800 border-purple-200",
+            "Variable Product": "bg-blue-100 text-blue-800 border-blue-200",
+            "Variant Product": "bg-purple-100 text-purple-800 border-purple-200",
           };
           return <Tag className={`font-semibold rounded-full px-3 py-1 text-xs border ${c[type] || "bg-orange-100 text-orange-800 border-orange-200"}`}>{type}</Tag>;
         },
@@ -1018,8 +1029,8 @@ const Products = () => {
           <div className="flex flex-col space-y-1">
             {[
               { label: "Corporate", key: "corporatePrice" },
-              { label: "Dealer",    key: "dealerPrice" },
-              { label: "Customer",  key: "customerPrice" },
+              { label: "Dealer", key: "dealerPrice" },
+              { label: "Customer", key: "customerPrice" },
             ].map(({ label, key }) => (
               <div key={key} className="flex justify-between items-center">
                 <span className="text-xs font-semibold text-gray-600">{label}:</span>
@@ -1046,9 +1057,9 @@ const Products = () => {
         render: (record) => (
           <div className="flex flex-col space-y-2">
             {[
-              { field: "new_product",         label: "New",         icon: hasEditPermission ? <MdNewReleases /> : <LockOutlined />, ac: "bg-blue-600 text-white border-blue-600" },
-              { field: "popular_product",     label: "Popular",     icon: hasEditPermission ? <MdThumbUp />    : <LockOutlined />, ac: "bg-green-600 text-white border-green-600" },
-              { field: "recommended_product", label: "Recommended", icon: hasEditPermission ? <MdStar />       : <LockOutlined />, ac: "bg-amber-600 text-white border-amber-600" },
+              { field: "new_product", label: "New", icon: hasEditPermission ? <MdNewReleases /> : <LockOutlined />, ac: "bg-blue-600 text-white border-blue-600" },
+              { field: "popular_product", label: "Popular", icon: hasEditPermission ? <MdThumbUp /> : <LockOutlined />, ac: "bg-green-600 text-white border-green-600" },
+              { field: "recommended_product", label: "Recommended", icon: hasEditPermission ? <MdStar /> : <LockOutlined />, ac: "bg-amber-600 text-white border-amber-600" },
             ].map(({ field, label, icon, ac }) => (
               <Tooltip key={field} title={hasEditPermission ? label : "No permission"}>
                 <Button
@@ -1102,7 +1113,7 @@ const Products = () => {
   }, [allSel, someSel, activeTabKey, hasEditPermission, hasDeletePermission, updatingProductId, toggleKey, toggleAll, user.role]);
 
   const columnsTab1 = useMemo(() => buildColumns(false), [buildColumns]);
-  const columnsTab2 = useMemo(() => buildColumns(true),  [buildColumns]);
+  const columnsTab2 = useMemo(() => buildColumns(true), [buildColumns]);
 
   const rowClassName = useCallback((record) => record._isSelected ? "prod-row-sel" : "", []);
 
@@ -1144,11 +1155,11 @@ const Products = () => {
   );
 
   const paginationProps = {
-    current:         paginationConfig.currentPage,
-    pageSize:        paginationConfig.pageSize,
+    current: paginationConfig.currentPage,
+    pageSize: paginationConfig.pageSize,
     showSizeChanger: true,
     showQuickJumper: true,
-    showTotal:       (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+    showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
     pageSizeOptions: ["10", "20", "50", "100"],
   };
 
@@ -1193,7 +1204,7 @@ const Products = () => {
               <span className="text-[11px] font-bold text-gray-500 tracking-widest uppercase">Search</span>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
                 </span>
                 <input
                   type="text" placeholder="Name, code, category..." value={search}
