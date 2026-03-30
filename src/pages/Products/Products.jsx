@@ -567,7 +567,7 @@ const Products = () => {
       // ── STEP 1: Save to DB first ──────────────────────────────────────────
       let catalogUrl = "https://printe.in"; // fallback if DB save fails
       try {
-        const { data } = await axios.post("http://localhost:8080/api/pdf-exports", {
+        const { data } = await axios.post("https://api.printe.in/api/pdf-exports", {
           products: toExport.map((p) => ({
             _id:                 p._id,
             name:                p.name,
