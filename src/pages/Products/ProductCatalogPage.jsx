@@ -591,11 +591,11 @@ const ShareModal = ({ onClose, products, appliedMargin, getMarginForProduct }) =
                   {busy === "detail" ? <SpinIcon /> : <DetailIcon />} PDF with Details
                 </button>
                 <div className="border-t border-gray-100 my-0.5" />
-                {/* <Tooltip title="Data Selected. Press Ctrl+C to copy and Ctrl+V to paste in your E-mail. Once done, you can refresh the page to get back to normal view.">
+                <Tooltip title="Data Selected. Press Ctrl+C to copy and Ctrl+V to paste in your E-mail. Once done, you can refresh the page to get back to normal view.">
                   <button disabled={!!busy} className={`${btnBase} bg-blue-500 hover:bg-blue-600 text-white shadow-sm`}>
                     <EmailIcon /> Share Via Email
                   </button>
-                </Tooltip> */}
+                </Tooltip>
                 <button onClick={handlePrint} disabled={!!busy} className={`${btnBase} bg-gray-500 hover:bg-gray-600 text-white shadow-sm`}>
                   <PrintIcon />
                   <span>Print / Save as PDF</span>
@@ -1062,7 +1062,7 @@ const ProductCatalogPage = () => {
           )}
         </label>
 
-        {/* {selectedIds.size > 0 && (
+        {selectedIds.size > 0 && (
           <div className="flex items-center gap-2">
             <Tooltip title="Copy selected products as image (Ctrl+C)">
               <button
@@ -1080,11 +1080,11 @@ const ProductCatalogPage = () => {
               </button>
             </Tooltip>
           </div>
-        )} */}
+        )}
       </div>
 
       {/* ── Product grid ─────────────────────────────────────────────────── */}
-      <div id="product-grid" className="p-5 grid grid-cols-1 lg:grid-cols-2 gap-4 lg:px-20">
+      <div id="product-grid" className="p-5 grid grid-cols-1 md:grid-cols-1 lg:grid-cols-2 gap-4 lg:px-20">
         {products.map((product) => {
           const margin = getMarginForProduct(product.product_id);
           const isCustomMargin = customMarginIds.has(product.product_id);
@@ -1095,80 +1095,100 @@ const ProductCatalogPage = () => {
           const isSelected = selectedIds.has(product.product_id);
 
           return (
-            <div
-              key={product.product_id}
-              className={`relative flex gap-0 border rounded-lg overflow-hidden bg-white transition-all
-                ${isSelected ? "border-blue-400 shadow-md" : "border-gray-200 shadow-sm hover:shadow-md"}`}
-            >
-              <div className="product-card-checkbox absolute top-3 left-3 z-10">
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => toggleOne(product.product_id)}
-                  className="w-4 h-4 accent-blue-600 cursor-pointer"
-                />
-              </div>
-
-              {margin > 0 && (
-                <div className="product-card-margin-badge absolute top-3 left-8 z-10">
-                  <span className={`text-[10px] ${isCustomMargin ? "bg-green-600" : "bg-blue-600"} text-white font-bold rounded-full px-1.5 py-0.5 leading-none`}>
-                    {margin}%
-                  </span>
+            <div className={`relative flex flex-col  gap-0 border rounded-lg overflow-hidden bg-white transition-all
+                ${isSelected ? "border-blue-400 shadow-md" : "border-gray-200 shadow-sm hover:shadow-md"}`}>
+              <div
+                key={product.product_id}
+                className={`relative flex gap-0 border rounded-lg overflow-hidden bg-white transition-all
+                `}
+              >
+                <div className="product-card-checkbox absolute top-3 left-3 z-10">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleOne(product.product_id)}
+                    className="w-4 h-4 accent-blue-600 cursor-pointer"
+                  />
                 </div>
-              )}
 
-              <Popconfirm title="Delete Product" description="Are you sure?" onConfirm={() => handleDelete(product.product_id)} okText="Yes" cancelText="No" okButtonProps={{ danger: true }}>
-                <button className="product-card-delete absolute top-2 right-2 z-10 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition shadow">
-                  <MdDelete size={14} />
-                </button>
-              </Popconfirm>
-
-              <div className="w-40 min-w-[160px] bg-gray-50 flex items-center justify-center border-r border-gray-100">
-                {product.image_url?.length > 0 ? (
-                  <Link to={product.image_url[2]?.url || product.image_url[0]?.url || ""} target="_blank" rel="noopener noreferrer">
-                    <img
-                      src={product.image_url[0]?.url || ""}
-                      alt={product.name}
-                      className="w-full h-full object-contain p-2"
-                      style={{ maxHeight: 160 }}
-                      onError={(e) => { e.target.style.display = "none"; }}
-                    />
-                  </Link>
-                ) : (
-                  <div className="text-gray-300 text-xs text-center p-4">No Image</div>
+                {margin > 0 && (
+                  <div className="product-card-margin-badge absolute top-3 left-8 z-10">
+                    <span className={`text-[10px] ${isCustomMargin ? "bg-green-600" : "bg-blue-600"} text-white font-bold rounded-full px-1.5 py-0.5 leading-none`}>
+                      {margin}%
+                    </span>
+                  </div>
                 )}
-              </div>
-              <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
-                <div className="pr-6">
-                  <p className="font-bold text-gray-900 text-sm leading-snug mb-1">
-                    {product.product_codeS_NO ? `${product.product_codeS_NO} - ${product.name}` : product.name}
-                  </p>
-                  <p className="text-xs text-gray-500 mb-0.5">
-                    Available in: <span className="text-gray-700 font-medium">{product.stocks_status || "Default"}</span>
-                  </p>
-                  <p className="text-xs text-gray-500 mb-2 leading-relaxed">
-                    HSN Code: {product.hsn_code || "N/A"} | Days Need: {product.DaysNeeded || "1 Day"}
-                  </p>
-                </div>
 
-                <table className="w-full border-collapse text-xs price-table">
+                <Popconfirm title="Delete Product" description="Are you sure?" onConfirm={() => handleDelete(product.product_id)} okText="Yes" cancelText="No" okButtonProps={{ danger: true }}>
+                  <button className="product-card-delete absolute top-2 right-2 z-10 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition shadow">
+                    <MdDelete size={14} />
+                  </button>
+                </Popconfirm>
+
+                <div className="lg:w-40 w-32 lg:min-w-[160px] bg-gray-50 flex items-center justify-center border-r border-gray-100">
+                  {product.image_url?.length > 0 ? (
+                    <Link to={product.image_url[2]?.url || product.image_url[0]?.url || ""} target="_blank" rel="noopener noreferrer">
+                      <img
+                        src={product.image_url[0]?.url || ""}
+                        alt={product.name}
+                        className="w-full h-full object-contain "
+                        style={{ maxHeight: 160 }}
+                        onError={(e) => { e.target.style.display = "none"; }}
+                      />
+                    </Link>
+                  ) : (
+                    <div className="text-gray-300 text-xs text-center p-4">No Image</div>
+                  )}
+                </div>
+                <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
+                  <div className="pr-6">
+                    <p className="font-bold text-gray-900 text-sm leading-snug mb-1">
+                      {product.product_codeS_NO ? `${product.product_codeS_NO} - ${product.name}` : product.name}
+                    </p>
+                    <p className="text-xs text-gray-500 mb-0.5">
+                      Available in: <span className="text-gray-700 font-medium">{product.stocks_status || "Default"}</span>
+                    </p>
+                    <p className="text-xs text-gray-500 mb-2 leading-relaxed">
+                      HSN Code: {product.hsn_code || "N/A"} | Days Need: {product.DaysNeeded || "1 Day"}
+                    </p>
+                  </div>
+
+                  <table className="w-full border-collapse text-xs price-table hidden  lg:block">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        {["MRP", "Offer Price", "GST", "Final Price"].map((h) => (
+                          <th key={h} className="border text-xs lg:text-sm border-gray-200 px-2 py-1 text-left font-semibold text-gray-600 whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="bg-white">
+                        <td className="border border-gray-200 text-xs lg:text-sm px-2 py-1.5 text-gray-800 font-medium whitespace-nowrap">Rs. {mrpNum || "N/A"}</td>
+                        <td className="border border-gray-200 px-2 py-1.5 text-gray-800 font-medium whitespace-nowrap text-xs lg:text-sm">Rs. {offer}</td>
+                        <td className="border border-gray-200 px-2 py-1.5 text-gray-600 whitespace-nowrap text-xs lg:text-sm">{gstRate} %</td>
+                        <td className="border border-gray-200 px-2 py-1.5 font-bold text-gray-900 whitespace-nowrap text-xs lg:text-sm">Rs. {final}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+                <table className="w-full border-collapse text-xs price-table lg:hidden ">
                   <thead>
                     <tr className="bg-gray-50">
                       {["MRP", "Offer Price", "GST", "Final Price"].map((h) => (
-                        <th key={h} className="border border-gray-200 px-2 py-1 text-left font-semibold text-gray-600 whitespace-nowrap">{h}</th>
+                        <th key={h} className="border text-xs lg:text-sm border-gray-200 px-2 py-1 text-left font-semibold text-gray-600 whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     <tr className="bg-white">
-                      <td className="border border-gray-200 px-2 py-1.5 text-gray-800 font-medium whitespace-nowrap">Rs. {mrpNum || "N/A"}</td>
-                      <td className="border border-gray-200 px-2 py-1.5 text-gray-800 font-medium whitespace-nowrap">Rs. {offer}</td>
-                      <td className="border border-gray-200 px-2 py-1.5 text-gray-600 whitespace-nowrap">{gstRate} %</td>
-                      <td className="border border-gray-200 px-2 py-1.5 font-bold text-gray-900 whitespace-nowrap">Rs. {final}</td>
+                      <td className="border border-gray-200 text-xs lg:text-sm px-2 py-1.5 text-gray-800 font-medium whitespace-nowrap">Rs. {mrpNum || "N/A"}</td>
+                      <td className="border border-gray-200 px-2 py-1.5 text-gray-800 font-medium whitespace-nowrap text-xs lg:text-sm">Rs. {offer}</td>
+                      <td className="border border-gray-200 px-2 py-1.5 text-gray-600 whitespace-nowrap text-xs lg:text-sm">{gstRate} %</td>
+                      <td className="border border-gray-200 px-2 py-1.5 font-bold text-gray-900 whitespace-nowrap text-xs lg:text-sm">Rs. {final}</td>
                     </tr>
                   </tbody>
                 </table>
-              </div>
             </div>
           );
         })}
