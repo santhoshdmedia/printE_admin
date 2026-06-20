@@ -26,6 +26,7 @@ import {
   List,
   Descriptions,
   Typography,
+  Image,
 } from "antd";
 import {
   FiArrowRight,
@@ -56,6 +57,7 @@ import {
   FiXCircle,
   FiRefreshCw,
   FiAlertTriangle,
+  FiImage,
 } from "react-icons/fi";
 import { FaRupeeSign } from "react-icons/fa";
 import { CiShoppingBasket } from "react-icons/ci";
@@ -113,6 +115,9 @@ const Orders = () => {
   const [designStartTime, setDesignStartTime] = useState(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [timerInterval, setTimerInterval] = useState(null);
+
+  // Image download state (tracks which image is currently downloading, by url)
+  const [downloadingImage, setDownloadingImage] = useState(null);
 
   // Status flow configuration
   const statusFlow = [
@@ -671,6 +676,78 @@ const Orders = () => {
     }
   };
 
+  // Get the photo frame details for an order's first cart item, if present.
+  // Supports both top-level `photo_frame_details` array on the order, and the
+  // `photo_frame_details` object nested inside each cart item.
+  const getPhotoFrameImages = (order) => {
+    const fromCartItem = _.get(order, "cart_items[0].photo_frame_details");
+    const fromTopLevel = _.get(order, "photo_frame_details[0]");
+    const details = fromCartItem || fromTopLevel;
+
+    if (!details) return [];
+
+    const images = [];
+    if (details.father_image) {
+      images.push({ label: "Father Image", url: details.father_image });
+    }
+    if (details.son_image) {
+      images.push({ label: "Son Image", url: details.son_image });
+    }
+    return images;
+  };
+
+  // Download a single image. Uses fetch + blob so the browser actually saves
+  // the file instead of just navigating to it (important for cross-origin
+  // S3 URLs where the `download` attribute alone is ignored by the browser).
+  const handleDownloadImage = async (url, filename) => {
+    if (!url) return;
+    try {
+      setDownloadingImage(url);
+      const response = await fetch(url, { mode: "cors" });
+      if (!response.ok) throw new Error("Network response was not ok");
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename || "image.png";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+
+      message.success("Image downloaded successfully");
+    } catch (err) {
+      console.error("Error downloading image:", err);
+      // Fallback: open in a new tab so the user can save it manually
+      try {
+        window.open(url, "_blank");
+        message.warning("Direct download failed, opened image in a new tab instead");
+      } catch (fallbackErr) {
+        message.error("Failed to download image");
+      }
+    } finally {
+      setDownloadingImage(null);
+    }
+  };
+
+  // Download all available photo frame images for an order in one click
+  const handleDownloadAllImages = async (order) => {
+    const images = getPhotoFrameImages(order);
+    if (images.length === 0) {
+      message.info("No images available to download");
+      return;
+    }
+    for (const img of images) {
+      const ext = (img.url.split(".").pop() || "png").split("?")[0];
+      const filename = `${order.invoice_no || order._id}-${img.label
+        .toLowerCase()
+        .replace(/\s+/g, "_")}.${ext}`;
+      // eslint-disable-next-line no-await-in-loop
+      await handleDownloadImage(img.url, filename);
+    }
+  };
+
   const uploadButton = (
     <div>
       <FiFile className="text-2xl mb-2" />
@@ -906,152 +983,147 @@ const Orders = () => {
         className="grid grid-cols-1 gap-4"
       >
         <AnimatePresence>
-          {filteredOrders.map((order, index) => (
-            <motion.div
-              key={order._id}
-              variants={itemVariants}
-              initial="hidden"
-              animate="visible"
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.2, delay: index * 0.05 }}
-              layout
-            >
-              <Card
-                className={`shadow-sm hover:shadow-md transition-shadow duration-300 border-0 overflow-hidden ${
-                  order.cancellation_requested ? 'border-l-4 border-l-red-500' : ''
-                }`}
+          {filteredOrders.map((order, index) => {
+            const photoFrameImages = getPhotoFrameImages(order);
+
+            return (
+              <motion.div
+                key={order._id}
+                variants={itemVariants}
+                initial="hidden"
+                animate="visible"
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.2, delay: index * 0.05 }}
+                layout
               >
-                <div className="p-5">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center mb-2 flex-wrap gap-2">
-                        <Badge
-                          color={getStatusColor(order.order_status)}
-                          text={
-                            <span className="font-medium">
-                              {_.startCase(order.order_status)}
-                            </span>
-                          }
-                        />
-                        <span className="text-gray-400">•</span>
-                        <span className="text-gray-500">
-                          #{order.invoice_no}
-                        </span>
-                        <span className="text-gray-400">•</span>
-                        <span className="text-gray-500">
-                          {moment(order.createdAt).format("MMM D, YYYY h:mm A")}
-                        </span>
-                        {order.cancellation_requested && (
-                          <>
-                            <span className="text-gray-400">•</span>
-                            <Tag color="red" icon={<FiXCircle />}>
-                              Cancellation Requested
-                            </Tag>
-                          </>
-                        )}
-                      </div>
-
-                      <div className="flex items-center mb-3">
-                        <Avatar
-                          size="default"
-                          src={_.get(order, "user_details[0].profile_pic")}
-                          icon={<FiUser />}
-                          className="mr-3"
-                        />
-                        <div>
-                          <div className="font-medium">
-                            {_.get(order, "user_details[0].name", "N/A")}
-                          </div>
-                          <div className="text-gray-500 text-sm flex items-center">
-                            <FiMail className="mr-1" />
-                            {_.get(order, "user_details[0].email", "N/A")}
-                          </div>
-                        </div>
-                        <span className="mx-4 text-gray-300">|</span>
-                        <div className="text-primary font-semibold text-lg">
-                          ₹{_.get(order, "total_price", "0")}
-                        </div>
-                      </div>
-
-                      <div className="mb-4">
-                        <div className="flex justify-between text-sm text-gray-600 mb-1">
-                          <span>Order Progress</span>
-                          <span>
-                            {getStatusIndex(order.order_status) + 1} of{" "}
-                            {statusFlow.filter(s => s.label !== "cancelled").length} steps
+                <Card
+                  className={`shadow-sm hover:shadow-md transition-shadow duration-300 border-0 overflow-hidden ${
+                    order.cancellation_requested ? 'border-l-4 border-l-red-500' : ''
+                  }`}
+                >
+                  <div className="p-5">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center mb-2 flex-wrap gap-2">
+                          <Badge
+                            color={getStatusColor(order.order_status)}
+                            text={
+                              <span className="font-medium">
+                                {_.startCase(order.order_status)}
+                              </span>
+                            }
+                          />
+                          <span className="text-gray-400">•</span>
+                          <span className="text-gray-500">
+                            #{order.invoice_no}
                           </span>
-                        </div>
-                        <Progress
-                          percent={Math.round(
-                            ((getStatusIndex(order.order_status) + 1) /
-                              statusFlow.filter(s => s.label !== "cancelled").length) *
-                              100
+                          <span className="text-gray-400">•</span>
+                          <span className="text-gray-500">
+                            {moment(order.createdAt).format("MMM D, YYYY h:mm A")}
+                          </span>
+                          {order.cancellation_requested && (
+                            <>
+                              <span className="text-gray-400">•</span>
+                              <Tag color="red" icon={<FiXCircle />}>
+                                Cancellation Requested
+                              </Tag>
+                            </>
                           )}
-                          showInfo={false}
-                          strokeColor={getStatusColor(order.order_status)}
-                          status="active"
-                        />
-                      </div>
+                          {photoFrameImages.length > 0 && (
+                            <>
+                              <span className="text-gray-400">•</span>
+                              <Tag color="purple" icon={<FiImage />}>
+                                {photoFrameImages.length} Photo
+                                {photoFrameImages.length > 1 ? "s" : ""}
+                              </Tag>
+                            </>
+                          )}
+                        </div>
 
-                      <div className="flex justify-between text-xs text-gray-500">
-                        {statusFlow.filter(s => s.label !== "cancelled").map((status, idx) => (
-                          <Tooltip
-                            key={status.key}
-                            title={_.startCase(status.label)}
-                          >
-                            <div
-                              className={`p-2 rounded-full text-lg ${
-                                idx <= getStatusIndex(order.order_status)
-                                  ? "bg-blue-100 text-blue-600"
-                                  : "bg-gray-100 text-gray-400"
-                              }`}
-                            >
-                              {status.icon}
+                        <div className="flex items-center mb-3">
+                          <Avatar
+                            size="default"
+                            src={_.get(order, "user_details[0].profile_pic")}
+                            icon={<FiUser />}
+                            className="mr-3"
+                          />
+                          <div>
+                            <div className="font-medium">
+                              {_.get(order, "user_details[0].name", "N/A")}
                             </div>
-                          </Tooltip>
-                        ))}
-                      </div>
-                    </div>
+                            <div className="text-gray-500 text-sm flex items-center">
+                              <FiMail className="mr-1" />
+                              {_.get(order, "user_details[0].email", "N/A")}
+                            </div>
+                          </div>
+                          <span className="mx-4 text-gray-300">|</span>
+                          <div className="text-primary font-semibold text-lg">
+                            ₹{_.get(order, "total_price", "0")}
+                          </div>
+                        </div>
 
-                    <div className="flex flex-col md:items-end mt-4 md:mt-0 space-y-3 md:ml-4">
-                      <div className="flex space-x-2 flex-wrap gap-2">
-                        {user.role !== "super admin" && (
-                          <>
-                            {order.order_status !== "completed" && (
-                              <Popconfirm
-                                title={`Forward to ${
-                                  statusFlow[
-                                    statusFlow.findIndex(
-                                      (item) =>
-                                        item.label === order.order_status
-                                    ) + 1
-                                  ]?.label
-                                }?`}
-                                onConfirm={() =>
-                                  handleStatusChange(
-                                    order._id,
-                                    order.order_status
-                                  )
-                                }
-                                okText="Yes"
-                                cancelText="No"
-                                disabled={
-                                  (order.order_status === "production team" &&
-                                    !order.assigned_vendor) ||
-                                  (user.role !==
-                                    order.order_status.split(" ")[0] +
-                                      " team" &&
-                                    !(
-                                      order.order_status === "quality check" &&
-                                      user.role === "quality check"
-                                    ))
-                                }
+                        <div className="mb-4">
+                          <div className="flex justify-between text-sm text-gray-600 mb-1">
+                            <span>Order Progress</span>
+                            <span>
+                              {getStatusIndex(order.order_status) + 1} of{" "}
+                              {statusFlow.filter(s => s.label !== "cancelled").length} steps
+                            </span>
+                          </div>
+                          <Progress
+                            percent={Math.round(
+                              ((getStatusIndex(order.order_status) + 1) /
+                                statusFlow.filter(s => s.label !== "cancelled").length) *
+                                100
+                            )}
+                            showInfo={false}
+                            strokeColor={getStatusColor(order.order_status)}
+                            status="active"
+                          />
+                        </div>
+
+                        <div className="flex justify-between text-xs text-gray-500">
+                          {statusFlow.filter(s => s.label !== "cancelled").map((status, idx) => (
+                            <Tooltip
+                              key={status.key}
+                              title={_.startCase(status.label)}
+                            >
+                              <div
+                                className={`p-2 rounded-full text-lg ${
+                                  idx <= getStatusIndex(order.order_status)
+                                    ? "bg-blue-100 text-blue-600"
+                                    : "bg-gray-100 text-gray-400"
+                                }`}
                               >
-                                <Button
-                                  type="primary"
-                                  size="middle"
-                                  icon={<FiArrowRight />}
-                                  className="flex items-center bg-green-500 hover:bg-green-600 border-0"
+                                {status.icon}
+                              </div>
+                            </Tooltip>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col md:items-end mt-4 md:mt-0 space-y-3 md:ml-4">
+                        <div className="flex space-x-2 flex-wrap gap-2">
+                          {user.role !== "super admin" && (
+                            <>
+                              {order.order_status !== "completed" && (
+                                <Popconfirm
+                                  title={`Forward to ${
+                                    statusFlow[
+                                      statusFlow.findIndex(
+                                        (item) =>
+                                          item.label === order.order_status
+                                      ) + 1
+                                    ]?.label
+                                  }?`}
+                                  onConfirm={() =>
+                                    handleStatusChange(
+                                      order._id,
+                                      order.order_status
+                                    )
+                                  }
+                                  okText="Yes"
+                                  cancelText="No"
                                   disabled={
                                     (order.order_status === "production team" &&
                                       !order.assigned_vendor) ||
@@ -1059,117 +1131,202 @@ const Orders = () => {
                                       order.order_status.split(" ")[0] +
                                         " team" &&
                                       !(
-                                        order.order_status ===
-                                          "quality check" &&
+                                        order.order_status === "quality check" &&
                                         user.role === "quality check"
                                       ))
                                   }
                                 >
-                                  Forward
-                                </Button>
-                              </Popconfirm>
-                            )}
-                          </>
-                        )}
+                                  <Button
+                                    type="primary"
+                                    size="middle"
+                                    icon={<FiArrowRight />}
+                                    className="flex items-center bg-green-500 hover:bg-green-600 border-0"
+                                    disabled={
+                                      (order.order_status === "production team" &&
+                                        !order.assigned_vendor) ||
+                                      (user.role !==
+                                        order.order_status.split(" ")[0] +
+                                          " team" &&
+                                        !(
+                                          order.order_status ===
+                                            "quality check" &&
+                                          user.role === "quality check"
+                                        ))
+                                    }
+                                  >
+                                    Forward
+                                  </Button>
+                                </Popconfirm>
+                              )}
+                            </>
+                          )}
 
-                        {userRole.role === "production team" &&
-                          order.order_status === "production team" && (
+                          {userRole.role === "production team" &&
+                            order.order_status === "production team" && (
+                              <Button
+                                size="middle"
+                                onClick={() => showVendorAssignmentModal(order)}
+                                className="bg-orange-500 hover:bg-orange-600 text-white border-0"
+                              >
+                                Assign Vendor
+                              </Button>
+                            )}
+
+                          {/* Enhanced Cancellation Button */}
+                          {(user.role === "super admin" || userRole.role === "super admin") && 
+                           order.order_status !== "completed" && (
                             <Button
                               size="middle"
-                              onClick={() => showVendorAssignmentModal(order)}
-                              className="bg-orange-500 hover:bg-orange-600 text-white border-0"
+                              type={order.cancellation_requested ? "default" : "primary"}
+                              className={
+                                order.cancellation_requested
+                                  ? "bg-yellow-500 hover:bg-yellow-600 text-white border-0"
+                                  : "bg-green-500"
+                              }
+                              onClick={() => showCancellationModal(order)}
                             >
-                              Assign Vendor
+                              {order.cancellation_requested
+                                ? "Restore Order"
+                                : "Change Status"}
                             </Button>
                           )}
 
-                        {/* Enhanced Cancellation Button */}
-                        {(user.role === "super admin" || userRole.role === "super admin") && 
-                         order.order_status !== "completed" && (
+                          {/* Download all photo-frame images for this order */}
+                          {photoFrameImages.length > 0 && (
+                            <Button
+                              size="middle"
+                              icon={<FiDownload />}
+                              loading={photoFrameImages.some(
+                                (img) => downloadingImage === img.url
+                              )}
+                              onClick={() => handleDownloadAllImages(order)}
+                              className="bg-purple-500 hover:bg-purple-600 text-white border-0"
+                            >
+                              Download Photos
+                            </Button>
+                          )}
+
                           <Button
                             size="middle"
-                            type={order.cancellation_requested ? "default" : "primary"}
-                            className={
-                              order.cancellation_requested
-                                ? "bg-yellow-500 hover:bg-yellow-600 text-white border-0"
-                                : "bg-green-500"
-                            }
-                            onClick={() => showCancellationModal(order)}
+                            icon={<FiEye />}
+                            onClick={() => showOrderDetails(order)}
                           >
-                            {order.cancellation_requested
-                              ? "Restore Order"
-                              : "Change Status"}
+                            Details
                           </Button>
-                        )}
-
-                        <Button
-                          size="middle"
-                          icon={<FiEye />}
-                          onClick={() => showOrderDetails(order)}
-                        >
-                          Details
-                        </Button>
-                      </div>
-
-                      {order.vender_id ? (
-                        (() => {
-                          return (
-                            <div className="text-sm bg-green-50 text-green-700 px-3 py-1 rounded-full flex items-center">
-                              <FiUser className="mr-1" />
-                              <span>Vendor: {order.vender_id}</span>
-                              {order.quality_rating && (
-                                <Rate
-                                  disabled
-                                  defaultValue={order.quality_rating}
-                                  className="ml-2"
-                                  size="small"
-                                />
-                              )}
-                            </div>
-                          );
-                        })()
-                      ) : (
-                        <div className="text-sm bg-yellow-50 text-yellow-700 px-3 py-1 rounded-full">
-                          <FiUser className="inline mr-1" />
-                          No vendor assigned
                         </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
 
-                {/* Order footer with quick info */}
-                <div className="bg-gray-50 px-5 py-3 border-t border-gray-100">
-                  <Row gutter={16}>
-                    <Col span={6}>
-                      <div className="text-xs text-gray-500">Product</div>
-                      <div className="text-sm font-medium truncate">
-                        {_.get(order, "cart_items.product_name", "N/A")}
+                        {order.vender_id ? (
+                          (() => {
+                            return (
+                              <div className="text-sm bg-green-50 text-green-700 px-3 py-1 rounded-full flex items-center">
+                                <FiUser className="mr-1" />
+                                <span>Vendor: {order.vender_id}</span>
+                                {order.quality_rating && (
+                                  <Rate
+                                    disabled
+                                    defaultValue={order.quality_rating}
+                                    className="ml-2"
+                                    size="small"
+                                  />
+                                )}
+                              </div>
+                            );
+                          })()
+                        ) : (
+                          <div className="text-sm bg-yellow-50 text-yellow-700 px-3 py-1 rounded-full">
+                            <FiUser className="inline mr-1" />
+                            No vendor assigned
+                          </div>
+                        )}
                       </div>
-                    </Col>
-                    <Col span={6}>
-                      <div className="text-xs text-gray-500">Quantity</div>
-                      <div className="text-sm font-medium">
-                        {_.get(order, "cart_items.product_quantity", "N/A")}
+                    </div>
+
+                    {/* Photo frame image thumbnails with individual download buttons */}
+                    {photoFrameImages.length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-gray-100">
+                        <div className="text-xs text-gray-500 mb-2 flex items-center">
+                          <FiImage className="mr-1" />
+                          Photo Frame Images
+                        </div>
+                        <div className="flex flex-wrap gap-4">
+                          {photoFrameImages.map((img) => (
+                            <div
+                              key={img.url}
+                              className="flex items-center bg-gray-50 rounded-lg p-2 gap-3"
+                            >
+                              <Image
+                                src={img.url}
+                                alt={img.label}
+                                width={56}
+                                height={56}
+                                className="rounded object-cover"
+                              />
+                              <div>
+                                <div className="text-sm font-medium">
+                                  {img.label}
+                                </div>
+                                <Button
+                                  type="link"
+                                  size="small"
+                                  icon={<FiDownload />}
+                                  loading={downloadingImage === img.url}
+                                  onClick={() =>
+                                    handleDownloadImage(
+                                      img.url,
+                                      `${order.invoice_no || order._id}-${img.label
+                                        .toLowerCase()
+                                        .replace(/\s+/g, "_")}.${
+                                        (img.url.split(".").pop() || "png").split(
+                                          "?"
+                                        )[0]
+                                      }`
+                                    )
+                                  }
+                                  className="px-0"
+                                >
+                                  Download
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </Col>
-                    <Col span={6}>
-                      <div className="text-xs text-gray-500">Payment</div>
-                      <div className="text-sm font-medium">
-                        {_.get(order, "payment_type", "N/A")}
-                      </div>
-                    </Col>
-                    <Col span={6}>
-                      <div className="text-xs text-gray-500">Delivery</div>
-                      <div className="text-sm font-medium truncate">
-                        {_.get(order, "delivery_address.city", "N/A")}
-                      </div>
-                    </Col>
-                  </Row>
-                </div>
-              </Card>
-            </motion.div>
-          ))}
+                    )}
+                  </div>
+
+                  {/* Order footer with quick info */}
+                  <div className="bg-gray-50 px-5 py-3 border-t border-gray-100">
+                    <Row gutter={16}>
+                      <Col span={6}>
+                        <div className="text-xs text-gray-500">Product</div>
+                        <div className="text-sm font-medium truncate">
+                          {_.get(order, "cart_items.product_name", "N/A")}
+                        </div>
+                      </Col>
+                      <Col span={6}>
+                        <div className="text-xs text-gray-500">Quantity</div>
+                        <div className="text-sm font-medium">
+                          {_.get(order, "cart_items.product_quantity", "N/A")}
+                        </div>
+                      </Col>
+                      <Col span={6}>
+                        <div className="text-xs text-gray-500">Payment</div>
+                        <div className="text-sm font-medium">
+                          {_.get(order, "payment_type", "N/A")}
+                        </div>
+                      </Col>
+                      <Col span={6}>
+                        <div className="text-xs text-gray-500">Delivery</div>
+                        <div className="text-sm font-medium truncate">
+                          {_.get(order, "delivery_address.city", "N/A")}
+                        </div>
+                      </Col>
+                    </Row>
+                  </div>
+                </Card>
+              </motion.div>
+            );
+          })}
         </AnimatePresence>
 
         {filteredOrders.length === 0 && !loading && (
@@ -1462,6 +1619,54 @@ const Orders = () => {
               </Descriptions>
             </div>
 
+            {/* Photo frame reference images for the design team, with download */}
+            {getPhotoFrameImages(currentOrder).length > 0 && (
+              <div className="mb-4 p-4 bg-purple-50 rounded-lg">
+                <div className="text-sm font-medium mb-3 flex items-center">
+                  <FiImage className="mr-2" />
+                  Reference Photos
+                </div>
+                <div className="flex flex-wrap gap-4">
+                  {getPhotoFrameImages(currentOrder).map((img) => (
+                    <div
+                      key={img.url}
+                      className="flex items-center bg-white rounded-lg p-2 gap-3"
+                    >
+                      <Image
+                        src={img.url}
+                        alt={img.label}
+                        width={64}
+                        height={64}
+                        className="rounded object-cover"
+                      />
+                      <div>
+                        <div className="text-sm font-medium">{img.label}</div>
+                        <Button
+                          type="link"
+                          size="small"
+                          icon={<FiDownload />}
+                          loading={downloadingImage === img.url}
+                          onClick={() =>
+                            handleDownloadImage(
+                              img.url,
+                              `${currentOrder.invoice_no || currentOrder._id}-${img.label
+                                .toLowerCase()
+                                .replace(/\s+/g, "_")}.${
+                                (img.url.split(".").pop() || "png").split("?")[0]
+                              }`
+                            )
+                          }
+                          className="px-0"
+                        >
+                          Download
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Timer Section */}
             <div className="mb-6 p-4 border rounded-lg bg-blue-50">
               <div className="flex items-center justify-between mb-4">
@@ -1619,7 +1824,7 @@ const Orders = () => {
         )}
       </Modal>
 
-      {/* Order Details Modal (unchanged) */}
+      {/* Order Details Modal (unchanged + photo frame images) */}
       <Modal
         title="Order Details"
         open={isDetailsModalVisible}
@@ -1700,6 +1905,96 @@ const Orders = () => {
                 {_.get(currentOrder, "cart_items[0].sgst", "N/A")}%
               </Descriptions.Item>
             </Descriptions>
+
+            {/* Photo Frame Images section - shows whenever father/son images exist, with individual + bulk download */}
+            {getPhotoFrameImages(currentOrder).length > 0 && (
+              <>
+                <Divider />
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <Title level={5} className="mb-0">
+                      Photo Frame Images
+                    </Title>
+                    <Button
+                      size="small"
+                      icon={<FiDownload />}
+                      onClick={() => handleDownloadAllImages(currentOrder)}
+                      className="bg-purple-500 hover:bg-purple-600 text-white border-0"
+                    >
+                      Download All
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    {getPhotoFrameImages(currentOrder).map((img) => (
+                      <div
+                        key={img.url}
+                        className="border rounded-lg p-3 flex flex-col items-center bg-gray-50"
+                      >
+                        <Image
+                          src={img.url}
+                          alt={img.label}
+                          width={140}
+                          height={140}
+                          className="rounded object-cover mb-2"
+                        />
+                        <div className="text-sm font-medium mb-1">
+                          {img.label}
+                        </div>
+                        <Button
+                          size="small"
+                          icon={<FiDownload />}
+                          loading={downloadingImage === img.url}
+                          onClick={() =>
+                            handleDownloadImage(
+                              img.url,
+                              `${currentOrder.invoice_no || currentOrder._id}-${img.label
+                                .toLowerCase()
+                                .replace(/\s+/g, "_")}.${
+                                (img.url.split(".").pop() || "png").split("?")[0]
+                              }`
+                            )
+                          }
+                        >
+                          Download
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  {(_.get(currentOrder, "cart_items[0].photo_frame_details.father_name") ||
+                    _.get(currentOrder, "cart_items[0].photo_frame_details.son_name") ||
+                    _.get(currentOrder, "cart_items[0].photo_frame_details.unique_message")) && (
+                    <Descriptions
+                      className="mt-3"
+                      bordered
+                      column={2}
+                      size="small"
+                    >
+                      <Descriptions.Item label="Father Name">
+                        {_.get(
+                          currentOrder,
+                          "cart_items[0].photo_frame_details.father_name",
+                          "N/A"
+                        )}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Son/Child Name">
+                        {_.get(
+                          currentOrder,
+                          "cart_items[0].photo_frame_details.son_name",
+                          "N/A"
+                        )}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Custom Message" span={2}>
+                        {_.get(
+                          currentOrder,
+                          "cart_items[0].photo_frame_details.unique_message",
+                          "N/A"
+                        )}
+                      </Descriptions.Item>
+                    </Descriptions>
+                  )}
+                </div>
+              </>
+            )}
 
             {currentOrder.design_time && (
               <>

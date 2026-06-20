@@ -651,7 +651,7 @@ const Coupon = () => {
                 <RangePicker style={{ width: '100%' }} />
               </Form.Item>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              {/* <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <Form.Item
                   name="applicableCategories"
                   label={<span style={{ fontWeight: 600 }}>Applicable Categories</span>}
@@ -674,7 +674,7 @@ const Coupon = () => {
                     placeholder="Select specific products"
                   />
                 </Form.Item>
-              </div>
+              </div> */}
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <Form.Item
