@@ -622,7 +622,7 @@ const Orders = () => {
         unit_price: _.get(res, "cart_items.product_price", ""),
         cgst: _.get(res, "cart_items.cgst", ""),
         sgst: _.get(res, "cart_items.sgst", ""),
-        total_price: _.get(res, "total_price", ""),
+        total_price: Math.round(_.get(res, "total_price", 0)),
       };
     });
   };
@@ -1058,7 +1058,7 @@ const Orders = () => {
                           </div>
                           <span className="mx-4 text-gray-300">|</span>
                           <div className="text-primary font-semibold text-lg">
-                            ₹{_.get(order, "total_price", "0")}
+                            ₹{Math.round(_.get(order, "total_price", 0))}
                           </div>
                         </div>
 
@@ -1854,7 +1854,7 @@ const Orders = () => {
                 {_.get(currentOrder, "payment_type", "N/A")}
               </Descriptions.Item>
               <Descriptions.Item label="Total Amount" span={2}>
-                <Text strong>₹{_.get(currentOrder, "total_price", "0")}</Text>
+                <Text strong>₹{Math.round(_.get(currentOrder, "total_price", "0"))}</Text>
               </Descriptions.Item>
               {currentOrder.cancellation_requested && (
                 <Descriptions.Item label="Cancellation Status" span={2}>
