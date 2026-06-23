@@ -3,10 +3,7 @@ import { useSelector } from 'react-redux';
 import {
   Button,
   Card,
-  Collapse,
-  Divider,
   Form,
-  Image,
   Input,
   InputNumber,
   message,
@@ -20,115 +17,140 @@ import {
   Switch,
   DatePicker,
   Tooltip,
-} from "antd";
-import { 
-  PlusOutlined, 
-  EditOutlined, 
-  DeleteOutlined, 
-  SearchOutlined, 
-  LockOutlined 
+  Avatar,
+} from 'antd';
+import {
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  SearchOutlined,
+  LockOutlined,
+  ShoppingOutlined,
 } from '@ant-design/icons';
+import moment from 'moment';
 
 import { addCoupen, getSingleCoupen, getAllCoupens, deleteCoupen, editCoupen } from '../../api';
-import { canEditPage, canDeletePage, isSuperAdmin } from "../../helper/permissionHelper";
+import { canEditPage, canDeletePage, isSuperAdmin } from '../../helper/permissionHelper';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 const { RangePicker } = DatePicker;
-import moment from 'moment';
 
+// ─── API helper ──────────────────────────────────────────────────────────────
+// Fetches all visible products from your existing product endpoint.
+// Adjust the base URL / axios instance to match your project setup.
+async function fetchAllProducts() {
+  const res = await fetch('http://localhost:8080/api/product/get_product');
+  if (!res.ok) throw new Error('Failed to fetch products');
+  const json = await res.json();
+  // The endpoint may return { data: [...] } or an array directly — handle both.
+  return Array.isArray(json) ? json : json.data ?? [];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 const Coupon = () => {
-  const { user } = useSelector((state) => state.authSlice);
+  const { user } = useSelector(state => state.authSlice);
   const [form] = Form.useForm();
+
   const [coupons, setCoupons] = useState([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState(null);
   const [searchText, setSearchText] = useState('');
-  const [updatedCouponsId, setUpdatedCouponsId] = useState("");
+  const [updatedCouponsId, setUpdatedCouponsId] = useState('');
 
-  // Check permissions
-  const hasEditPermission = isSuperAdmin(user.role) || canEditPage(user.pagePermissions, "coupons");
-  const hasDeletePermission = isSuperAdmin(user.role) || canDeletePage(user.pagePermissions, "coupons");
+  // Product list state
+  const [products, setProducts] = useState([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
 
-  // Fetch coupons
+  // Permissions
+  const hasEditPermission =
+    isSuperAdmin(user.role) || canEditPage(user.pagePermissions, 'coupons');
+  const hasDeletePermission =
+    isSuperAdmin(user.role) || canDeletePage(user.pagePermissions, 'coupons');
+
+  // ── On mount ────────────────────────────────────────────────────────────────
   useEffect(() => {
     fetchCoupons();
+    loadProducts();
   }, []);
 
+  // ── Fetch coupons ───────────────────────────────────────────────────────────
   const fetchCoupons = async () => {
     setLoading(true);
     try {
       const response = await getAllCoupens();
-      
       setTimeout(() => {
         setCoupons(response.data.data);
         setLoading(false);
       }, 1000);
-    } catch (error) {
+    } catch {
       message.error('Failed to fetch coupons');
       setLoading(false);
     }
   };
 
-  // Create coupon
-  const handleCreate = async (values) => {
+  // ── Load products for the product selector ──────────────────────────────────
+  const loadProducts = async () => {
+    setProductsLoading(true);
+    try {
+      const data = await fetchAllProducts();
+      setProducts(data);
+    } catch {
+      message.error('Failed to load products list');
+    } finally {
+      setProductsLoading(false);
+    }
+  };
+
+  // ── CRUD handlers ───────────────────────────────────────────────────────────
+  const handleCreate = async values => {
     if (!hasEditPermission) {
       message.error("You don't have permission to create coupons");
       return;
     }
-
     try {
       setLoading(true);
-      const response = await addCoupen(values);
-      
+      await addCoupen(values);
       message.success('Coupon created successfully');
       setModalVisible(false);
       fetchCoupons();
       form.resetFields();
-    } catch (error) {
+    } catch {
       message.error('Failed to create coupon');
     } finally {
       setLoading(false);
     }
   };
 
-  // Update coupon
   const handleUpdate = async (values, id) => {
     if (!hasEditPermission) {
       message.error("You don't have permission to edit coupons");
       return;
     }
-
     try {
       setLoading(true);
-      
       await editCoupen(values, id);
-      const updatedCoupons = coupons.map(coupon =>
-        coupon._id === editingCoupon._id
-          ? { ...coupon, ...values }
-          : coupon
+      setCoupons(prev =>
+        prev.map(c => (c._id === editingCoupon._id ? { ...c, ...values } : c))
       );
-      
-      setCoupons(updatedCoupons);
       message.success('Coupon updated successfully');
       setModalVisible(false);
       setEditingCoupon(null);
       form.resetFields();
-    } catch (error) {
+    } catch {
       message.error('Failed to update coupon');
     } finally {
       setLoading(false);
     }
   };
 
-  // Delete coupon
-  const handleDelete = (couponId) => {
+  const handleDelete = couponId => {
     if (!hasDeletePermission) {
       message.error("You don't have permission to delete coupons");
       return;
     }
-
     Modal.confirm({
       title: 'Are you sure you want to delete this coupon?',
       content: 'This action cannot be undone.',
@@ -139,10 +161,9 @@ const Coupon = () => {
         try {
           setLoading(true);
           await deleteCoupen(couponId);
-          const filteredCoupons = coupons.filter(coupon => coupon._id !== couponId);
-          setCoupons(filteredCoupons);
+          setCoupons(prev => prev.filter(c => c._id !== couponId));
           message.success('Coupon deleted successfully');
-        } catch (error) {
+        } catch {
           message.error('Failed to delete coupon');
         } finally {
           setLoading(false);
@@ -151,65 +172,72 @@ const Coupon = () => {
     });
   };
 
-  // Toggle coupon status
   const toggleCouponStatus = async (couponId, currentStatus) => {
     if (!hasEditPermission) {
       message.error("You don't have permission to modify coupon status");
       return;
     }
-
     try {
       await editCoupen({ isActive: !currentStatus }, couponId);
-      const updatedCoupons = coupons.map(coupon =>
-        coupon._id === couponId
-          ? { ...coupon, isActive: !currentStatus }
-          : coupon
+      setCoupons(prev =>
+        prev.map(c => (c._id === couponId ? { ...c, isActive: !currentStatus } : c))
       );
-      
-      setCoupons(updatedCoupons);
       message.success(`Coupon ${!currentStatus ? 'activated' : 'deactivated'} successfully`);
-    } catch (error) {
+    } catch {
       message.error('Failed to update coupon status');
     }
   };
 
-  // Open modal for create
+  // ── Modal helpers ───────────────────────────────────────────────────────────
   const showCreateModal = () => {
     if (!hasEditPermission) {
       message.error("You don't have permission to create coupons");
       return;
     }
-
     setEditingCoupon(null);
     setModalVisible(true);
     form.resetFields();
   };
 
-  // Open modal for edit
-  const showEditModal = (coupon) => {
+  const showEditModal = coupon => {
     if (!hasEditPermission) {
       message.error("You don't have permission to edit coupons");
       return;
     }
-
     setUpdatedCouponsId(coupon._id);
     setEditingCoupon(coupon);
     setModalVisible(true);
+
+    // applicableProducts from the API may be populated objects or raw IDs
+    const applicableProductIds = (coupon.applicableProducts || []).map(p =>
+      typeof p === 'object' ? p._id : p
+    );
+
     form.setFieldsValue({
       ...coupon,
-      dateRange: [moment(coupon.startDate), moment(coupon.endDate)]
+      dateRange: [moment(coupon.startDate), moment(coupon.endDate)],
+      applicableProducts: applicableProductIds,
     });
   };
 
-  // Handle form submit
-  const handleFormSubmit = async (values) => {
+  const closeModal = () => {
+    setModalVisible(false);
+    setEditingCoupon(null);
+    form.resetFields();
+    setProductSearch('');
+  };
+
+  // ── Form submit ─────────────────────────────────────────────────────────────
+  const handleFormSubmit = async values => {
     const formattedValues = {
       ...values,
       startDate: values.dateRange[0].format('YYYY-MM-DD'),
-      endDate: values.dateRange[1].format('YYYY-MM-DD')
+      endDate: values.dateRange[1].format('YYYY-MM-DD'),
+      // Ensure applicableProducts is always an array (may be undefined if untouched)
+      applicableProducts: values.applicableProducts || [],
     };
     delete formattedValues.dateRange;
-    
+
     if (editingCoupon) {
       await handleUpdate(formattedValues, updatedCouponsId);
     } else {
@@ -217,9 +245,7 @@ const Coupon = () => {
     }
   };
 
-  // Handle discount type change
-  const handleDiscountTypeChange = (value) => {
-    // Reset discount values when type changes
+  const handleDiscountTypeChange = value => {
     if (value === 'tiered_quantity') {
       form.setFieldsValue({
         Customer_discountValue: 0,
@@ -229,47 +255,86 @@ const Coupon = () => {
     }
   };
 
-  // Filter coupons based on search
-  const filteredCoupons = coupons.filter(coupon =>
-    coupon.code.toLowerCase().includes(searchText.toLowerCase())
+  // ── Filtered data ───────────────────────────────────────────────────────────
+  const filteredCoupons = coupons.filter(c =>
+    c.code.toLowerCase().includes(searchText.toLowerCase())
   );
 
-  // Table columns
+  // Products available in the selector (client-side search)
+  const filteredProducts = products.filter(p => {
+    const q = productSearch.toLowerCase();
+    return (
+      (p.name || '').toLowerCase().includes(q) ||
+      (p.product_code || '').toLowerCase().includes(q)
+    );
+  });
+
+  // ── Table columns ───────────────────────────────────────────────────────────
   const columns = [
     {
       title: 'Code',
       dataIndex: 'code',
       key: 'code',
-      render: (code) => <Text strong>{code}</Text>,
+      render: code => <Text strong>{code}</Text>,
     },
     {
       title: 'Discount Type',
       dataIndex: 'discountType',
       key: 'discountType',
-      render: (type) => (
-        <Tag color={
-          type === 'percentage' ? 'blue' : 
-          type === 'fixed' ? 'green' : 
-          type === 'tiered_quantity' ? 'purple' : 'orange'
-        }>
+      render: type => (
+        <Tag
+          color={
+            type === 'percentage'
+              ? 'blue'
+              : type === 'fixed'
+              ? 'green'
+              : type === 'tiered_quantity'
+              ? 'purple'
+              : 'orange'
+          }
+        >
           {type === 'tiered_quantity' ? 'TIERED' : type.toUpperCase()}
         </Tag>
       ),
     },
     {
       title: 'Discount Value',
-      dataIndex: 'discountValue',
       key: 'discountValue',
-      render: (value, record) => {
+      render: (_, record) => {
         if (record.discountType === 'tiered_quantity') {
           return <Text>Tiered Pricing</Text>;
         }
+        const fmt = v =>
+          record.discountType === 'percentage' ? `${v}%` : `₹${v}`;
         return (
           <div>
-            <Text>Customer: {record.discountType === 'percentage' ? `${record.Customer_discountValue}%` : `₹${record.Customer_discountValue}`}</Text><br/>
-            <Text>Dealer: {record.discountType === 'percentage' ? `${record.Dealer_discountValue}%` : `₹${record.Dealer_discountValue}`}</Text><br/>
-            <Text>Corporate: {record.discountType === 'percentage' ? `${record.Corporate_discountValue}%` : `₹${record.Corporate_discountValue}`}</Text>
+            <Text>Customer: {fmt(record.Customer_discountValue)}</Text>
+            <br />
+            <Text>Dealer: {fmt(record.Dealer_discountValue)}</Text>
+            <br />
+            <Text>Corporate: {fmt(record.Corporate_discountValue)}</Text>
           </div>
+        );
+      },
+    },
+    {
+      title: 'Applicable Products',
+      key: 'applicableProducts',
+      render: (_, record) => {
+        const prods = record.applicableProducts || [];
+        if (prods.length === 0) {
+          return <Tag color="default">All Products</Tag>;
+        }
+        return (
+          <Tooltip
+            title={prods
+              .map(p => (typeof p === 'object' ? p.name : p))
+              .join(', ')}
+          >
+            <Tag color="volcano" icon={<ShoppingOutlined />}>
+              {prods.length} product{prods.length > 1 ? 's' : ''}
+            </Tag>
+          </Tooltip>
         );
       },
     },
@@ -277,7 +342,9 @@ const Coupon = () => {
       title: 'Usage',
       key: 'usage',
       render: (_, record) => (
-        <Text>{record.usedCount || 0} / {record.usageLimit || '∞'}</Text>
+        <Text>
+          {record.usedCount || 0} / {record.usageLimit || '∞'}
+        </Text>
       ),
     },
     {
@@ -285,7 +352,8 @@ const Coupon = () => {
       key: 'validity',
       render: (_, record) => (
         <Text>
-          {new Date(record.startDate).toLocaleDateString()} - {new Date(record.endDate).toLocaleDateString()}
+          {new Date(record.startDate).toLocaleDateString()} -{' '}
+          {new Date(record.endDate).toLocaleDateString()}
         </Text>
       ),
     },
@@ -294,7 +362,15 @@ const Coupon = () => {
       dataIndex: 'isActive',
       key: 'isActive',
       render: (isActive, record) => (
-        <Tooltip title={hasEditPermission ? (isActive ? "Active" : "Inactive") : "No permission to modify"}>
+        <Tooltip
+          title={
+            hasEditPermission
+              ? isActive
+                ? 'Active'
+                : 'Inactive'
+              : 'No permission to modify'
+          }
+        >
           <Switch
             checked={isActive}
             onChange={() => toggleCouponStatus(record._id, isActive)}
@@ -310,26 +386,18 @@ const Coupon = () => {
         <Space>
           {hasEditPermission ? (
             <Tooltip title="Edit Coupon">
-              <Button
-                type="link"
-                icon={<EditOutlined />}
-                onClick={() => showEditModal(record)}
-              >
+              <Button type="link" icon={<EditOutlined />} onClick={() => showEditModal(record)}>
                 Edit
               </Button>
             </Tooltip>
           ) : (
             <Tooltip title="No permission to edit">
-              <Button
-                type="link"
-                icon={<LockOutlined />}
-                disabled
-              >
+              <Button type="link" icon={<LockOutlined />} disabled>
                 Edit
               </Button>
             </Tooltip>
           )}
-          
+
           {hasDeletePermission ? (
             <Tooltip title="Delete Coupon">
               <Button
@@ -343,11 +411,7 @@ const Coupon = () => {
             </Tooltip>
           ) : (
             <Tooltip title="No permission to delete">
-              <Button
-                type="link"
-                icon={<LockOutlined />}
-                disabled
-              >
+              <Button type="link" icon={<LockOutlined />} disabled>
                 Delete
               </Button>
             </Tooltip>
@@ -357,46 +421,58 @@ const Coupon = () => {
     },
   ];
 
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div style={{ padding: '24px' }}>
       <Card>
-        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* Header row */}
+        <div
+          style={{
+            marginBottom: 16,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
           <Title level={2}>Coupon Management</Title>
           {hasEditPermission ? (
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={showCreateModal}
-            >
+            <Button type="primary" icon={<PlusOutlined />} onClick={showCreateModal}>
               Add Coupon
             </Button>
           ) : (
             <Tooltip title="No permission to create coupons">
-              <Button
-                icon={<LockOutlined />}
-                disabled
-              >
+              <Button icon={<LockOutlined />} disabled>
                 Add Coupon
               </Button>
             </Tooltip>
           )}
         </div>
 
-        {/* Permission Warning */}
+        {/* View-only warning */}
         {!hasEditPermission && !hasDeletePermission && (
-          <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#fff7e6', border: '1px solid #ffd591', borderRadius: 4 }}>
+          <div
+            style={{
+              marginBottom: 16,
+              padding: 12,
+              backgroundColor: '#fff7e6',
+              border: '1px solid #ffd591',
+              borderRadius: 4,
+            }}
+          >
             <Text style={{ color: '#fa8c16' }}>
-              <LockOutlined /> You have view-only access to coupons. Contact an administrator to request edit permissions.
+              <LockOutlined /> You have view-only access to coupons. Contact an administrator to
+              request edit permissions.
             </Text>
           </div>
         )}
 
+        {/* Search */}
         <div style={{ marginBottom: 16 }}>
           <Input
             placeholder="Search coupons by code..."
             prefix={<SearchOutlined />}
             value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
+            onChange={e => setSearchText(e.target.value)}
             style={{ width: 300 }}
           />
         </div>
@@ -406,27 +482,22 @@ const Coupon = () => {
           dataSource={filteredCoupons}
           rowKey="_id"
           loading={loading}
-          scroll={{ x: 1000 }}
+          scroll={{ x: 1200 }}
         />
 
-        {/* Add/Edit Modal */}
+        {/* ── Create / Edit Modal ─────────────────────────────────────────────── */}
         {hasEditPermission && (
           <Modal
             title={
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 18, fontWeight: 600 }}>
-                  {editingCoupon ? 'Edit Coupon' : 'Create New Coupon'}
-                </span>
-              </div>
+              <span style={{ fontSize: 18, fontWeight: 600 }}>
+                {editingCoupon ? 'Edit Coupon' : 'Create New Coupon'}
+              </span>
             }
             open={modalVisible}
-            onCancel={() => {
-              setModalVisible(false);
-              setEditingCoupon(null);
-              form.resetFields();
-            }}
+            onCancel={closeModal}
             footer={null}
-            width={800}
+            width={860}
+            destroyOnClose
           >
             <Form
               form={form}
@@ -439,19 +510,18 @@ const Coupon = () => {
                 minimumOrderAmount: 0,
                 Customer_discountValue: 0,
                 Dealer_discountValue: 0,
-                Corporate_discountValue: 0
+                Corporate_discountValue: 0,
+                applicableProducts: [],
               }}
             >
+              {/* Row 1: Code + Discount Type */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <Form.Item
                   name="code"
                   label={<span style={{ fontWeight: 600 }}>Coupon Code</span>}
                   rules={[{ required: true, message: 'Please enter coupon code' }]}
                 >
-                  <Input 
-                    placeholder="e.g., WELCOME10" 
-                    style={{ textTransform: 'uppercase' }} 
-                  />
+                  <Input placeholder="e.g., WELCOME10" style={{ textTransform: 'uppercase' }} />
                 </Form.Item>
 
                 <Form.Item
@@ -468,16 +538,116 @@ const Coupon = () => {
                 </Form.Item>
               </div>
 
-              {/* Discount Values Section */}
+              {/* ── Applicable Products selector ──────────────────────────────── */}
+              <div
+                style={{
+                  marginBottom: 16,
+                  padding: 16,
+                  backgroundColor: '#f0f5ff',
+                  borderRadius: 8,
+                  border: '1px solid #adc6ff',
+                }}
+              >
+                <div style={{ marginBottom: 8 }}>
+                  <Text strong style={{ fontSize: 14 }}>
+                    <ShoppingOutlined style={{ marginRight: 6 }} />
+                    Applicable Products
+                  </Text>
+                  <Text
+                    type="secondary"
+                    style={{ display: 'block', fontSize: 12, marginTop: 2 }}
+                  >
+                    Leave empty to apply the coupon to <strong>all products</strong>. Select one or
+                    more products to restrict this coupon to those items only.
+                  </Text>
+                </div>
+
+                <Form.Item name="applicableProducts" style={{ marginBottom: 0 }}>
+                  <Select
+                    mode="multiple"
+                    placeholder={
+                      productsLoading ? 'Loading products…' : 'Select products (optional)'
+                    }
+                    loading={productsLoading}
+                    allowClear
+                    showSearch
+                    filterOption={false}
+                    onSearch={val => setProductSearch(val)}
+                    onBlur={() => setProductSearch('')}
+                    style={{ width: '100%' }}
+                    optionLabelProp="label"
+                    maxTagCount={4}
+                    maxTagPlaceholder={omitted => `+${omitted.length} more`}
+                    notFoundContent={
+                      productsLoading ? (
+                        <Spin size="small" />
+                      ) : (
+                        <Text type="secondary">No products found</Text>
+                      )
+                    }
+                  >
+                    {filteredProducts.map(product => (
+                      <Option
+                        key={product._id}
+                        value={product._id}
+                        label={product.name}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          {/* Product thumbnail if available */}
+                          {product.images && product.images.length > 0 ? (
+                            <Avatar
+                              size={28}
+                              src={product.images[0]}
+                              shape="square"
+                              style={{ flexShrink: 0 }}
+                            />
+                          ) : (
+                            <Avatar
+                              size={28}
+                              icon={<ShoppingOutlined />}
+                              shape="square"
+                              style={{ flexShrink: 0, backgroundColor: '#d6e4ff' }}
+                            />
+                          )}
+                          <div style={{ lineHeight: 1.3 }}>
+                            <div style={{ fontWeight: 500, fontSize: 13 }}>{product.name}</div>
+                            {product.product_code && (
+                              <div style={{ fontSize: 11, color: '#888' }}>
+                                Code: {product.product_code}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </div>
+
+              {/* ── Per-user-type discount values ─────────────────────────────── */}
               <Form.Item shouldUpdate noStyle>
                 {() => {
                   const discountType = form.getFieldValue('discountType');
                   if (discountType === 'tiered_quantity') return null;
-                  
                   return (
-                    <div style={{ marginBottom: '16px', padding: '16px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
-                      <h4 style={{ marginBottom: '16px', fontWeight: 600 }}>Discount Values by User Type</h4>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+                    <div
+                      style={{
+                        marginBottom: 16,
+                        padding: 16,
+                        backgroundColor: '#f5f5f5',
+                        borderRadius: 8,
+                      }}
+                    >
+                      <h4 style={{ marginBottom: 16, fontWeight: 600 }}>
+                        Discount Values by User Type
+                      </h4>
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 1fr 1fr',
+                          gap: 16,
+                        }}
+                      >
                         <Form.Item
                           name="Customer_discountValue"
                           label="Customer Discount"
@@ -486,7 +656,7 @@ const Coupon = () => {
                           <InputNumber
                             min={0}
                             style={{ width: '100%' }}
-                            placeholder={discountType === 'percentage' ? 'e.g., 10%' : 'e.g., ₹10'}
+                            placeholder={discountType === 'percentage' ? 'e.g., 10' : 'e.g., 10'}
                             addonAfter={discountType === 'percentage' ? '%' : '₹'}
                           />
                         </Form.Item>
@@ -499,7 +669,7 @@ const Coupon = () => {
                           <InputNumber
                             min={0}
                             style={{ width: '100%' }}
-                            placeholder={discountType === 'percentage' ? 'e.g., 15%' : 'e.g., ₹15'}
+                            placeholder={discountType === 'percentage' ? 'e.g., 15' : 'e.g., 15'}
                             addonAfter={discountType === 'percentage' ? '%' : '₹'}
                           />
                         </Form.Item>
@@ -512,7 +682,7 @@ const Coupon = () => {
                           <InputNumber
                             min={0}
                             style={{ width: '100%' }}
-                            placeholder={discountType === 'percentage' ? 'e.g., 20%' : 'e.g., ₹20'}
+                            placeholder={discountType === 'percentage' ? 'e.g., 20' : 'e.g., 20'}
                             addonAfter={discountType === 'percentage' ? '%' : '₹'}
                           />
                         </Form.Item>
@@ -522,60 +692,102 @@ const Coupon = () => {
                 }}
               </Form.Item>
 
-              {/* Tiered Discount Section */}
+              {/* ── Tiered quantity section ───────────────────────────────────── */}
               <Form.Item shouldUpdate noStyle>
                 {() => {
                   const discountType = form.getFieldValue('discountType');
                   if (discountType !== 'tiered_quantity') return null;
-                  
                   return (
-                    <div style={{ marginBottom: '16px', padding: '16px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
-                      <h4 style={{ marginBottom: '16px', fontWeight: 600 }}>Tiered Quantity Discounts</h4>
+                    <div
+                      style={{
+                        marginBottom: 16,
+                        padding: 16,
+                        backgroundColor: '#f5f5f5',
+                        borderRadius: 8,
+                      }}
+                    >
+                      <h4 style={{ marginBottom: 16, fontWeight: 600 }}>
+                        Tiered Quantity Discounts
+                      </h4>
                       <Form.List name="discountTiers">
                         {(fields, { add, remove }) => (
                           <>
                             {fields.map(({ key, name, ...restField }) => (
-                              <div key={key} style={{ marginBottom: '16px', padding: '16px', border: '1px solid #d9d9d9', borderRadius: '8px', backgroundColor: 'white' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px', alignItems: 'end' }}>
+                              <div
+                                key={key}
+                                style={{
+                                  marginBottom: 16,
+                                  padding: 16,
+                                  border: '1px solid #d9d9d9',
+                                  borderRadius: 8,
+                                  backgroundColor: 'white',
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: '1fr 1fr 1fr 1fr',
+                                    gap: 16,
+                                    alignItems: 'end',
+                                  }}
+                                >
                                   <Form.Item
                                     {...restField}
                                     name={[name, 'minimumQuantity']}
                                     label="Min Quantity"
-                                    rules={[{ required: true, message: 'Enter minimum quantity' }]}
+                                    rules={[
+                                      { required: true, message: 'Enter minimum quantity' },
+                                    ]}
                                   >
-                                    <InputNumber min={1} placeholder="e.g., 10" style={{ width: '100%' }} />
+                                    <InputNumber
+                                      min={1}
+                                      placeholder="e.g., 10"
+                                      style={{ width: '100%' }}
+                                    />
                                   </Form.Item>
-                                  
+
                                   <Form.Item
                                     {...restField}
                                     name={[name, 'Customer_discountValue']}
                                     label="Customer"
                                     rules={[{ required: true, message: 'Enter discount' }]}
                                   >
-                                    <InputNumber min={0} placeholder="Discount" style={{ width: '100%' }} />
+                                    <InputNumber
+                                      min={0}
+                                      placeholder="Discount"
+                                      style={{ width: '100%' }}
+                                    />
                                   </Form.Item>
-                                  
+
                                   <Form.Item
                                     {...restField}
                                     name={[name, 'Dealer_discountValue']}
                                     label="Dealer"
                                     rules={[{ required: true, message: 'Enter discount' }]}
                                   >
-                                    <InputNumber min={0} placeholder="Discount" style={{ width: '100%' }} />
+                                    <InputNumber
+                                      min={0}
+                                      placeholder="Discount"
+                                      style={{ width: '100%' }}
+                                    />
                                   </Form.Item>
-                                  
+
                                   <Form.Item
                                     {...restField}
                                     name={[name, 'Corporate_discountValue']}
                                     label="Corporate"
                                     rules={[{ required: true, message: 'Enter discount' }]}
                                   >
-                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                      <InputNumber min={0} placeholder="Discount" style={{ flex: 1 }} />
+                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                      <InputNumber
+                                        min={0}
+                                        placeholder="Discount"
+                                        style={{ flex: 1 }}
+                                      />
                                       {fields.length > 1 && (
-                                        <Button 
-                                          type="text" 
-                                          danger 
+                                        <Button
+                                          type="text"
+                                          danger
                                           onClick={() => remove(name)}
                                           icon={<DeleteOutlined />}
                                         />
@@ -586,7 +798,12 @@ const Coupon = () => {
                               </div>
                             ))}
                             <Form.Item>
-                              <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                              <Button
+                                type="dashed"
+                                onClick={() => add()}
+                                block
+                                icon={<PlusOutlined />}
+                              >
                                 Add Tier
                               </Button>
                             </Form.Item>
@@ -598,7 +815,8 @@ const Coupon = () => {
                 }}
               </Form.Item>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              {/* Row: Min order + Max discount + Usage limit + Per-product switch */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <Form.Item
                   name="minimumOrderAmount"
                   label={<span style={{ fontWeight: 600 }}>Minimum Order Amount</span>}
@@ -627,11 +845,7 @@ const Coupon = () => {
                   name="usageLimit"
                   label={<span style={{ fontWeight: 600 }}>Usage Limit</span>}
                 >
-                  <InputNumber
-                    min={1}
-                    style={{ width: '100%' }}
-                    placeholder="No limit"
-                  />
+                  <InputNumber min={1} style={{ width: '100%' }} placeholder="No limit" />
                 </Form.Item>
 
                 <Form.Item
@@ -643,6 +857,7 @@ const Coupon = () => {
                 </Form.Item>
               </div>
 
+              {/* Date range */}
               <Form.Item
                 name="dateRange"
                 label={<span style={{ fontWeight: 600 }}>Validity Period</span>}
@@ -651,32 +866,8 @@ const Coupon = () => {
                 <RangePicker style={{ width: '100%' }} />
               </Form.Item>
 
-              {/* <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <Form.Item
-                  name="applicableCategories"
-                  label={<span style={{ fontWeight: 600 }}>Applicable Categories</span>}
-                >
-                  <Select mode="tags" placeholder="Add categories">
-                    <Option value="all">All Categories</Option>
-                    <Option value="electronics">Electronics</Option>
-                    <Option value="clothing">Clothing</Option>
-                    <Option value="home">Home & Garden</Option>
-                    <Option value="books">Books</Option>
-                  </Select>
-                </Form.Item>
-
-                <Form.Item
-                  name="applicableProducts"
-                  label={<span style={{ fontWeight: 600 }}>Applicable Products</span>}
-                >
-                  <Select
-                    mode="multiple"
-                    placeholder="Select specific products"
-                  />
-                </Form.Item>
-              </div> */}
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              {/* Active + Single-use toggles */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <Form.Item
                   name="isActive"
                   label={<span style={{ fontWeight: 600 }}>Active Status</span>}
@@ -694,11 +885,10 @@ const Coupon = () => {
                 </Form.Item>
               </div>
 
+              {/* Footer buttons */}
               <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
                 <Space>
-                  <Button onClick={() => setModalVisible(false)}>
-                    Cancel
-                  </Button>
+                  <Button onClick={closeModal}>Cancel</Button>
                   <Button type="primary" htmlType="submit" loading={loading}>
                     {editingCoupon ? 'Update' : 'Create'} Coupon
                   </Button>

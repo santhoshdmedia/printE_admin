@@ -736,7 +736,8 @@ const DiscountRow = React.memo(({
             </Form.Item>
 
             {!freeDeliveryCustomer && (
-              <Form.Item
+              <div className="flex items-center gap-2 flex-1">
+                <Form.Item
                 label="Delivery Charges"
                 {...restField}
                 name={[name, "delivery_charges_customer"]}
@@ -749,6 +750,20 @@ const DiscountRow = React.memo(({
                   prefix="₹"
                 />
               </Form.Item>
+              <Form.Item
+                label="out of TN charges"
+                {...restField}
+                name={[name, "delivery_charges_customer_outer_tn"]}
+                className="mb-0 flex-1"
+              >
+                <Input
+                  type="number"
+                  placeholder="Charges for out of TN"
+                  className="h-9"
+                  prefix="₹"
+                />
+              </Form.Item>
+              </div>
             )}
           </div>
 
@@ -828,19 +843,36 @@ const DiscountRow = React.memo(({
             </Form.Item>
 
             {!freeDeliveryDealer && (
+              <div className="flex items-center gap-2 flex-1">
+
               <Form.Item
                 label="Delivery Charges"
                 {...restField}
                 name={[name, "delivery_charges_dealer"]}
                 className="mb-0 flex-1"
-              >
+                >
                 <Input
                   type="number"
                   placeholder="Charges"
                   className="h-9"
                   prefix="₹"
-                />
-              </Form.Item>
+                  />
+              </Form.Item>              
+
+              <Form.Item
+                label="out of TN charges"
+                {...restField}
+                name={[name, "delivery_charges_dealer_outer_tn"]}
+                className="mb-0 flex-1"
+                >
+                <Input
+                  type="number"
+                  placeholder="Charges"
+                  className="h-9"
+                  prefix="₹"
+                  />
+              </Form.Item>              
+                  </div>
             )}
           </div>
 
@@ -920,19 +952,35 @@ const DiscountRow = React.memo(({
             </Form.Item>
 
             {!freeDeliveryCorporate && (
+              <div className="flex items-center gap-2 flex-1">
+
               <Form.Item
                 label="Delivery Charges"
                 {...restField}
                 name={[name, "delivery_charges_corporate"]}
                 className="mb-0 flex-1"
-              >
+                >
                 <Input
                   type="number"
                   placeholder="Charges"
                   className="h-9"
                   prefix="₹"
-                />
+                  />
               </Form.Item>
+              <Form.Item
+                label="out of TN charges"
+                {...restField}
+                name={[name, "delivery_charges_corporate_outer_tn"]}
+                className="mb-0 flex-1"
+                >
+                <Input
+                  type="number"
+                  placeholder="Charges"
+                  className="h-9"
+                  prefix="₹"
+                  />
+              </Form.Item>
+                  </div>
             )}
           </div>
 
