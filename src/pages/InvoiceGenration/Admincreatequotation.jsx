@@ -407,7 +407,7 @@ const Admincreatequotation = () => {
       if (dateRange?.[0]) params.append("from", dayjs(dateRange[0]).toISOString());
       if (dateRange?.[1]) params.append("to",   dayjs(dateRange[1]).toISOString());
 
-      const res  = await fetch(`http://localhost:8080/api/quotation/admin/all?${params.toString()}`, {
+      const res  = await fetch(`https://api.printe.in/api/quotation/admin/all?${params.toString()}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` },
       });
       const data = await res.json();
@@ -503,7 +503,7 @@ const Admincreatequotation = () => {
         admin_id:             "675be0febb62992beaa0b1c0",
       };
 
-      const res  = await fetch("http://localhost:8080/api/quotation/admin/create", {
+      const res  = await fetch("https://api.printe.in/api/quotation/admin/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -556,7 +556,7 @@ const Admincreatequotation = () => {
     try {
       setUpdating(true);
       await fetch(
-        `http://localhost:8080/api/quotation/${selectedQuote.quotation_no}/status`,
+        `https://api.printe.in/api/quotation/${selectedQuote.quotation_no}/status`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("authToken")}` },

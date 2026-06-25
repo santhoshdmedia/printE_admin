@@ -40,7 +40,7 @@ const { RangePicker } = DatePicker;
 // Fetches all visible products from your existing product endpoint.
 // Adjust the base URL / axios instance to match your project setup.
 async function fetchAllProducts() {
-  const res = await fetch('http://localhost:8080/api/product/get_product');
+  const res = await fetch('https://api.printe.in/api/product/get_product');
   if (!res.ok) throw new Error('Failed to fetch products');
   const json = await res.json();
   // The endpoint may return { data: [...] } or an array directly — handle both.

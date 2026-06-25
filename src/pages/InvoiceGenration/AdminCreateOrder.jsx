@@ -101,7 +101,7 @@ const AdminCreateOrder = () => {
         admin_id:         '675be0febb62992beaa0b1c0',
       };
 
-      const response = await fetch('http://localhost:8080/api/payment/admin/create-order', {
+      const response = await fetch('https://api.printe.in/api/payment/admin/create-order', {
         method:  'POST',
         headers: {
           'Content-Type': 'application/json',
